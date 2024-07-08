@@ -118,19 +118,17 @@ For more information, refer to VPET's user guide. It is found under Docs, at our
 
 While the host can send the scene information to the tablet, an external application is needed for synchronizing changes between the client (or multiple clients) and the host server.
 
-DataHub.exe will be found where you downloaded the [VPET repository](https://github.com/FilmakademieRnd/VPET), under
+The SyncServer for the current build (win x64) will be found where you downloaded the [VPET repository](https://github.com/FilmakademieRnd/VPET), under
 
-`...\DataHub`
+`...\SynchronisationServer\install_win64`
 
-Double-click on DataHub.exe and command prompt (*cmd.exe*) will open .
+It requires command line arguments, so it should be launched from the command prompt (*cmd.exe*).
 
 You can run the application by setting the **-ownIP** (case-sensitive) argument.
 
-`> -ownIP 111.222.333.444` (same IP used in Unreal in the VPETModule actor.)
+`Server.exe -ownIP 111.222.333.444`
 
-for a list of commands use -h
-
-![VPET SyncServer command](img/unreal_qsg/DataHub.jpg "VPET DataHub command")
+![VPET SyncServer command](img/unreal_qsg/vpet_syncserver.jpg "VPET SyncServer command")
 
 Now, changes made on the client should also show up on the engine.
 
