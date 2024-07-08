@@ -130,7 +130,7 @@ You can run the application by setting the **-ownIP** (case-sensitive) argument.
 
 for a list of commands use -h
 
-![VPET SyncServer command](img/unreal_qsg/DataHub.jpg "VPET DataHub command")
+![VPET SyncServer command](img/unreal_qsg/DataHub.png "VPET DataHub command")
 
 Now, changes made on the client should also show up on the engine.
 
