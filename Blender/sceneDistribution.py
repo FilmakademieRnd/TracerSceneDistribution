@@ -1,34 +1,36 @@
 """
------------------------------------------------------------------------------
-This source file is part of VPET - Virtual Production Editing Tools
-http://vpet.research.animationsinstitut.de/
-http://github.com/FilmakademieRnd/VPET
-
-Copyright (c) 2021 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Lab
-
-This project has been initiated in the scope of the EU funded project
-Dreamspace under grant agreement no 610005 in the years 2014, 2015 and 2016.
-http://dreamspaceproject.eu/
-Post Dreamspace the project has been further developed on behalf of the
-research and development activities of Animationsinstitut.
-
-The VPET component Blender Scene Distribution is intended for research and development
-purposes only. Commercial use of any kind is not permitted.
-
-There is no support by Filmakademie. Since the Blender Scene Distribution is available
-for free, Filmakademie shall only be liable for intent and gross negligence;
-warranty is limited to malice. Scene DistributiorUSD may under no circumstances
-be used for racist, sexual or any illegal purposes. In all non-commercial
-productions, scientific publications, prototypical non-commercial software tools,
-etc. using the Blender Scene Distribution Filmakademie has to be named as follows:
-“VPET-Virtual Production Editing Tool by Filmakademie Baden-Württemberg,
-Animationsinstitut (http://research.animationsinstitut.de)“.
-
-In case a company or individual would like to use the Blender Scene Distribution in
-a commercial surrounding or for commercial purposes, software based on these
-components or any part thereof, the company/individual will have to contact
-Filmakademie (research<at>filmakademie.de).
------------------------------------------------------------------------------
+TRACER Scene Distribution Plugin Blender
+ 
+Copyright (c) 2024 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Labs
+https://research.animationsinstitut.de/tracer
+https://github.com/FilmakademieRnd/TracerSceneDistribution
+ 
+TRACER Scene Distribution Plugin Blender is a development by Filmakademie
+Baden-Wuerttemberg, Animationsinstitut R&D Labs in the scope of the EU funded
+project MAX-R (101070072) and funding on the own behalf of Filmakademie
+Baden-Wuerttemberg.  Former EU projects Dreamspace (610005) and SAUCE (780470)
+have inspired the TRACER Scene Distribution Plugin Blender development.
+ 
+The TRACER Scene Distribution Plugin Blender is intended for research and
+development purposes only. Commercial use of any kind is not permitted.
+ 
+There is no support by Filmakademie. Since the TRACER Scene Distribution Plugin
+Blender is available for free, Filmakademie shall only be liable for intent
+and gross negligence; warranty is limited to malice. TRACER Scene Distribution
+Plugin Blender may under no circumstances be used for racist, sexual or any
+illegal purposes. In all non-commercial productions, scientific publications,
+prototypical non-commercial software tools, etc. using the TRACER Scene
+Distribution Plugin Blender Filmakademie has to be named as follows: 
+"TRACER Scene Distribution Plugin Blender by Filmakademie
+Baden-Württemberg, Animationsinstitut (http://research.animationsinstitut.de)".
+ 
+In case a company or individual would like to use the TRACER Scene Distribution
+Plugin Blender in a commercial surrounding or for commercial purposes,
+software based on these components or  any part thereof, the company/individual
+will have to contact Filmakademie (research<at>filmakademie.de) for an
+individual license agreement.
+ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
 import bpy
@@ -110,9 +112,6 @@ def gatherSceneData():
         getTexturesByteArray()
         getCharacterByteArray()
         getCurveByteArray()
-        
-        # delete Scene Root object - scene will remain unchanged
-        #bpy.ops.object.delete(use_global = False)
 
         for i, v in enumerate(vpet.nodeList):
             if v.editable == 1:
@@ -466,14 +465,14 @@ def processCurve_alt(obj, objList):
     for i in range(0,len(evaluated_bezier)):
         
         point = evaluated_bezier[i]
-        curve_Pack.points.extend([point.x, point.z, point.y])
+        curve_Pack.points.extend([point.x, point.y, point.z])
         print(point)
 
         tangent = bezier_tangents[i]
-        curve_Pack.tangents.extend([tangent.x, tangent.z, tangent.y]) #! TO BE TESTED!!!
+        curve_Pack.tangents.extend([tangent.x, tangent.y, tangent.z]) #! TO BE TESTED!!!
         print(tangent)
 
-    curve_Pack.pointsLen = len(curve_Pack.points) / 3 # len is also equal to the nr of frames 
+    curve_Pack.pointsLen = int(len(curve_Pack.points) / 3) # len is also equal to the nr of frames 
 
     vpet.curveList.append(curve_Pack)
 
@@ -538,8 +537,8 @@ def evaluate_bezier_multi_seg(curve_object):
         # Extract tangents at every evaluated point
         tangent_bezier.append(bezier_points[0].handle_right.normalized()) # first tangent can be extracted from the first handle
         for frame in range (1, num_frames - 1):
-            dir1 = evaluated_bezier[frame - 1] - evaluated_bezier[frame] # Direction from point-1 to point 
-            dir2 = evaluated_bezier[frame] - evaluated_bezier[frame + 1] # Direction from point to point+1
+            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame -1] # Direction from point-1 to point 
+            dir2 = evaluated_bezier[frame + 1] - evaluated_bezier[frame] # Direction from point to point+1
             tang = dir1.normalize() + dir2.normalize() # Average direction 
             tangent_bezier.append(tang.normalized())
         tangent_bezier.append(bezier_points[0].handle_left.normalized()) # last tangent can be extracted from the last handle
@@ -571,18 +570,18 @@ def evaluate_bezier_multi_seg(curve_object):
         # Extract tangents at every evaluated point
         tangent_bezier.append(bezier_points[0].handle_right.normalized()) # first tangent can be extracted from the first handle
         for frame in range (1, num_frames - 1):
-            dir1 = evaluated_bezier[frame - 1] - evaluated_bezier[frame] # Direction from point-1 to point 
-            dir2 = evaluated_bezier[frame] - evaluated_bezier[frame + 1] # Direction from point to point+1
+            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame -1] # Direction from point-1 to point 
+            dir2 = evaluated_bezier[frame+1] - evaluated_bezier[frame] # Direction from point to point+1
             tang = dir1.normalized() + dir2.normalized() # Average direction 
             tangent_bezier.append(tang.normalized())
         tangent_bezier.append(bezier_points[-1].handle_left.normalized()) # last tangent can be extracted from the last handle
     
     return evaluated_bezier, tangent_bezier
 
+##Create SceneObject for each object that will be sent iver network
+#
+#@param obj the acual object from the scene
 def processEditableObjects(obj, index):
-
-    #if obj.type == "ARMATURE":
-     #   processCharacter(obj, vpet.objectsToTransfer)
 
     if obj.type == 'MESH':
         aaa = SceneObject(obj)
@@ -598,7 +597,6 @@ def processEditableObjects(obj, index):
             aaa = SceneObjectLight(obj)
             vpet.SceneObjects.append(aaa)
     elif obj.type == 'ARMATURE':
-
         aaa = SceneCharacterObject(obj)
         vpet.SceneObjects.append(aaa)
 
@@ -762,7 +760,7 @@ def processGeoNew(mesh):
                 vertex_bone_weights[vert.index] = weights
                 vertex_bone_indices[vert.index] = indices
 
-    mesh.data.calc_normals_split()
+    #mesh.data.calc_normals_split()
     bm = bmesh.new()
     bm.from_mesh(mesh.data)
 
@@ -1004,8 +1002,8 @@ def getCurveByteArray():
     for curve in vpet.curveList:
         curveBinary = bytearray([])
         curveBinary.extend(struct.pack('i', curve.pointsLen))
-        curveBinary.extend(struct.pack('%sf' % curve.pointsLen, *curve.points))
-        curveBinary.extend(struct.pack('%sf' % curve.pointsLen, *curve.tangents))
+        curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
+        curveBinary.extend(struct.pack('%sf' % len(curve.tangents), *curve.tangents))
 
         vpet.curvesByteData.extend(curveBinary)
 
