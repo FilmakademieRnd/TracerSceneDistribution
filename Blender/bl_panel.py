@@ -1,41 +1,39 @@
 """
-TRACER Scene Distribution Plugin Blender
- 
-Copyright (c) 2024 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Labs
-https://research.animationsinstitut.de/tracer
-https://github.com/FilmakademieRnd/TracerSceneDistribution
- 
-TRACER Scene Distribution Plugin Blender is a development by Filmakademie
-Baden-Wuerttemberg, Animationsinstitut R&D Labs in the scope of the EU funded
-project MAX-R (101070072) and funding on the own behalf of Filmakademie
-Baden-Wuerttemberg.  Former EU projects Dreamspace (610005) and SAUCE (780470)
-have inspired the TRACER Scene Distribution Plugin Blender development.
- 
-The TRACER Scene Distribution Plugin Blender is intended for research and
-development purposes only. Commercial use of any kind is not permitted.
- 
-There is no support by Filmakademie. Since the TRACER Scene Distribution Plugin
-Blender is available for free, Filmakademie shall only be liable for intent
-and gross negligence; warranty is limited to malice. TRACER Scene Distribution
-Plugin Blender may under no circumstances be used for racist, sexual or any
-illegal purposes. In all non-commercial productions, scientific publications,
-prototypical non-commercial software tools, etc. using the TRACER Scene
-Distribution Plugin Blender Filmakademie has to be named as follows: 
-"TRACER Scene Distribution Plugin Blender by Filmakademie
-Baden-Württemberg, Animationsinstitut (http://research.animationsinstitut.de)".
- 
-In case a company or individual would like to use the TRACER Scene Distribution
-Plugin Blender in a commercial surrounding or for commercial purposes,
-software based on these components or  any part thereof, the company/individual
-will have to contact Filmakademie (research<at>filmakademie.de) for an
-individual license agreement.
- 
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-----------------------------------------------------------------------------
+This source file is part of VPET - Virtual Production Editing Tools
+http://vpet.research.animationsinstitut.de/
+http://github.com/FilmakademieRnd/VPET
+
+Copyright (c) 2021 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Lab
+
+This project has been initiated in the scope of the EU funded project
+Dreamspace under grant agreement no 610005 in the years 2014, 2015 and 2016.
+http://dreamspaceproject.eu/
+Post Dreamspace the project has been further developed on behalf of the
+research and development activities of Animationsinstitut.
+
+The VPET component Blender Scene Distribution is intended for research and development
+purposes only. Commercial use of any kind is not permitted.
+
+There is no support by Filmakademie. Since the Blender Scene Distribution is available
+for free, Filmakademie shall only be liable for intent and gross negligence;
+warranty is limited to malice. Scene DistributiorUSD may under no circumstances
+be used for racist, sexual or any illegal purposes. In all non-commercial
+productions, scientific publications, prototypical non-commercial software tools,
+etc. using the Blender Scene Distribution Filmakademie has to be named as follows:
+“VPET-Virtual Production Editing Tool by Filmakademie Baden-Württemberg,
+Animationsinstitut (http://research.animationsinstitut.de)“.
+
+In case a company or individual would like to use the Blender Scene Distribution in
+a commercial surrounding or for commercial purposes, software based on these
+components or any part thereof, the company/individual will have to contact
+Filmakademie (research<at>filmakademie.de).
+-----------------------------------------------------------------------------
 """
 
 import bpy
 
-from .bl_op import AddPath, AddPointAfter, AddPointBefore, EvalCurve, ToggleAutoEval, ControlPointSelect
+from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle
 
 ## Interface
 # 
@@ -88,17 +86,21 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
         if bpy.context.mode == 'EDIT_CURVE':
             #if the user is edidting the points of the bezier spline, disable Control Point features and display message
             row = layout.row()
+            row.alert = True
             row.label(text="Feature not available in Edit Curve Mode")
         else:
             row = layout.row()
-            row.operator(AddPath.bl_idname, text='Add Control Path')
-            row.operator(EvalCurve.bl_idname, text='Evaluate Curve')
+            row.operator(AddPath.bl_idname, text=AddPath.bl_label)
+            row.operator(UpdateCurveViz.bl_idname, text=UpdateCurveViz.bl_label)
             row = layout.row()
-            row.operator(AddPointAfter.bl_idname, text='New Point After')
-            row.operator(AddPointBefore.bl_idname, text='New Point Before')
+            row.operator(AddPointAfter.bl_idname, text=AddPointAfter.bl_label)
+            row.operator(AddPointBefore.bl_idname, text=AddPointBefore.bl_label)
+            row = layout.row()
+            row.operator(FKIKToggle.bl_idname, text=FKIKToggle.bl_label)
             if AddPath.default_name in bpy.data.objects:
                 row = layout.row()
-                row.operator(ToggleAutoEval.bl_idname, text=ToggleAutoEval.bl_label)
+                row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
+                #row.operator(ToggleAutoEval.bl_idname, text=ToggleAutoEval.bl_label)
 
 class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
     bl_idname = "VPET_PT_control_points_panel"
@@ -121,6 +123,12 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
             row.label(text="To use the Control Point Property Panel and the Path Auto Update")
             row = layout.row()
             row.label(text="Disable Proportional Editing")
+        elif not bpy.data.objects[AddPath.default_name]["Auto Update"]:
+            # If Auto Update editing is DISABLED, disable control points property editing
+            row = layout.row()
+            row.label(text="To use the Control Point Property Panel")
+            row = layout.row()
+            row.label(text="Enable Auto Update")
         elif AddPath.default_name in bpy.data.objects:
             # Getting Control Points Properties
             cp_props = bpy.context.scene.control_point_settings
@@ -142,7 +150,7 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
 
                 name_select = grid.box(); name_select.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
                 name_select.operator(ControlPointSelect.bl_idname, text=cp.name).cp_name = cp.name
-                # TODO: try to make the name a button for selecting the contol point to edit
+                
                 # Highlight the selected Control Point by marking the panel entry with a dot
                 if (not context.active_object == None) and (context.active_object.name == cp.name):
                     grid.prop(cp_props, property="position", text="", slider=False)
@@ -151,8 +159,9 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
                     grid.prop(cp_props, property="ease_out", text="", slider=True)
                     grid.prop_menu_enum(data=cp_props, property="style", text=cp["Style"])
                 else:
-                    postn = grid.box(); postn.label(text=str(i));           postn.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
-                    frame = grid.box(); frame.label(text=str(cp["Frame"])); frame.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
+                    postn = grid.box(); postn.alignment = 'CENTER'; postn.label(text=str(i));           # alignment does nothing. Buggy Blender.
+                    
+                    frame = grid.box()
                     # If a frame value is not valid (smaller than the previous or bigger than the following,
                     # mark it as an alert
                     if (  i > 0             and cp["Frame"] < anim_path["Control Points"][i-1]["Frame"])\
@@ -160,9 +169,14 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
                         frame.alert = True
                     else:
                         frame.alert = False
-                    e__in = grid.box(); e__in.label(text=str(cp["Ease In"]));   e__in.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
-                    e_out = grid.box(); e_out.label(text=str(cp["Ease Out"]));  e_out.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
-                    style = grid.box(); style.label(text=cp["Style"]);          style.alignment = 'CENTER' # alignment does nothing. Buggy Blender.
+                    frame.alignment = 'CENTER'; frame.label(text=str(cp["Frame"]));                         # alignment does nothing. Buggy Blender.
+                    
+                    e__in = grid.box(); e__in.alignment = 'CENTER'; e__in.label(text=str(cp["Ease In"]));   # alignment does nothing. Buggy Blender.
+                    e_out = grid.box(); e_out.alignment = 'CENTER'; e_out.label(text=str(cp["Ease Out"]));  # alignment does nothing. Buggy Blender.
+                    style = grid.box(); style.alignment = 'CENTER'; style.label(text=cp["Style"]);          # alignment does nothing. Buggy Blender.
+            
+            row = layout.row()
+            row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
                 
 
 class VPET_PT_Anim_Path_Menu(bpy.types.Menu):
