@@ -95,7 +95,7 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
             row = layout.row()
             row.operator(AddPointAfter.bl_idname, text=AddPointAfter.bl_label)
             row.operator(AddPointBefore.bl_idname, text=AddPointBefore.bl_label)
-            if context.active_object.type == 'ARMATURE':
+            if context.active_object and context.active_object.type == 'ARMATURE':
                 row = layout.row()
                 row.operator(FKIKToggle.bl_idname, text=FKIKToggle.bl_label)
             if AddPath.default_name in bpy.data.objects:
@@ -124,7 +124,7 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
             row.label(text="To use the Control Point Property Panel and the Path Auto Update")
             row = layout.row()
             row.label(text="Disable Proportional Editing")
-        elif not (bpy.data.objects[AddPath.default_name] and bpy.data.objects[AddPath.default_name]["Auto Update"]):
+        elif not (AddPath.default_name in bpy.data.objects and bpy.data.objects[AddPath.default_name]["Auto Update"]):
             # If Auto Update editing is DISABLED, disable control points property editing
             row = layout.row()
             row.label(text="To use the Control Point Property Panel")
