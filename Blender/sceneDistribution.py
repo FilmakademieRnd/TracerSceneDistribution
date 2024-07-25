@@ -515,8 +515,10 @@ def evaluate_bezier_multi_seg(curve_object):
             
             if segment == 0:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
+                #TODO use custom sample_bezier function
             else:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
+                #TODO use custom sample_bezier function
                 evaluated_segment.pop(0)
             
             evaluated_bezier.extend(evaluated_segment)
@@ -530,12 +532,13 @@ def evaluate_bezier_multi_seg(curve_object):
         handle2 = bezier_points[0].handle_left
 
         evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames)
+        #TODO use custom sample_bezier function
         evaluated_bezier.extend(evaluated_segment)
 
         # Extract tangents at every evaluated point
         tangent_bezier.append(bezier_points[0].handle_right.normalized()) # first tangent can be extracted from the first handle
         for frame in range (1, num_frames - 1):
-            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame -1] # Direction from point-1 to point 
+            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame - 1] # Direction from point-1 to point 
             dir2 = evaluated_bezier[frame + 1] - evaluated_bezier[frame] # Direction from point to point+1
             tang = dir1.normalize() + dir2.normalize() # Average direction 
             tangent_bezier.append(tang.normalized())
@@ -559,8 +562,10 @@ def evaluate_bezier_multi_seg(curve_object):
             
             if segment == 0:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
+                #TODO use custom sample_bezier function
             else:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
+                #TODO use custom sample_bezier function
                 evaluated_segment.pop(0)
             
             evaluated_bezier.extend(evaluated_segment)
@@ -575,6 +580,13 @@ def evaluate_bezier_multi_seg(curve_object):
         tangent_bezier.append(bezier_points[-1].handle_left.normalized()) # last tangent can be extracted from the last handle
     
     return evaluated_bezier, tangent_bezier
+
+def sample_bezier(b0, b1, b2, b3, samples, influence1, influence2):
+    evaluated_segment = []
+
+    #TODO given 
+     
+    return evaluated_segment
 
 ##Create SceneObject for each object that will be sent iver network
 #

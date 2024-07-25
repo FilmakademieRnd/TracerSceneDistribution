@@ -109,7 +109,9 @@ def register():
 ## Unregister for removal of Addon
 #
 def unregister():
-    del bpy.types.WindowManager.vpet_data #!!! Raises an AttributeError type object 'WindowManager' has no attribute 'vpet_data'
+    # Check whether the custom attribute is there before deleting it to avoid errors being raised
+    if hasattr(bpy.types.WindowManager, "vpet_data"):
+        del bpy.types.WindowManager.vpet_data
 
     
     from bpy.utils import unregister_class
