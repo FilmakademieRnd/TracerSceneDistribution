@@ -36,6 +36,7 @@ import math
 import mathutils
 import bmesh
 import struct
+import re
 
 from .AbstractParameter import Parameter
 from .SceneObjects.SceneObject import SceneObject
@@ -82,6 +83,13 @@ def initialize():
     global vpet, v_prop
     vpet = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
+    vpet.headerByteData     = bytearray([])
+    vpet.nodesByteData      = bytearray([])
+    vpet.geoBytesData       = bytearray([])
+    vpet.materialsByteData  = bytearray([])
+    vpet.texturesByteData   = bytearray([])
+    vpet.characterByteData  = bytearray([])
+    vpet.curveByteData      = bytearray([])
 
 ## General function to gather scene data
 #
@@ -111,9 +119,9 @@ def gatherSceneData():
         getCharacterByteArray()
         getCurveByteArray()
 
-        for i, v in enumerate(vpet.nodeList):
-            if v.editable == 1:
-                vpet.editableList.append((bytearray(v.name).decode('ascii'), v.vpetType))
+        #for i, v in enumerate(vpet.nodeList):
+        #    if v.editable == 1:
+        #        vpet.editableList.append((bytearray(v.name).decode('ascii'), v.vpetType))
         
         return len(vpet.objectsToTransfer)
     
@@ -124,21 +132,19 @@ def gatherSceneData():
 def getObjectList():
     parent_object_name = "VPETsceneRoot"
     parent_object = bpy.data.objects.get(parent_object_name)
-    objectList = []
-    # TODO OBJ NR 
-    recursive_game_object_id_extract(parent_object, objectList)
-
+    #objectList = []
+    #recursive_game_object_id_extract(parent_object, objectList)
     
-    return objectList    
+    return parent_object.children_recursive    
 
-def recursive_game_object_id_extract(location, objectList):
-    # Iterate through each child of the location
-    for child in location.children:
-        # Add the child object to the game_objects list
-        print(child.name)
-        objectList.append(child)
-        # Recursively call the function for the child to explore its children
-        recursive_game_object_id_extract(child, objectList)    
+# def recursive_game_object_id_extract(location, objectList):
+#     # Iterate through each child of the location
+#     for child in location.children:
+#         # Add the child object to the game_objects list
+#         print(child.name)
+#         objectList.append(child)
+#         # Recursively call the function for the child to explore its children
+#         recursive_game_object_id_extract(child, objectList)    
     
 ## Process and store a scene object
 #
@@ -182,25 +188,25 @@ def processSceneObject(obj, index):
     
     # gather mesh data
     elif obj.type == 'MESH':
-        if obj.parent != None:
-            if obj.parent.type == 'ARMATURE':
-                nodeSkinMesh = sceneSkinnedmesh()
-                node = processSkinnedMesh(obj, nodeSkinMesh)
-            else:
-                nodeMesh = sceneMesh()
-                node = processMesh(obj, nodeMesh)      
+        if obj.parent != None and obj.parent.type == 'ARMATURE':
+            nodeSkinMesh = sceneSkinnedmesh()
+            node = processSkinnedMesh(obj, nodeSkinMesh)
         else:
             nodeMesh = sceneMesh()
             node = processMesh(obj, nodeMesh)
                 
-    
-
     elif obj.type == 'ARMATURE':
         node.vpetType = vpet.nodeTypes.index('CHARACTER')
         processCharacter(obj, vpet.objectsToTransfer)
-
+    
+    #TODO define scene distribution when encountering a (any) curve
     elif obj.type == 'CURVE':
         processCurve_alt(obj, vpet.objectsToTransfer)
+
+    # When finding an Animation Path to be distributed
+    # if obj.name == "AnimPath":
+    #     processControlPath(obj["Control Points"])
+            
         
     # gather general node data    
     nodeMatrix = obj.matrix_local.copy()
@@ -411,6 +417,20 @@ def processCharacter(armature_obj, object_list):
     vpet.characterList.append(chr_pack)
     return chr_pack
 
+##TODO Process and store a Control Path for sending it to TRACER
+# def processControlPath(control_point_list):
+#     control_path_package = [] #??? This should be an Animation Parameter
+    
+#     #Initialise AnimationParameter for the Character Object 
+#     for cp in control_point_list:
+#         # Unpack positions (Vector3 - bezier with two handles) with tangents and frame
+#         #??? What about timing Ease-In/Ease-Out values (Vector2???) ?
+#         # Unpack timings Ease-In/Ease-Out (Vector2 - stepped) with frame
+#         # Unpack rotations (Vector3 - linear) with frame
+#         # Unpack styles (Int/String - stepped) with frame
+#
+#    return control_path_package #??? This should be an Animation Parameter
+
 def processCurve(obj, objList):
     vpet = bpy.context.window_manager.vpet_data
     curve_Pack = curvePackage()
@@ -449,15 +469,15 @@ def evaluate_curve(curve_object, frame):
 ##  Function that takes a curve object in the scene and samples it, filling the TRACER Curve Package with the obtained data 
 #   IMPORTANT: The points sampled on the curve are added to the Curve Package in the format XZY (instead of XYZ) in order to
 #   convert between the blender Z-up coord. space and the more conventional Y-up space
-#   @param      obj     An object (of type \'CURVE\' in the scene)
-#   @returns    void    It appends a new Curve Package to the Curve List of the VPET environment (temporary solution)
-def processCurve_alt(obj, objList):
+#   @param      curve       An object (of type \'CURVE\' in the scene)
+#   @returns    void        It appends a new Curve Package to the Curve List of the VPET environment (temporary solution)
+def processCurve_alt(curve, objList):
     vpet = bpy.context.window_manager.vpet_data
     curve_Pack = curvePackage()
     curve_Pack.points = []
     curve_Pack.tangents = []
 
-    evaluated_bezier, bezier_tangents = evaluate_bezier_multi_seg(obj)
+    evaluated_bezier, bezier_tangents = evaluate_bezier_multi_seg(curve)
 
     print("Size of evaluated_bezier " + str(len(evaluated_bezier)))
     for i in range(0,len(evaluated_bezier)):
@@ -562,10 +582,10 @@ def evaluate_bezier_multi_seg(curve_object):
             
             if segment == 0:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
-                #TODO use custom sample_bezier function
+                #TODO use custom adaptive_sample_bezier function
             else:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
-                #TODO use custom sample_bezier function
+                #TODO use custom adaptive_sample_bezier function
                 evaluated_segment.pop(0)
             
             evaluated_bezier.extend(evaluated_segment)
@@ -581,34 +601,48 @@ def evaluate_bezier_multi_seg(curve_object):
     
     return evaluated_bezier, tangent_bezier
 
-def sample_bezier(b0, b1, b2, b3, samples, influence1, influence2):
-    evaluated_segment = []
-
-    #TODO given 
+##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
+#   It uses the timing information provided by the artist through the UI (frames, ease-in, ease-out) to sample a given segment of the control path
+#   @param  b0          The first point of the beziér segment
+#   @param  b1          The first handle of the beziér segment
+#   @param  b2          The second handle of the beziér segment
+#   @param  b3          The second point of the beziér segment
+#   @param  resolution  How many points should be sampled on the segment
+#   @param  influence1  Speed rate for easing out of the first point
+#   @param  influence2  Speed rate for easing into the second point
+#   @returns            A list of points (of size equal to resolution) sampled along the beziér segment between b0 and b3 (with handles defined by b1 and b2)
+def adaptive_sample_bezier(b0, b1, b2, b3, resolution, influence1, influence2):
+    sampled_segment = []
+    # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
+    # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
+    timings = mathutils.geometry.interpolate_bezier([0, 0], [influence1/100, 0], [1 - influence2/100, 1], [1, 1], resolution)
+    
+    # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
+    for i, t in enumerate(timings):
+        sample = (1-t)^3*b0 + 3*t*(1-t)^2*b1 + 3*t^2*(1-t)*b2 + t^3*b3
+        sampled_segment.append(sample)
      
-    return evaluated_segment
+    return sampled_segment
 
 ##Create SceneObject for each object that will be sent iver network
 #
 #@param obj the acual object from the scene
 def processEditableObjects(obj, index):
-
-    if obj.type == 'MESH':
-        aaa = SceneObject(obj)
-        vpet.SceneObjects.append(aaa)
-    elif obj.type == 'CAMERA':
-        aaa = SceneObjectCamera(obj)
-        vpet.SceneObjects.append(aaa)
-    elif obj.type == 'LIGHT':
-        if obj.data.type == 'SPOT':
-            aaa = SceneObjectSpotLight(obj)
-            vpet.SceneObjects.append(aaa)
+    is_editable = obj.get("VPET-Editable", False)
+    print(obj.name + " VPET-Editable: " + str(is_editable))
+    if is_editable:
+        if obj.type == 'CAMERA':
+            vpet.SceneObjects.append(SceneObjectCamera(obj))
+        elif obj.type == 'LIGHT':
+            if obj.data.type == 'SPOT':
+                vpet.SceneObjects.append(SceneObjectSpotLight(obj))
+            else:
+                vpet.SceneObjects.append(SceneObjectLight(obj))
+        elif obj.type == 'ARMATURE':
+            vpet.SceneObjects.append(SceneCharacterObject(obj))
         else:
-            aaa = SceneObjectLight(obj)
-            vpet.SceneObjects.append(aaa)
-    elif obj.type == 'ARMATURE':
-        aaa = SceneCharacterObject(obj)
-        vpet.SceneObjects.append(aaa)
+            vpet.SceneObjects.append(SceneObject(obj))
+    
 
 ## Process a meshes material
 #
@@ -995,10 +1029,10 @@ def getCharacterByteArray():
             charBinary.extend(struct.pack('i', chr.bMSize))
             charBinary.extend(struct.pack('i', chr.sMSize)) 
             charBinary.extend(struct.pack('i', chr.characterRootID))
-            formatBoneMAping = f'{len(chr.boneMapping)}i'
-            formatSkeletonMAping = f'{len(chr.skeletonMapping)}i'
-            charBinary.extend(struct.pack(formatBoneMAping, *chr.boneMapping))
-            charBinary.extend(struct.pack(formatSkeletonMAping, *chr.skeletonMapping))
+            formatBoneMapping = f'{len(chr.boneMapping)}i'
+            formatSkeletonMapping = f'{len(chr.skeletonMapping)}i'
+            charBinary.extend(struct.pack(formatBoneMapping, *chr.boneMapping))
+            charBinary.extend(struct.pack(formatSkeletonMapping, *chr.skeletonMapping))
             #TODO WTF IS GOING ON
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.bonePosition))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*4, *chr.boneRotation))

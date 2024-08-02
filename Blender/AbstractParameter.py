@@ -1,7 +1,7 @@
 import struct
 import bpy
 from mathutils import Vector, Quaternion, Euler, Color, Matrix
-import mathutils
+from enum import Enum
 import math
 
 class AbstractParameter:
@@ -70,40 +70,43 @@ class Parameter(AbstractParameter):
         for handler in self.hasChanged:
             handler(self._value)
 
-    def decodeMsg(self, msg, offset):
+    def decodeMsg(self, param_data):
         type = self._type
         if type == 2 :
-            floatVal = unpack('?', msg, offset)
+            floatVal = unpack('?', param_data, 0)
             self.set_value(floatVal)
 
         if type == 4 :
-            floatVal = unpack('f', msg, offset)
+            floatVal = unpack('f', param_data, 0)
             self.set_value(floatVal)
 
         if type == 6 :
-            newVector3 = mathutils.Vector(( unpack('f', msg, offset),\
-                                            unpack('f', msg, offset + 4),\
-                                            unpack('f', msg, offset + 8)))
+            newVector3 = Vector((   unpack('f', param_data, 0),\
+                                    unpack('f', param_data, 4),\
+                                    unpack('f', param_data, 8)
+                                    ))
              
-            unityToBlenderVector3 = mathutils.Vector((newVector3[0], newVector3[2], newVector3[1]))
+            unityToBlenderVector3 = Vector((newVector3[0], newVector3[2], newVector3[1]))
 
             self.set_value(unityToBlenderVector3)
 
         elif type == 8 :
-            XYZW_quat = mathutils.Quaternion((  unpack('f', msg, offset ),\
-                                                unpack('f', msg, offset + 4),\
-                                                unpack('f', msg, offset + 8),\
-                                                unpack('f', msg, offset + 12)))
+            XYZW_quat = Quaternion((    unpack('f', param_data, 0 ),\
+                                        unpack('f', param_data, 4 ),\
+                                        unpack('f', param_data, 8 ),\
+                                        unpack('f', param_data, 12)
+                                        ))
 
-            WXYZ_quat = mathutils.Quaternion((  XYZW_quat[3],\
-                                                XYZW_quat[0],\
-                                                XYZW_quat[1],\
-                                                XYZW_quat[2]))
+            WXYZ_quat = Quaternion((    XYZW_quat[3],\
+                                        XYZW_quat[0],\
+                                        XYZW_quat[1],\
+                                        XYZW_quat[2]
+                                        ))
 
             self.set_value(WXYZ_quat)
 
         elif type == 9:
-             newColor = (unpack('f', msg, offset), unpack('f', msg, offset + 4), unpack('f', msg, offset + 8))
+             newColor = (unpack('f', param_data, 0), unpack('f', param_data, 4), unpack('f', param_data, 8))
 
              self.set_value(newColor)
 
@@ -116,14 +119,15 @@ class Parameter(AbstractParameter):
         elif type == 4:
             return struct.pack('f', val)
         elif type == 6:
-            unity_vec3 = mathutils.Vector((val[0], val[2], val[1]))
+            unity_vec3 = Vector((val[0], val[2], val[1]))
             return struct.pack('3f', *unity_vec3)
         elif type == 8:
             self._parent.editableObject.rotation_mode = 'QUATERNION'
-            unity_quat = mathutils.Quaternion((val[1],\
-                                                val[3],\
-                                                val[2],\
-                                                -val[0]))
+            unity_quat = Quaternion((    val[1],\
+                                         val[3],\
+                                         val[2],\
+                                        -val[0]
+                                        ))
             self._parent.editableObject.rotation_mode = 'XYZ'
             #print(str(unity_quat))
             return struct.pack('4f', *unity_quat)
@@ -132,3 +136,23 @@ def unpack(type, array, offset):
     return struct.unpack_from(type, array, offset)[0]
 
    
+class AnimationParameter(Parameter):
+
+    def __init__(self, value, name, parent=None, distribute=True):
+        super().__init__(value, name, parent, distribute)
+        self.keys = []
+
+    def is_animated(self) -> bool:
+        return len(self.keys) > 0
+
+class Keys():
+
+    KeyType = Enum('KeyType', ['STEP', 'LINEAR', 'BEZIER'])
+
+    def __init__(self, time, value, type = KeyType.LINEAR, tangent_time = None, tangent_value = None):
+        self.time = time                            # frame - INT
+        self.value = value                          # value of the keyframe - type of the value depends on the parameter that is being keyed 
+        self.type = type                            # type of keyframe - KeyType (STEP, LINEAR, BEZIER)
+        if self.type == 'BEZIER':
+            self.tangent_time = tangent_time        # first component of tangent (for beziér keyframes) - INT
+            self.tangent_value = tangent_value      # other components of the tangent (for beziér keyframes) - type is same as value

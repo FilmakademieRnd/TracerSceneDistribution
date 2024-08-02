@@ -223,16 +223,23 @@ def add_path(character, path_name):
         # If yes, save it
         print("Animation Preview object found")
         anim_path = bpy.data.objects[path_name]
-    else:
+    elif "VPET_Collection" in bpy.data.collections:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
         anim_path = bpy.data.objects.new(path_name, None)
-        bpy.data.collections["Collection"].objects.link(anim_path)  # Add anim_prev to the scene
+        bpy.data.collections["VPET_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
+        anim_path.parent = bpy.data.objects["VPETsceneRoot"]
+    else:
+        UserWarning("Set up VPET before creating a new Control Path")
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
         point_zero = make_point()
         point_zero.parent = anim_path
+        if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+            anim_path.users_collection[0].objects.link(point_zero)
+        else:
+            UserWarning("AnimPath has to be ONLY part of VPET_Collection")
 
         anim_path["Control Points"] = [point_zero]                      # Add Control Points property and initialise it with the first "default" point. It will hold the list of all the Control Point Objects that make up the Animation Path
         anim_path["Auto Update"] = False                                # Add Auto Update property. It will hold the "mode status" for the Animation Path. It is used to enable/disable advanced editing features. 
@@ -249,6 +256,7 @@ def add_path(character, path_name):
         anim_path.lock_scale[2]    = True
 
     # Select and set as active the first point of the Path
+    
     anim_path["Control Points"][0].select_set(True)
     bpy.context.view_layer.objects.active = anim_path["Control Points"][0]
     
@@ -280,7 +288,6 @@ def make_point(spawn_location = (0, 0, 0)):
     # Create new object ptr_obj (with UI name "Pointer") that has ptr_mesh as a mesh
     ptr_obj = bpy.data.objects.new("Pointer", ptr_mesh)
     ptr_obj.location = spawn_location                           # Placing ptr_obj at a specified location (when not specified, the default is origin)
-    bpy.data.collections["Collection"].objects.link(ptr_obj)    # Add ptr_obj to the scene
 
     # Lock Z-axis location and XY-axes rotation
     ptr_obj.lock_location[2] = True
@@ -321,6 +328,10 @@ def add_point(anim_path, pos=-1, after=True):
     new_point = make_point(anim_path["Control Points"][pos].location + spawn_offset)
     new_point.rotation_euler = base_rotation    # Rotate the pointer so that it aligns with the previous one
     new_point.parent = anim_path                # Parent it to the selected (for now the only) path
+    if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+        anim_path.users_collection[0].objects.link(new_point)
+    else:
+        UserWarning("AnimPath has to ONLY be part of VPET_Collection")
 
     print("Number of Control Points " + str(len(anim_path["Control Points"])))
     if len(anim_path["Control Points"]) > 0:
@@ -451,9 +462,10 @@ def update_curve(anim_path):
         bezier_spline.bezier_points[i].handle_right = mathutils.Vector(cp["Right Handle"].to_list()) + cp.location
 
     control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)           # Create a new Control Path Object with the geometry data of the Bézier Curve
+    if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+        anim_path.users_collection[0].objects.link(control_path)                    # Add the Control Path Object in the scene
     control_path.parent = anim_path                                                 # Make the Control Path a child of the Animation preview Object
-    control_path.lock_location[2] = True                                               # Locking Z-component of the Control Path, as it's going to be done with its Control Points
-    bpy.data.collections["Collection"].objects.link(control_path)                   # Add the Control Path Object in the scene
+    control_path.lock_location[2] = True                                            # Locking Z-component of the Control Path, as it's going to be done with its Control Points
 
     for area in bpy.context.screen.areas:
         if area.type == 'PROPERTIES':

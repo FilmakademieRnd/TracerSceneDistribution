@@ -160,8 +160,12 @@ def listener():
         msg = None
 
 
-
-    if (msg != None ):  
+    ## Reading msg
+    #   0   - clientID  - byte
+    #   1   - time      - byte
+    #   2   - msgType   - byte
+    #   3+  - msgBody
+    if (msg != None ):
         clientID = msg[0]
         
         if(vpet.messageType[msg[2]] == "SYNC"):
@@ -195,11 +199,11 @@ def listener():
                     objID = msg[start+1]
                     paramID = msg[start+3]
                     length = msg[start+6]
-                    parameterData = msg[start+7]
+                    parameterData = msg[start+7:start+length] # splicing the byte array so that parameterData contains exactly the data of the parameter to be parsed
 
                     if 0 < objID <= len(vpet.SceneObjects) and 0 <= paramID < len(vpet.SceneObjects[objID - 1]._parameterList):
                         param = vpet.SceneObjects[objID - 1]._parameterList[paramID]
-                        param.decodeMsg(msg, start+7)
+                        param.decodeMsg(parameterData)
                     
                     start += length
 
