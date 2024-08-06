@@ -37,6 +37,7 @@ import re
 from mathutils import Vector
 
 from bpy.types import Context
+from bpy.app.handlers import persistent
 from .serverAdapter import set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
 from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, add_point, move_point, update_curve, path_points_check
 from .sceneDistribution import gatherSceneData, resendCurve
@@ -255,6 +256,7 @@ class ControlPointProps(bpy.types.PropertyGroup):
                  ("Jumping", "Jumping", "Jumping Locomotion Style")]
         return items
     
+    @persistent
     def update_property_ui(scene):
         if not bpy.context.active_object == None:
             active_obj = bpy.context.active_object
