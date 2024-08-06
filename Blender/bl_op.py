@@ -314,12 +314,12 @@ class ControlPointProps(bpy.types.PropertyGroup):
 
 ### Operator to add a new Animation Path
 #   The execution is triggered by a button in the VPET Panel or by an entry in the Add Menu
-@persistent
 class UpdateCurveViz(bpy.types.Operator):
     bl_idname = "object.update_curve"
     bl_label = "Update Curve"
     bl_description = 'Update the Control Path given the new configuration of the Control Points'
 
+    @persistent
     def execute(self, context):
         print('Evaluate Curve START')
         if AddPath.default_name in bpy.data.objects:
@@ -338,6 +338,7 @@ class UpdateCurveViz(bpy.types.Operator):
         
         return {'FINISHED'}
     
+    @persistent
     def on_delete_update_handler(scene):
         if AddPath.default_name in bpy.data.objects:
             anim_path = bpy.data.objects[AddPath.default_name]
