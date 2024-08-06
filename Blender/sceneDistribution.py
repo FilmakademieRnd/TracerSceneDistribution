@@ -1115,14 +1115,16 @@ def getCharacterByteArray():
     if len(vpet.characterList):
         for chr in vpet.characterList:
             charBinary = bytearray([]) 
+            
             charBinary.extend(struct.pack('i', chr.bMSize))
             charBinary.extend(struct.pack('i', chr.sMSize)) 
             charBinary.extend(struct.pack('i', chr.characterRootID))
+            
             formatBoneMapping = f'{len(chr.boneMapping)}i'
             formatSkeletonMapping = f'{len(chr.skeletonMapping)}i'
             charBinary.extend(struct.pack(formatBoneMapping, *chr.boneMapping))
             charBinary.extend(struct.pack(formatSkeletonMapping, *chr.skeletonMapping))
-            #TODO WTF IS GOING ON
+            
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.bonePosition))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*4, *chr.boneRotation))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.boneScale))
