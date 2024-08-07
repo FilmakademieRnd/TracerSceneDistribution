@@ -1,4 +1,4 @@
-# USD + VPET
+# TRACER Scene Distribution Plugin USD
 
 ![VPET USD Scene](../.doc/img/usd/vpet_kitchen.gif)
 
