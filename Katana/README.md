@@ -1,5 +1,4 @@
-# Katana + VPET
-
+# TRACER Scene Distribution Plugin Katana
 
 ## New Features:
 - **env&#46;sh**  
