@@ -1,34 +1,36 @@
 """
------------------------------------------------------------------------------
-This source file is part of VPET - Virtual Production Editing Tools
-http://vpet.research.animationsinstitut.de/
-http://github.com/FilmakademieRnd/VPET
-
-Copyright (c) 2021 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Lab
-
-This project has been initiated in the scope of the EU funded project
-Dreamspace under grant agreement no 610005 in the years 2014, 2015 and 2016.
-http://dreamspaceproject.eu/
-Post Dreamspace the project has been further developed on behalf of the
-research and development activities of Animationsinstitut.
-
-The VPET component Blender Scene Distribution is intended for research and development
-purposes only. Commercial use of any kind is not permitted.
-
-There is no support by Filmakademie. Since the Blender Scene Distribution is available
-for free, Filmakademie shall only be liable for intent and gross negligence;
-warranty is limited to malice. Scene DistributiorUSD may under no circumstances
-be used for racist, sexual or any illegal purposes. In all non-commercial
-productions, scientific publications, prototypical non-commercial software tools,
-etc. using the Blender Scene Distribution Filmakademie has to be named as follows:
-“VPET-Virtual Production Editing Tool by Filmakademie Baden-Württemberg,
-Animationsinstitut (http://research.animationsinstitut.de)“.
-
-In case a company or individual would like to use the Blender Scene Distribution in
-a commercial surrounding or for commercial purposes, software based on these
-components or any part thereof, the company/individual will have to contact
-Filmakademie (research<at>filmakademie.de).
------------------------------------------------------------------------------
+TRACER Scene Distribution Plugin Blender
+ 
+Copyright (c) 2024 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Labs
+https://research.animationsinstitut.de/tracer
+https://github.com/FilmakademieRnd/TracerSceneDistribution
+ 
+TRACER Scene Distribution Plugin Blender is a development by Filmakademie
+Baden-Wuerttemberg, Animationsinstitut R&D Labs in the scope of the EU funded
+project MAX-R (101070072) and funding on the own behalf of Filmakademie
+Baden-Wuerttemberg.  Former EU projects Dreamspace (610005) and SAUCE (780470)
+have inspired the TRACER Scene Distribution Plugin Blender development.
+ 
+The TRACER Scene Distribution Plugin Blender is intended for research and
+development purposes only. Commercial use of any kind is not permitted.
+ 
+There is no support by Filmakademie. Since the TRACER Scene Distribution Plugin
+Blender is available for free, Filmakademie shall only be liable for intent
+and gross negligence; warranty is limited to malice. TRACER Scene Distribution
+Plugin Blender may under no circumstances be used for racist, sexual or any
+illegal purposes. In all non-commercial productions, scientific publications,
+prototypical non-commercial software tools, etc. using the TRACER Scene
+Distribution Plugin Blender Filmakademie has to be named as follows: 
+"TRACER Scene Distribution Plugin Blender by Filmakademie
+Baden-Württemberg, Animationsinstitut (http://research.animationsinstitut.de)".
+ 
+In case a company or individual would like to use the TRACER Scene Distribution
+Plugin Blender in a commercial surrounding or for commercial purposes,
+software based on these components or  any part thereof, the company/individual
+will have to contact Filmakademie (research<at>filmakademie.de) for an
+individual license agreement.
+ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
 import bpy
@@ -36,7 +38,9 @@ import math
 import mathutils
 import bmesh
 import struct
+import re
 
+from mathutils import Vector, Quaternion
 from .AbstractParameter import Parameter
 from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
@@ -82,6 +86,25 @@ def initialize():
     global vpet, v_prop
     vpet = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
+    
+    vpet.objectsToTransfer.clear()
+    vpet.nodeList.clear()
+    vpet.geoList.clear()
+    vpet.materialList.clear()
+    vpet.textureList.clear()
+    vpet.editableList.clear()
+    vpet.characterList.clear()
+    vpet.curveList.clear()
+    vpet.editable_objects.clear()
+    vpet.SceneObjects.clear()
+    
+    vpet.nodesByteData.clear()
+    vpet.geoByteData.clear()
+    vpet.texturesByteData.clear()
+    vpet.headerByteData.clear()
+    vpet.materialsByteData.clear()
+    vpet.charactersByteData.clear()
+    vpet.curvesByteData.clear()
 
 ## General function to gather scene data
 #
@@ -109,11 +132,11 @@ def gatherSceneData():
         getMaterialsByteArray()
         getTexturesByteArray()
         getCharacterByteArray()
-        getCurveByteArray()
+        getCurvesByteArray()
 
-        for i, v in enumerate(vpet.nodeList):
-            if v.editable == 1:
-                vpet.editableList.append((bytearray(v.name).decode('ascii'), v.vpetType))
+        #for i, v in enumerate(vpet.nodeList):
+        #    if v.editable == 1:
+        #        vpet.editableList.append((bytearray(v.name).decode('ascii'), v.vpetType))
         
         return len(vpet.objectsToTransfer)
     
@@ -124,21 +147,19 @@ def gatherSceneData():
 def getObjectList():
     parent_object_name = "VPETsceneRoot"
     parent_object = bpy.data.objects.get(parent_object_name)
-    objectList = []
-    # TODO OBJ NR 
-    recursive_game_object_id_extract(parent_object, objectList)
-
+    #objectList = []
+    #recursive_game_object_id_extract(parent_object, objectList)
     
-    return objectList    
+    return parent_object.children_recursive    
 
-def recursive_game_object_id_extract(location, objectList):
-    # Iterate through each child of the location
-    for child in location.children:
-        # Add the child object to the game_objects list
-        print(child.name)
-        objectList.append(child)
-        # Recursively call the function for the child to explore its children
-        recursive_game_object_id_extract(child, objectList)    
+# def recursive_game_object_id_extract(location, objectList):
+#     # Iterate through each child of the location
+#     for child in location.children:
+#         # Add the child object to the game_objects list
+#         print(child.name)
+#         objectList.append(child)
+#         # Recursively call the function for the child to explore its children
+#         recursive_game_object_id_extract(child, objectList)    
     
 ## Process and store a scene object
 #
@@ -182,25 +203,25 @@ def processSceneObject(obj, index):
     
     # gather mesh data
     elif obj.type == 'MESH':
-        if obj.parent != None:
-            if obj.parent.type == 'ARMATURE':
-                nodeSkinMesh = sceneSkinnedmesh()
-                node = processSkinnedMesh(obj, nodeSkinMesh)
-            else:
-                nodeMesh = sceneMesh()
-                node = processMesh(obj, nodeMesh)      
+        if obj.parent != None and obj.parent.type == 'ARMATURE':
+            nodeSkinMesh = sceneSkinnedmesh()
+            node = processSkinnedMesh(obj, nodeSkinMesh)
         else:
             nodeMesh = sceneMesh()
             node = processMesh(obj, nodeMesh)
                 
-    
-
     elif obj.type == 'ARMATURE':
         node.vpetType = vpet.nodeTypes.index('CHARACTER')
         processCharacter(obj, vpet.objectsToTransfer)
+    
+    #TODO define scene distribution when encountering a (any) curve
+    # elif obj.type == 'CURVE':
+    #     processCurve_alt(obj, vpet.objectsToTransfer)
 
-    elif obj.type == 'CURVE':
-        processCurve_alt(obj, vpet.objectsToTransfer)
+    # When finding an Animation Path to be distributed
+    if obj.name == "AnimPath":
+        processControlPath_temp(obj.get("Control Points", None), obj.get("Is Cyclic", False))
+            
         
     # gather general node data    
     nodeMatrix = obj.matrix_local.copy()
@@ -411,53 +432,129 @@ def processCharacter(armature_obj, object_list):
     vpet.characterList.append(chr_pack)
     return chr_pack
 
-def processCurve(obj, objList):
+##TODO Process and store a Control Path for sending it to TRACER
+# def processControlPath(control_point_list):
+#     control_path_package = [] #??? This should be an Animation Parameter
+    
+#     #Initialise AnimationParameter for the Character Object 
+#     for cp in control_point_list:
+#         # Unpack positions (Vector3 - bezier with two handles) with tangents and frame
+#         #??? What about timing Ease-In/Ease-Out values (Vector2???) ?
+#         # Unpack timings Ease-In/Ease-Out (Vector2 - stepped) with frame
+#         # Unpack rotations (Vector3 - linear) with frame
+#         # Unpack styles (Int/String - stepped) with frame
+#
+#    return control_path_package #??? This should be an Animation Parameter
+
+## Given a Control Path in the scene, it evaluates it, it fills a new Curve Package object with the sampled data, and adds it to the list of curves to be shared with the other TRACER clients
+# @param control_point_list List of Control Points defining the Control Path
+# @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
+# @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
+def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=False) -> curvePackage:
     vpet = bpy.context.window_manager.vpet_data
-    curve_Pack = curvePackage()
-    curve_Pack.points = []
+    curve_package = curvePackage()
+    curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
+    curve_package.look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
+    value_error_msg = "The frame value of any point MUST be greater than the previous one!"
 
-    for frame in range(0, bpy.context.scene.frame_end + 1):
-        points = evaluate_curve(obj, frame)
-        vpet.points_for_frames[frame] = points
+    for i, point in enumerate(control_points):
+        # Read the attribute of the first point of the segment
+        coords_point_one    = point.location
+        r_handle_point_one  = Vector(point.get("Right Handle")) + point.location
+        frame_point_one     = point.get("Frame")
+        ease_out_point_one  = point.get("Ease Out")
 
-    for frame, points_list in vpet.points_for_frames.items():
-        for point in points_list:
-            curve_Pack.points.extend([point.x, point.z, point.y])
-            print(point.x)
+        if is_cyclic:
+            if i == 0:
+                # If cyclic, we assume that the frame of the first point is 0 at the beginning of the path and point.get("Frame") at the end 
+                frame_point_one = 0
 
-    curve_Pack.pointsLen = len(curve_Pack.points) # len is also equal to the nr of frames 
-
-    vpet.curveList.append(curve_Pack)
-
-#! This function appears to work only for two-points curves, interpolating linearly between them
-def evaluate_curve(curve_object, frame):
-    # Set the current frame
-    bpy.context.scene.frame_set(frame)
-    
-    evaluated_points = []
-    
-    # Ensure the object is a curve and is using Bezier type
-    if curve_object.data.splines.active.type == 'BEZIER':
-        spline = curve_object.data.splines.active
+            if i == len(control_points)-1:
+                # If the path is cyclic and we are at the end of the path,
+                # Evaluate segment between last and fist point of the path
+                next_point = control_points[0]
+                value_error_msg = "When cyclic, the frame value of the first point MUST be greater than the last one!"
+        else:
+            if i < len(control_points)-1:
+                next_point = control_points[i+1]
+            else:
+                next_point = None
         
-        # Evaluate the curve at current frame
-        evaluated_point = spline.bezier_points[0].co.lerp(spline.bezier_points[1].co, frame / bpy.context.scene.frame_end)
-        evaluated_points.append(evaluated_point)
+        if next_point != None:
+            # Read the attribute of the second point of the segment
+            coords_point_two    = next_point.location
+            l_handle_point_two  = Vector(next_point.get("Left Handle")) + next_point.location
+            frame_point_two     = next_point.get("Frame")        
+            ease_in_point_two   = next_point.get("Ease In")
+
+            segment_frames = frame_point_two - frame_point_one + 1      # Compute number of samples in the segment 
+
+            if segment_frames > 0:
+                evaluated_positions = adaptive_sample_bezier( coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two,\
+                                                            segment_frames, ease_out_point_one, ease_in_point_two)
+                evaluated_rotations  = quaternion_slerp(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), segment_frames)
+                
+                # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
+                if i < len(control_points)-2:
+                    evaluated_positions = evaluated_positions[: len(evaluated_positions) - 3]
+                    evaluated_rotations = evaluated_rotations[: len(evaluated_rotations) - 3]
+
+                curve_package.points.extend(evaluated_positions)
+                curve_package.look_at.extend(evaluated_rotations) 
+            else:
+                raise ValueError(value_error_msg)
     
-    return evaluated_points
+    curve_package.pointsLen = int(len(curve_package.points) / 3)
+    vpet.curveList.append(curve_package)
+    return curve_package
+
+# def processCurve(obj, objList):
+#     vpet = bpy.context.window_manager.vpet_data
+#     curve_Pack = curvePackage()
+#     curve_Pack.points = []
+
+#     for frame in range(0, bpy.context.scene.frame_end + 1):
+#         points = evaluate_curve(obj, frame)
+#         vpet.points_for_frames[frame] = points
+
+#     for frame, points_list in vpet.points_for_frames.items():
+#         for point in points_list:
+#             curve_Pack.points.extend([point.x, point.z, point.y])
+#             print(point.x)
+
+#     curve_Pack.pointsLen = len(curve_Pack.points) # len is also equal to the nr of frames 
+
+#     vpet.curveList.append(curve_Pack)
+
+# #! This function appears to work only for two-points curves, interpolating linearly between them
+# def evaluate_curve(curve_object, frame):
+#     # Set the current frame
+#     bpy.context.scene.frame_set(frame)
+    
+#     evaluated_points = []
+    
+#     # Ensure the object is a curve and is using Bezier type
+#     if curve_object.data.splines.active.type == 'BEZIER':
+#         spline = curve_object.data.splines.active
+        
+#         # Evaluate the curve at current frame
+#         evaluated_point = spline.bezier_points[0].co.lerp(spline.bezier_points[1].co, frame / bpy.context.scene.frame_end)
+#         evaluated_points.append(evaluated_point)
+    
+#     return evaluated_points
 
 ##  Function that takes a curve object in the scene and samples it, filling the TRACER Curve Package with the obtained data 
 #   IMPORTANT: The points sampled on the curve are added to the Curve Package in the format XZY (instead of XYZ) in order to
 #   convert between the blender Z-up coord. space and the more conventional Y-up space
-#   @param      obj     An object (of type \'CURVE\' in the scene)
-#   @returns    void    It appends a new Curve Package to the Curve List of the VPET environment (temporary solution)
-def processCurve_alt(obj, objList):
+#   @param      curve       An object (of type \'CURVE\' in the scene)
+#   @returns    void        It appends a new Curve Package to the Curve List of the VPET environment (temporary solution)
+def processCurve_alt(curve, objList):
     vpet = bpy.context.window_manager.vpet_data
     curve_Pack = curvePackage()
     curve_Pack.points = []
     curve_Pack.tangents = []
 
-    evaluated_bezier, bezier_tangents = evaluate_bezier_multi_seg(obj)
+    evaluated_bezier, bezier_tangents = evaluate_bezier_multi_seg(curve)
 
     print("Size of evaluated_bezier " + str(len(evaluated_bezier)))
     for i in range(0,len(evaluated_bezier)):
@@ -562,10 +659,8 @@ def evaluate_bezier_multi_seg(curve_object):
             
             if segment == 0:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
-                #TODO use custom sample_bezier function
             else:
                 evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
-                #TODO use custom sample_bezier function
                 evaluated_segment.pop(0)
             
             evaluated_bezier.extend(evaluated_segment)
@@ -581,34 +676,121 @@ def evaluate_bezier_multi_seg(curve_object):
     
     return evaluated_bezier, tangent_bezier
 
-def sample_bezier(b0, b1, b2, b3, samples, influence1, influence2):
-    evaluated_segment = []
+##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
+#   It uses the timing information provided by the artist through the UI (frames, ease-in, ease-out) to sample a given segment of the control path
+#   @param  b0          The coordinates of first point of the beziér segment
+#   @param  b1          The right handle of the first point of the beziér segment
+#   @param  b2          The left handle of the second point of the beziér segment
+#   @param  b3          The coordinates of second point of the beziér segment
+#   @param  resolution  How many points should be sampled on the segment, aka the frame delta betwen first and second point
+#   @param  influence1  Speed rate for easing out of the first point, aka the ease-out value of the first point of the beziér segment
+#   @param  influence2  Speed rate for easing into the second point, aka the ease-in value of the second point of the beziér segment
+#   @returns            A list of points (of size equal to resolution) sampled along the beziér segment between b0 and b3 (with handles defined by b1 and b2)
+def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, resolution: int, ease_out: int , ease_in: int) -> list[float]:
+    sample: Vector
+    sampled_segment = []
 
-    #TODO given 
-     
-    return evaluated_segment
+    # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
+    # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
+    #timings = adaptive_timings(ease_in/100, ease_out/100, resolution)          #! To be debugged...
+    timings = adaptive_timings_alt(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
+
+    # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
+    for i in range(resolution):
+        t = timings[i]
+        sample = sample_bezier(knot1, handle1, handle2, knot2, t)
+        sampled_segment.extend([sample.x, sample.y, sample.z])
+    
+    return sampled_segment
+
+def adaptive_timings(inf1: float, inf2: float, resolution: int) -> list [float]:
+    timings = []
+    for i in range(resolution):
+        t = i / resolution
+        ease_in_weight = weight_influence(t, 1, 1-inf2)
+        ease_out_weight = weight_influence(t, 1-inf1, 1)
+        eased_t = t
+        eased_t = ease_in( eased_t, inf1 * ease_in_weight)
+        eased_t = ease_out(eased_t, inf2 * ease_out_weight)
+        
+        timings.append(eased_t)
+		
+    return timings
+
+def ease_in(t, factor):
+    return (1-factor) * t + factor * t**3
+def ease_out(t, factor):
+    return (1 - factor) * t + factor * ((t - 1)**3 + 1)
+def weight_influence(t, start_weight, end_weight):
+	return start_weight * (1 - t) + end_weight * t
+
+def adaptive_timings_alt(inf1: float, inf2: float, resolution: int) -> list [float]:
+    timings = []
+    # Good results with oversampling by a factor of 10 but no interpolation or with interpolation but no oversampling 
+    pre_sampling = mathutils.geometry.interpolate_bezier(Vector((0,0)), Vector((inf2,0)), Vector((1-inf1,1)), Vector((1,1)), 10*resolution)
+
+    for i in range(resolution):
+        t = i / resolution
+        j = 0
+
+        while pre_sampling[j].x < t:
+            j += 1
+
+        #t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
+        #eased_t = t1 * pre_sampling[j].y + (1-t1) * pre_sampling[j-1].y
+        eased_t = pre_sampling[j].y
+        
+        timings.append(eased_t)
+		
+    return timings
+
+def sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, t: float) -> Vector:
+    sample = (                      math.pow((1-t), 3)) * knot1   +\
+             (3 *          t      * math.pow((1-t), 2)) * handle1 +\
+             (3 * math.pow(t, 2)  *          (1-t)    ) * handle2 +\
+             (    math.pow(t, 3)                      ) * knot2
+    return sample
+
+
+## Implementation of a single slerp function, to limit dependencies from external librabries
+# @param quat_1     value of the first Quaternion
+# @param quat_2     value of the second Quaternion
+# @param n_samples  number of samples to take on the range of the interpolation
+# @returns          list spherical-linearly interpolated Quaternions 
+def quaternion_slerp(quat_1: Quaternion, quat_2: Quaternion, n_samples: int) -> list[mathutils.Euler]:
+    t = 0
+    step = 1 / n_samples
+    angle = quat_1.dot(quat_2)
+    samples = []
+
+    for i in range(n_samples):
+        sample = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
+                 (math.sin(angle *    t ) / math.sin(angle)) * quat_2
+        euler_sample = sample.to_euler()
+        samples.extend([euler_sample.x, euler_sample.y, euler_sample.z])
+        t += step
+    
+    return samples
 
 ##Create SceneObject for each object that will be sent iver network
 #
 #@param obj the acual object from the scene
 def processEditableObjects(obj, index):
-
-    if obj.type == 'MESH':
-        aaa = SceneObject(obj)
-        vpet.SceneObjects.append(aaa)
-    elif obj.type == 'CAMERA':
-        aaa = SceneObjectCamera(obj)
-        vpet.SceneObjects.append(aaa)
-    elif obj.type == 'LIGHT':
-        if obj.data.type == 'SPOT':
-            aaa = SceneObjectSpotLight(obj)
-            vpet.SceneObjects.append(aaa)
+    is_editable = obj.get("VPET-Editable", False)
+    print(obj.name + " VPET-Editable: " + str(is_editable))
+    if is_editable:
+        if obj.type == 'CAMERA':
+            vpet.SceneObjects.append(SceneObjectCamera(obj))
+        elif obj.type == 'LIGHT':
+            if obj.data.type == 'SPOT':
+                vpet.SceneObjects.append(SceneObjectSpotLight(obj))
+            else:
+                vpet.SceneObjects.append(SceneObjectLight(obj))
+        elif obj.type == 'ARMATURE':
+            vpet.SceneObjects.append(SceneCharacterObject(obj))
         else:
-            aaa = SceneObjectLight(obj)
-            vpet.SceneObjects.append(aaa)
-    elif obj.type == 'ARMATURE':
-        aaa = SceneCharacterObject(obj)
-        vpet.SceneObjects.append(aaa)
+            vpet.SceneObjects.append(SceneObject(obj))
+    
 
 ## Process a meshes material
 #
@@ -992,14 +1174,16 @@ def getCharacterByteArray():
     if len(vpet.characterList):
         for chr in vpet.characterList:
             charBinary = bytearray([]) 
+            
             charBinary.extend(struct.pack('i', chr.bMSize))
             charBinary.extend(struct.pack('i', chr.sMSize)) 
             charBinary.extend(struct.pack('i', chr.characterRootID))
-            formatBoneMAping = f'{len(chr.boneMapping)}i'
-            formatSkeletonMAping = f'{len(chr.skeletonMapping)}i'
-            charBinary.extend(struct.pack(formatBoneMAping, *chr.boneMapping))
-            charBinary.extend(struct.pack(formatSkeletonMAping, *chr.skeletonMapping))
-            #TODO WTF IS GOING ON
+            
+            formatBoneMapping = f'{len(chr.boneMapping)}i'
+            formatSkeletonMapping = f'{len(chr.skeletonMapping)}i'
+            charBinary.extend(struct.pack(formatBoneMapping, *chr.boneMapping))
+            charBinary.extend(struct.pack(formatSkeletonMapping, *chr.skeletonMapping))
+            
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.bonePosition))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*4, *chr.boneRotation))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.boneScale))
@@ -1007,13 +1191,14 @@ def getCharacterByteArray():
             vpet.charactersByteData.extend(charBinary) 
 
            
-def getCurveByteArray():
+def getCurvesByteArray():
     vpet = bpy.context.window_manager.vpet_data
+    vpet.curvesByteData.clear()
     for curve in vpet.curveList:
         curveBinary = bytearray([])
         curveBinary.extend(struct.pack('i', curve.pointsLen))
         curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
-        curveBinary.extend(struct.pack('%sf' % len(curve.tangents), *curve.tangents))
+        curveBinary.extend(struct.pack('%sf' % len(curve.look_at), *curve.look_at))
 
         vpet.curvesByteData.extend(curveBinary)
 
@@ -1023,7 +1208,7 @@ def resendCurve():
         vpet.curvesByteData = bytearray([])
         vpet.curveList = []
         processCurve_alt(bpy.context.selected_objects[0], vpet.objectsToTransfer)
-        getCurveByteArray()
+        getCurvesByteArray()
 
         # TODO MAKE IT NICER AFTER FMX!!!!!
 

@@ -1,34 +1,36 @@
 """
------------------------------------------------------------------------------
-This source file is part of VPET - Virtual Production Editing Tools
-http://vpet.research.animationsinstitut.de/
-http://github.com/FilmakademieRnd/VPET
-
-Copyright (c) 2021 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Lab
-
-This project has been initiated in the scope of the EU funded project
-Dreamspace under grant agreement no 610005 in the years 2014, 2015 and 2016.
-http://dreamspaceproject.eu/
-Post Dreamspace the project has been further developed on behalf of the
-research and development activities of Animationsinstitut.
-
-The VPET component Blender Scene Distribution is intended for research and development
-purposes only. Commercial use of any kind is not permitted.
-
-There is no support by Filmakademie. Since the Blender Scene Distribution is available
-for free, Filmakademie shall only be liable for intent and gross negligence;
-warranty is limited to malice. Scene DistributiorUSD may under no circumstances
-be used for racist, sexual or any illegal purposes. In all non-commercial
-productions, scientific publications, prototypical non-commercial software tools,
-etc. using the Blender Scene Distribution Filmakademie has to be named as follows:
-“VPET-Virtual Production Editing Tool by Filmakademie Baden-Württemberg,
-Animationsinstitut (http://research.animationsinstitut.de)“.
-
-In case a company or individual would like to use the Blender Scene Distribution in
-a commercial surrounding or for commercial purposes, software based on these
-components or any part thereof, the company/individual will have to contact
-Filmakademie (research<at>filmakademie.de).
------------------------------------------------------------------------------
+TRACER Scene Distribution Plugin Blender
+ 
+Copyright (c) 2024 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Labs
+https://research.animationsinstitut.de/tracer
+https://github.com/FilmakademieRnd/TracerSceneDistribution
+ 
+TRACER Scene Distribution Plugin Blender is a development by Filmakademie
+Baden-Wuerttemberg, Animationsinstitut R&D Labs in the scope of the EU funded
+project MAX-R (101070072) and funding on the own behalf of Filmakademie
+Baden-Wuerttemberg.  Former EU projects Dreamspace (610005) and SAUCE (780470)
+have inspired the TRACER Scene Distribution Plugin Blender development.
+ 
+The TRACER Scene Distribution Plugin Blender is intended for research and
+development purposes only. Commercial use of any kind is not permitted.
+ 
+There is no support by Filmakademie. Since the TRACER Scene Distribution Plugin
+Blender is available for free, Filmakademie shall only be liable for intent
+and gross negligence; warranty is limited to malice. TRACER Scene Distribution
+Plugin Blender may under no circumstances be used for racist, sexual or any
+illegal purposes. In all non-commercial productions, scientific publications,
+prototypical non-commercial software tools, etc. using the TRACER Scene
+Distribution Plugin Blender Filmakademie has to be named as follows: 
+"TRACER Scene Distribution Plugin Blender by Filmakademie
+Baden-Württemberg, Animationsinstitut (http://research.animationsinstitut.de)".
+ 
+In case a company or individual would like to use the TRACER Scene Distribution
+Plugin Blender in a commercial surrounding or for commercial purposes,
+software based on these components or  any part thereof, the company/individual
+will have to contact Filmakademie (research<at>filmakademie.de) for an
+individual license agreement.
+ 
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
 import bpy
@@ -223,16 +225,23 @@ def add_path(character, path_name):
         # If yes, save it
         print("Animation Preview object found")
         anim_path = bpy.data.objects[path_name]
-    else:
+    elif "VPET_Collection" in bpy.data.collections:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
         anim_path = bpy.data.objects.new(path_name, None)
-        bpy.data.collections["Collection"].objects.link(anim_path)  # Add anim_prev to the scene
+        bpy.data.collections["VPET_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
+        anim_path.parent = bpy.data.objects["VPETsceneRoot"]
+    else:
+        UserWarning("Set up VPET before creating a new Control Path")
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
         point_zero = make_point()
         point_zero.parent = anim_path
+        if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+            anim_path.users_collection[0].objects.link(point_zero)
+        else:
+            UserWarning("AnimPath has to be ONLY part of VPET_Collection")
 
         anim_path["Control Points"] = [point_zero]                      # Add Control Points property and initialise it with the first "default" point. It will hold the list of all the Control Point Objects that make up the Animation Path
         anim_path["Auto Update"] = False                                # Add Auto Update property. It will hold the "mode status" for the Animation Path. It is used to enable/disable advanced editing features. 
@@ -249,6 +258,7 @@ def add_path(character, path_name):
         anim_path.lock_scale[2]    = True
 
     # Select and set as active the first point of the Path
+    
     anim_path["Control Points"][0].select_set(True)
     bpy.context.view_layer.objects.active = anim_path["Control Points"][0]
     
@@ -259,7 +269,7 @@ def add_path(character, path_name):
 ### Function used to create a new Control Point. It creates the mesh geometry if it's not already present in the scene and adds and initialises the various properties
 #   @param  spawn_location  Position in World Space, where the new point will be displayed
 #   @returns   Reference of the created Control Point Object  
-def make_point(spawn_location = (0, 0, 0)):
+def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
     # Generate new planar isosceles triangle mesh called ptr_mesh
     vertices = [(-0.0625, 0, -0.0625), (0.0625, 0, 0.0625), (0, -0.25, 0), (0.0625, 0, -0.0625), (-0.0625, 0, 0.0625)]
     edges = []
@@ -278,9 +288,8 @@ def make_point(spawn_location = (0, 0, 0)):
         ptr_mesh.uv_layers.new()
 
     # Create new object ptr_obj (with UI name "Pointer") that has ptr_mesh as a mesh
-    ptr_obj = bpy.data.objects.new("Pointer", ptr_mesh)
+    ptr_obj = bpy.data.objects.new(name, ptr_mesh)
     ptr_obj.location = spawn_location                           # Placing ptr_obj at a specified location (when not specified, the default is origin)
-    bpy.data.collections["Collection"].objects.link(ptr_obj)    # Add ptr_obj to the scene
 
     # Lock Z-axis location and XY-axes rotation
     ptr_obj.lock_location[2] = True
@@ -321,6 +330,10 @@ def add_point(anim_path, pos=-1, after=True):
     new_point = make_point(anim_path["Control Points"][pos].location + spawn_offset)
     new_point.rotation_euler = base_rotation    # Rotate the pointer so that it aligns with the previous one
     new_point.parent = anim_path                # Parent it to the selected (for now the only) path
+    if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+        anim_path.users_collection[0].objects.link(new_point)
+    else:
+        UserWarning("AnimPath has to ONLY be part of VPET_Collection")
 
     print("Number of Control Points " + str(len(anim_path["Control Points"])))
     if len(anim_path["Control Points"]) > 0:
@@ -451,9 +464,10 @@ def update_curve(anim_path):
         bezier_spline.bezier_points[i].handle_right = mathutils.Vector(cp["Right Handle"].to_list()) + cp.location
 
     control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)           # Create a new Control Path Object with the geometry data of the Bézier Curve
+    if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
+        anim_path.users_collection[0].objects.link(control_path)                    # Add the Control Path Object in the scene
     control_path.parent = anim_path                                                 # Make the Control Path a child of the Animation preview Object
-    control_path.lock_location[2] = True                                               # Locking Z-component of the Control Path, as it's going to be done with its Control Points
-    bpy.data.collections["Collection"].objects.link(control_path)                   # Add the Control Path Object in the scene
+    control_path.lock_location[2] = True                                            # Locking Z-component of the Control Path, as it's going to be done with its Control Points
 
     for area in bpy.context.screen.areas:
         if area.type == 'PROPERTIES':
