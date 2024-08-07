@@ -1,0 +1,12 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# VS
+#...
+
+# C++ 
+#...
+
+# pls add files and extentions to be ignored by git here!
