@@ -1,5 +1,7 @@
 # TRACER Scene Distribution Plugins
 TRACER scene distribution plugins allow the use of third party software as a Tracer scene host.
+The TRACER scene distribution plugins allow you to connect TRACER implementations like VPET to any host application of your choice.
+Currently only Unreal and Blender are in active development. Katana and USD are outdated and need a major revision. 
 
 ## About
 
