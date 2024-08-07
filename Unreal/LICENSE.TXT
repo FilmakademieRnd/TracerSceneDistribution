@@ -1,24 +1,35 @@
-VPET Unreal Scene Distribution
+TRACER Scene Distribution Plugin Unreal
+ 
+Copyright (c) 2024 Filmakademie Baden-Wuerttemberg, Animationsinstitut R&D Labs
+https://research.animationsinstitut.de/tracer
+https://github.com/FilmakademieRnd/TracerSceneDistribution
+ 
+TRACER Scene Distribution Plugin Unreal is a development by Filmakademie
+Baden-Wuerttemberg, Animationsinstitut R&D Labs in the scope of the EU funded
+project MAX-R (101070072) and funding on the own behalf of Filmakademie
+Baden-Wuerttemberg.  Former EU projects Dreamspace (610005) and SAUCE (780470)
+have inspired the TRACER Scene Distribution Plugin Unreal development.
+ 
+The TRACER Scene Distribution Plugin Unreal is intended for research and
+development purposes only. Commercial use of any kind is not permitted.
+ 
+There is no support by Filmakademie. Since the TRACER Scene Distribution Plugin
+Unreal is available for free, Filmakademie shall only be liable for intent
+and gross negligence; warranty is limited to malice. TRACER Scene Distribution
+Plugin Unreal may under no circumstances be used for racist, sexual or any
+illegal purposes. In all non-commercial productions, scientific publications,
+prototypical non-commercial software tools, etc. using the TRACER Scene
+Distribution Plugin Unreal Filmakademie has to be named as follows: 
+"TRACER Scene Distribution Plugin Unreal by Filmakademie
+Baden-Württemberg, Animationsinstitut (http://research.animationsinstitut.de)".
+ 
+In case a company or individual would like to use the TRACER Scene Distribution
+Plugin Unreal in a commercial surrounding or for commercial purposes,
+software based on these components or  any part thereof, the company/individual
+will have to contact Filmakademie (research<at>filmakademie.de) for an
+individual license agreement.
 
-The VPET component Unreal Scene Distribution Plugin is intended 
-for research and development purposes only. 
-Commercial use of any kind is not permitted.
-
-There is no support by Filmakademie. Since the VPET Unreal Plugin is available
-for free, Filmakademie shall only be liable for intent and gross negligence;
-warranty is limited to malice. VPET Unreal Plugin may under no circumstances
-be used for racist, sexual or any illegal purposes. In all non-commercial productions, 
-scientific publications, prototypical non-commercial software tools, etc. 
-using VPET Unreal Plugin, Filmakademie has to be named as follows: 
-“VPET-Virtual Production Editing Tool by Filmakademie Baden-Württemberg, 
-Animationsinstitut (http://research.animationsinstitut.de)“.
-
-In case a company or individual would like to use the VPET Unreal Plugin
-in a commercial surrounding or for commercial purposes, software based on 
-these components or any part thereof, the company/individual will have to 
-contact Filmakademie (research<at>filmakademie.de).
-
-VPET Unreal Scene Distribution Plugin binaries incorporate the following resources:
+TRACER Scene Distribution Plugin Unreal binaries incorporate the following resources:
 
 ZeroMQ
 LGPLv3
