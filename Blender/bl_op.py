@@ -39,8 +39,8 @@ from mathutils import Vector
 from bpy.types import Context
 from bpy.app.handlers import persistent
 from .serverAdapter import set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
-from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, add_point, move_point, update_curve, path_points_check
-from .sceneDistribution import gatherSceneData, resendCurve
+from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
+from .sceneDistribution import gatherSceneData, resendCurve, processControlPath_temp
 from .GenerateSkeletonObj import process_armature
 
 
@@ -385,6 +385,7 @@ class ToggleAutoUpdate(bpy.types.Operator):
                 ToggleAutoUpdate.bl_label = "Enable Path Auto Update"
             else:
                 ToggleAutoUpdate.bl_label = "Disable Path Auto Update"
+                ControlPointProps.update_property_ui(context.scene)
 
         return {'FINISHED'}
 
@@ -447,14 +448,34 @@ class EditControlPointHandle(bpy.types.Operator):
 #   It uses the information given by the User (as the Control Point location, orientation, frame, Ease In and Ease Out, and the tangents/handles of the Bezier Points)  
 class EvaluateSpline(bpy.types.Operator):
     bl_idname = "curve.evaluate_spline"
-    bl_label = "Compute Animation"
-    bl_description = "Compute the animation over the selected path"
+    bl_label = "Create Animation Preview"
+    bl_description = "Compute an animation preview over the selected path"
+
+    anim_preview_obj_name = "Animation Preview Object"
 
     def execute(self, context):
         if  (context.active_object and context.active_object.name == "AnimPath") or\
             (context.active_object.parent and context.active_object.parent.name == "AnimPath"):
+            
+            anim_path = context.active_object
+            if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
+                anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
+                bpy.data.collections["Collection"].objects.link(anim_prev)
+            else:
+                anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
+            
+            curve_path = processControlPath_temp(anim_path["Control Points"])
+            context.scene.frame_start = 0
+            context.scene.frame_end = curve_path.pointsLen - 1
+            anim_prev.animation_data_clear
+            for i in range(curve_path.pointsLen):
+                anim_prev.location          = Vector(( curve_path.points[i*3],  curve_path.points[i*3+1],  curve_path.points[i*3+2] + 0.5))
+                anim_prev.rotation_euler    = Vector((curve_path.look_at[i*3], curve_path.look_at[i*3+1], curve_path.look_at[i*3+2]))
 
-            return {'FINISHED'}
+                anim_prev.keyframe_insert(data_path="location",         frame=i)
+                anim_prev.keyframe_insert(data_path="rotation_euler",   frame=i)
+
+        return {'FINISHED'}
 
 ### MODAL Operator. It is called every frame by default.
 #   It executes specific functions when certain conditions are met:

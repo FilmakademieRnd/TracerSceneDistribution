@@ -33,7 +33,7 @@ Filmakademie (research<at>filmakademie.de).
 
 import bpy
 
-from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle
+from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline
 
 ## Interface
 # 
@@ -178,6 +178,8 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
             
             row = layout.row()
             row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
+            row = layout.row()
+            row.operator(EvaluateSpline.bl_idname, text=EvaluateSpline.bl_label)
                 
 
 class VPET_PT_Anim_Path_Menu(bpy.types.Menu):

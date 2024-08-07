@@ -267,7 +267,7 @@ def add_path(character, path_name):
 ### Function used to create a new Control Point. It creates the mesh geometry if it's not already present in the scene and adds and initialises the various properties
 #   @param  spawn_location  Position in World Space, where the new point will be displayed
 #   @returns   Reference of the created Control Point Object  
-def make_point(spawn_location = (0, 0, 0)):
+def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
     # Generate new planar isosceles triangle mesh called ptr_mesh
     vertices = [(-0.0625, 0, -0.0625), (0.0625, 0, 0.0625), (0, -0.25, 0), (0.0625, 0, -0.0625), (-0.0625, 0, 0.0625)]
     edges = []
@@ -286,7 +286,7 @@ def make_point(spawn_location = (0, 0, 0)):
         ptr_mesh.uv_layers.new()
 
     # Create new object ptr_obj (with UI name "Pointer") that has ptr_mesh as a mesh
-    ptr_obj = bpy.data.objects.new("Pointer", ptr_mesh)
+    ptr_obj = bpy.data.objects.new(name, ptr_mesh)
     ptr_obj.location = spawn_location                           # Placing ptr_obj at a specified location (when not specified, the default is origin)
 
     # Lock Z-axis location and XY-axes rotation
