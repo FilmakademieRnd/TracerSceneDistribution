@@ -104,9 +104,11 @@ def register():
     bpy.types.VIEW3D_MT_mesh_add.append(add_menu_path)      # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Mesh Menu
     bpy.types.VIEW3D_MT_curve_add.append(add_menu_path)     # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Curve Menu
 
-    bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)   # Adding auto update handler for the animation path. Called any time the scene graph is updated
-    bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)   # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
-    #bpy.ops.path.interaction_listener("INVOKE DEFAULT")
+    bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)  # Adding auto update handler for the animation path. Called any time the scene graph is updated
+    bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)     # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
+    
+    bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
+    bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)
 
     print("Registered VPET Addon")
 

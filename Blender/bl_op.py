@@ -171,6 +171,7 @@ class AddPath(bpy.types.Operator):
         #     print("Select a Character Object to execute this functionality")
         print('Add Path START')
         add_path(context.active_object, self.default_name)      # Call the function resposible of creating the animation path
+        bpy.ops.path.interaction_listener("INVOKE_DEFAULT")     # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
 
 class FKIKToggle(bpy.types.Operator):
@@ -432,6 +433,13 @@ class EditControlPointHandle(bpy.types.Operator):
 
     def execute(self, context):
         anim_path = bpy.data.objects["AnimPath"]
+
+        if not ("Control Path" in bpy.data.objects and anim_path["Auto Update"]):
+            # If the condition to enter handles edit mode are not met, switch back to object mode and emit warning
+            self.report({"WARNING"}, "To edit the tangents of the path, first create one and enable Auto Update")
+            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+            return {'FINISHED'}
+
         update_curve(anim_path)
         if context.active_object in anim_path["Control Points"]:
             ptr_idx = anim_path["Control Points"].index(context.active_object)
@@ -465,10 +473,8 @@ class EvaluateSpline(bpy.types.Operator):
     fwd_vector = Vector((0, 1))
 
     def execute(self, context):
-        if  (context.active_object and context.active_object.name == "AnimPath") or\
-            (context.active_object.parent and context.active_object.parent.name == "AnimPath"):
-            
-            anim_path = context.active_object
+        if  "AnimPath" in bpy.data.objects:            
+            anim_path = bpy.data.objects["AnimPath"]
             if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
                 anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
                 bpy.data.collections["Collection"].objects.link(anim_prev)
@@ -515,14 +521,20 @@ class InteractionListener(bpy.types.Operator):
         self.layout.operator(EditControlPointHandle.bl_idname, text="Edit Handles", icon='HANDLE_ALIGNED')
 
     def modal(self, context, event):
+
+        if not AddPath.default_name in bpy.data.objects:
+            return {'PASS_THROUGH'}
+        elif self.anim_path == None:
+            self.anim_path = bpy.data.objects[AddPath.default_name]
         
         # If the active mode is *changing to* Object
         if self.mode != 'OBJECT' and context.mode == 'OBJECT':
-
             # If the active object is the control path, check which Bezier Point was being edited (if one)
             if context.active_object and context.active_object.name == "Control Path":
                 active_cp_idx = EditControlPointHandle.last_selected_point_index
                 EditControlPointHandle.last_selected_point_index = -1
+            else:
+                active_cp_idx = -1
 
             for cp in self.anim_path["Control Points"]:                 # For every Pointer Object
                 bpy.context.view_layer.objects.active = cp              # Set it as the Active Object
@@ -575,10 +587,11 @@ class InteractionListener(bpy.types.Operator):
         else:
             bpy.types.VIEW3D_MT_object.remove(InteractionListener.edit_handles)
             
-        if context.active_object and context.active_object.mode == 'EDIT' and context.active_object in self.anim_path["Control Points"]:
+        if context.active_object and (context.active_object.mode == 'EDIT') and (context.active_object in self.anim_path["Control Points"]):
             # If the User is trying to get into edit mode while selecting a pointer object redirect them to EDIT_CURVE mode while selecting the corresponding Curve Point
             #  - while in EDIT mode, blender will update the Left Handle and Right Handle properties od the Control Point object according to the User interactions with the Control Point
             bpy.ops.curve.edit_control_point_handle()
+                
             
         if context.active_object and context.active_object.mode == 'EDIT' and context.active_object.name == "Control Path":
             # If the User is editing the Control Path Bezier Spline, save their moifications in the Properties of the various Control Points
@@ -613,14 +626,16 @@ class InteractionListener(bpy.types.Operator):
     def invoke(self, context, event):
         # Add the modal listener to the list of called handlers and save the Animation Path object
         context.window_manager.modal_handler_add(self)
-        self.anim_path = bpy.data.objects[AddPath.default_name]
+        self.anim_path = None
         self.new_cp_locations = []
         self.mode = 'OBJECT'
 
         # Check for inconsistency in Panel UI w.r.t. Auto Update property
         if (AddPath.default_name in bpy.data.objects) and\
             bool(bpy.data.objects[AddPath.default_name]["Auto Update"]) != bool(ToggleAutoUpdate.bl_label == "Disable Path Auto Update"):
+            
             ToggleAutoUpdate.bl_label = "Disable Path Auto Update" if bpy.data.objects[AddPath.default_name]["Auto Update"] else "Enable Path Auto Update"
+            self.anim_path = bpy.data.objects[AddPath.default_name]
 
         return {'RUNNING_MODAL'}
     
