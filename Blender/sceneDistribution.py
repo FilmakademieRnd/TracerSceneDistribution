@@ -493,10 +493,10 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
             segment_frames = frame_point_two - frame_point_one + 1      # Compute number of samples in the segment 
 
             if segment_frames > 0:
-                evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two,\
-                                                             segment_frames, ease_out_point_one, ease_in_point_two)
+                timings = adaptive_timings_resampling(ease_out_point_one/100, ease_in_point_two/100, segment_frames)       #! This seems to work fine (resampling method)
+                evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two, timings)
                 #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
-                evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), segment_frames)
+                evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), timings)
                 
                 # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
                 if i < len(control_points)-2:
@@ -506,7 +506,7 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
                 curve_package.points.extend(evaluated_positions)
                 curve_package.look_at.extend(evaluated_rotations) 
             else:
-                raise ValueError(value_error_msg)
+                bpy.context.window_manager.report({"ERROR"}, value_error_msg)
     
     curve_package.pointsLen = int(len(curve_package.points) / 3)
     vpet.curveList.append(curve_package)
@@ -655,17 +655,16 @@ def evaluate_bezier_multi_seg(curve_object):
 #   @param  influence1  Speed rate for easing out of the first point, aka the ease-out value of the first point of the beziér segment
 #   @param  influence2  Speed rate for easing into the second point, aka the ease-in value of the second point of the beziér segment
 #   @returns            A list of points (of size equal to resolution) sampled along the beziér segment between b0 and b3 (with handles defined by b1 and b2)
-def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, resolution: int, ease_out: int , ease_in: int) -> list[float]:
+def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, timings: list[float]) -> list[float]:
     sample: Vector
     sampled_segment = []
 
     # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
     # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
-    timings = adaptive_timings_resampling(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
+    # timings = adaptive_timings_resampling(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
 
     # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
-    for i in range(resolution):
-        t = timings[i]
+    for t in timings:
         sample = sample_bezier(knot1, handle1, handle2, knot2, t)
         sampled_segment.extend([sample.x, sample.y, sample.z])
     
@@ -725,16 +724,14 @@ def sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector
 # @param quat_2     value of the second Quaternion
 # @param n_samples  number of samples to take on the range of the interpolation
 # @returns          list of directional vectors derived from the spherical-linearly interpolated Quaternions 
-def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, n_samples: int) -> list[Vector]:
-    #angle = quat_1.dot(quat_2)
+def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list[float]) -> list[Vector]:
     samples = []
 
-    for i in range(n_samples):
-        t = i / n_samples
+    for t in timings:
         # quat_slerp = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
         #              (math.sin(angle *    t ) / math.sin(angle)) * quat_2
         quat_slerp = quat_1.slerp(quat_2, t)
-        fwd_vector = Vector((0, 1, 0))
+        fwd_vector = Vector((0, -1, 0))
         fwd_vector.rotate(quat_slerp)
         samples.extend([fwd_vector.x, fwd_vector.y, fwd_vector.z])
     

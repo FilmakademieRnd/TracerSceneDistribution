@@ -434,12 +434,6 @@ class EditControlPointHandle(bpy.types.Operator):
     def execute(self, context):
         anim_path = bpy.data.objects["AnimPath"]
 
-        if not ("Control Path" in bpy.data.objects and anim_path["Auto Update"]):
-            # If the condition to enter handles edit mode are not met, switch back to object mode and emit warning
-            self.report({"WARNING"}, "To edit the tangents of the path, first create one and enable Auto Update")
-            bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
-            return {'FINISHED'}
-
         update_curve(anim_path)
         if context.active_object in anim_path["Control Points"]:
             ptr_idx = anim_path["Control Points"].index(context.active_object)
@@ -470,7 +464,7 @@ class EvaluateSpline(bpy.types.Operator):
     bl_description = "Compute an animation preview over the selected path"
 
     anim_preview_obj_name = "Animation Preview Object"
-    fwd_vector = Vector((0, 1))
+    fwd_vector = Vector((0, -1))
 
     def execute(self, context):
         if  "AnimPath" in bpy.data.objects:            
@@ -590,8 +584,12 @@ class InteractionListener(bpy.types.Operator):
         if context.active_object and (context.active_object.mode == 'EDIT') and (context.active_object in self.anim_path["Control Points"]):
             # If the User is trying to get into edit mode while selecting a pointer object redirect them to EDIT_CURVE mode while selecting the corresponding Curve Point
             #  - while in EDIT mode, blender will update the Left Handle and Right Handle properties od the Control Point object according to the User interactions with the Control Point
-            bpy.ops.curve.edit_control_point_handle()
-                
+            if not ("Control Path" in bpy.data.objects and self.anim_path["Auto Update"]):
+                # If the condition to enter handles edit mode are not met, switch back to object mode and emit warning
+                self.report({"ERROR"}, "To edit the tangents of the path, first create one and enable Auto Update")
+                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)
+            else:
+                bpy.ops.curve.edit_control_point_handle()    
             
         if context.active_object and context.active_object.mode == 'EDIT' and context.active_object.name == "Control Path":
             # If the User is editing the Control Path Bezier Spline, save their moifications in the Properties of the various Control Points
