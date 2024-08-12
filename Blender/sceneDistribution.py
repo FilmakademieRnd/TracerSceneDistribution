@@ -220,7 +220,7 @@ def processSceneObject(obj, index):
 
     # When finding an Animation Path to be distributed
     if obj.name == "AnimPath":
-        processControlPath_temp(obj.get("Control Points", None), obj.get("Is Cyclic", False))
+        processControlPath_temp(obj)
             
         
     # gather general node data    
@@ -357,7 +357,7 @@ def processCharacter(armature_obj, object_list):
         bones = armature_obj.data.bones
         chr_pack.characterRootID = vpet.objectsToTransfer.index(armature_obj)
 
-        if(v_prop.mixamo_humanoid):
+        if(v_prop.humanoid_rig):
             for key, value in blender_to_unity_bone_mapping.items():
                 bone_index = -1
                 for idx, obj in enumerate(object_list):
@@ -450,14 +450,14 @@ def processCharacter(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
-def processControlPath_temp(anim_path: bpy.types.Object, is_cyclic=False) -> curvePackage:
+def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
     vpet = bpy.context.window_manager.vpet_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
     curve_package.look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
     value_error_msg = "The frame value of any point MUST be greater than the previous one!"
 
-    control_points = anim_path.get("Control Points")
+    control_points = anim_path["Control Points"]
     bezier_points  = anim_path.children[0].data.splines[0].bezier_points
 
     for i, point in enumerate(control_points):
@@ -467,7 +467,7 @@ def processControlPath_temp(anim_path: bpy.types.Object, is_cyclic=False) -> cur
         frame_point_one     = point.get("Frame")
         ease_out_point_one  = point.get("Ease Out")
 
-        if is_cyclic:
+        if anim_path.get("Is Cyclic", False):
             if i == 0:
                 # If cyclic, we assume that the frame of the first point is 0 at the beginning of the path and point.get("Frame") at the end 
                 frame_point_one = 0
