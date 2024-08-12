@@ -36,7 +36,7 @@ individual license agreement.
 from typing import Annotated, Set
 import bpy
 import re
-from mathutils import Vector
+from mathutils import Vector, Euler
 
 from bpy.types import Context
 from bpy.app.handlers import persistent
@@ -171,7 +171,6 @@ class AddPath(bpy.types.Operator):
         #     print("Select a Character Object to execute this functionality")
         print('Add Path START')
         add_path(context.active_object, self.default_name)      # Call the function resposible of creating the animation path
-        bpy.ops.path.interaction_listener('INVOKE_DEFAULT')     # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
         return {'FINISHED'}
 
 class FKIKToggle(bpy.types.Operator):
@@ -342,6 +341,11 @@ class UpdateCurveViz(bpy.types.Operator):
     
     @persistent
     def on_delete_update_handler(scene):
+        if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
+            EvaluateSpline.bl_label = "Create Animation Preview"
+        else:
+            EvaluateSpline.bl_label = "Update Animation Preview"
+
         if AddPath.default_name in bpy.data.objects:
             anim_path = bpy.data.objects[AddPath.default_name]
         else:
@@ -375,6 +379,7 @@ class ToggleAutoUpdate(bpy.types.Operator):
     def execute(self, context):
         # If the toggling should happen only when the path is selected, add also the following condition -> and bpy.data.objects[AddPath.default_name].select_get()
         if (AddPath.default_name in bpy.data.objects):
+
             anim_path = bpy.data.objects[AddPath.default_name]
             anim_path["Auto Update"] = not anim_path["Auto Update"]
 
@@ -423,11 +428,14 @@ class EditControlPointHandle(bpy.types.Operator):
     bl_label = "Edit Selected Control Point Handles"
     bl_description = 'Edit the handles of the currently selected Control Point'
 
+    last_selected_point_index = -1
+
     def execute(self, context):
         anim_path = bpy.data.objects["AnimPath"]
         update_curve(anim_path)
         if context.active_object in anim_path["Control Points"]:
             ptr_idx = anim_path["Control Points"].index(context.active_object)
+            EditControlPointHandle.last_selected_point_index = ptr_idx
             for obj in bpy.data.objects:
                 obj.select_set(False)
 
@@ -454,6 +462,7 @@ class EvaluateSpline(bpy.types.Operator):
     bl_description = "Compute an animation preview over the selected path"
 
     anim_preview_obj_name = "Animation Preview Object"
+    fwd_vector = Vector((0, 1))
 
     def execute(self, context):
         if  (context.active_object and context.active_object.name == "AnimPath") or\
@@ -464,15 +473,19 @@ class EvaluateSpline(bpy.types.Operator):
                 anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
                 bpy.data.collections["Collection"].objects.link(anim_prev)
             else:
+                EvaluateSpline.bl_label = "Update Animation Preview"
                 anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
             
-            curve_path = processControlPath_temp(anim_path["Control Points"])
+            curve_path = processControlPath_temp(anim_path)
             context.scene.frame_start = 0
             context.scene.frame_end = curve_path.pointsLen - 1
-            anim_prev.animation_data_clear
+            anim_prev.animation_data_clear()
             for i in range(curve_path.pointsLen):
                 anim_prev.location          = Vector(( curve_path.points[i*3],  curve_path.points[i*3+1],  curve_path.points[i*3+2] + 0.5))
-                anim_prev.rotation_euler    = Vector((curve_path.look_at[i*3], curve_path.look_at[i*3+1], curve_path.look_at[i*3+2]))
+                look_at_vector              = Vector((curve_path.look_at[i*3], curve_path.look_at[i*3+1], curve_path.look_at[i*3+2]))
+                look_at_vector_2d           = look_at_vector.xy # Rotations are only allowed around the Z-axis (up-axis), so the third component should always be 0. I read it for facilitate debugging
+                look_at_angle               = look_at_vector_2d.angle_signed(EvaluateSpline.fwd_vector)
+                anim_prev.rotation_euler    = Euler((0, 0, look_at_angle))
 
                 anim_prev.keyframe_insert(data_path="location",         frame=i)
                 anim_prev.keyframe_insert(data_path="rotation_euler",   frame=i)
@@ -505,16 +518,11 @@ class InteractionListener(bpy.types.Operator):
         
         # If the active mode is *changing to* Object
         if self.mode != 'OBJECT' and context.mode == 'OBJECT':
-        
-            active_cp_idx = -1
 
             # If the active object is the control path, check which Bezier Point was being edited (if one)
             if context.active_object and context.active_object.name == "Control Path":
-                active_object = context.active_object                   # Save the current Active Object
-                if active_object.data.splines:
-                    for i, p in enumerate(active_object.data.splines[0].bezier_points):
-                        if p.select_control_point:
-                            active_cp_idx = i
+                active_cp_idx = EditControlPointHandle.last_selected_point_index
+                EditControlPointHandle.last_selected_point_index = -1
 
             for cp in self.anim_path["Control Points"]:                 # For every Pointer Object
                 bpy.context.view_layer.objects.active = cp              # Set it as the Active Object
@@ -608,6 +616,12 @@ class InteractionListener(bpy.types.Operator):
         self.anim_path = bpy.data.objects[AddPath.default_name]
         self.new_cp_locations = []
         self.mode = 'OBJECT'
+
+        # Check for inconsistency in Panel UI w.r.t. Auto Update property
+        if (AddPath.default_name in bpy.data.objects) and\
+            bool(bpy.data.objects[AddPath.default_name]["Auto Update"]) != bool(ToggleAutoUpdate.bl_label == "Disable Path Auto Update"):
+            ToggleAutoUpdate.bl_label = "Disable Path Auto Update" if bpy.data.objects[AddPath.default_name]["Auto Update"] else "Enable Path Auto Update"
+
         return {'RUNNING_MODAL'}
     
 class SendRpcCall(bpy.types.Operator):

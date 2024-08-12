@@ -106,6 +106,7 @@ def register():
 
     bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)   # Adding auto update handler for the animation path. Called any time the scene graph is updated
     bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)   # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
+    #bpy.ops.path.interaction_listener("INVOKE DEFAULT")
 
     print("Registered VPET Addon")
 

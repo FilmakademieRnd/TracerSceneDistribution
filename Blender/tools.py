@@ -451,23 +451,26 @@ def update_curve(anim_path):
     path_points_check(anim_path)
 
     # Create Control Path from control_points elements
-    bezier_curve_obj = bpy.data.curves.new('Control Path', type='CURVE')            # Create new Curve Object with name Control Path
-    bezier_curve_obj.dimensions = '2D'                                              # The Curve Object is a 2D curve
+    bezier_curve_obj = bpy.data.curves.new('Control Path', type='CURVE')                                    # Create new Curve Object with name Control Path
+    bezier_curve_obj.dimensions = '2D'                                                                      # The Curve Object is a 2D curve
 
-    bezier_spline = bezier_curve_obj.splines.new('BEZIER')                          # Create new Bezier Spline "Mesh"
-    bezier_spline.bezier_points.add(len(anim_path["Control Points"])-1)             # Add points to the Spline to match the length of the control_points list
-    for i, cp in enumerate(anim_path["Control Points"]):
-        bezier_spline.bezier_points[i].co = cp.location                             # Assign the poistion of the elements in the list of Control Points to the Bézier Points
-        bezier_spline.bezier_points[i].handle_left_type  = cp["Left Handle Type"]   # Use the handle data from the list of Control Points for the Bézier Points,
-        bezier_spline.bezier_points[i].handle_left = mathutils.Vector(cp["Left Handle"].to_list()) + cp.location             #   originally the handle type is 'AUTO', but then any user-made change is saved and applied
-        bezier_spline.bezier_points[i].handle_right_type = cp["Right Handle Type"]
-        bezier_spline.bezier_points[i].handle_right = mathutils.Vector(cp["Right Handle"].to_list()) + cp.location
+    bezier_spline = bezier_curve_obj.splines.new('BEZIER')                                                  # Create new Bezier Spline "Mesh"
+    bezier_spline.bezier_points.add(len(anim_path.get("Control Points"))-1)                                 # Add points to the Spline to match the length of the control_points list
+    for i, cp in enumerate(anim_path.get("Control Points")):
+        bezier_point = bezier_spline.bezier_points[i] 
+        bezier_point.co = cp.location                                                                       # Assign the poistion of the elements in the list of Control Points to the Bézier Points
+        bezier_point.handle_left_type  = cp.get("Left Handle Type")                                         # Use the handle data from the list of Control Points for the Bézier Points,
+        if cp.get("Left Handle Type") != "AUTO":
+            bezier_point.handle_left = mathutils.Vector(cp.get("Left Handle").to_list()) + cp.location      # if the handle type is not 'AUTO', any user-made change is saved and applied
+        bezier_point.handle_right_type = cp.get("Right Handle Type")
+        if cp.get("Right Handle Type") != "AUTO":                                                           # do the same for both handles:)
+            bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location
 
-    control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)           # Create a new Control Path Object with the geometry data of the Bézier Curve
+    control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)                                   # Create a new Control Path Object with the geometry data of the Bézier Curve
     if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "VPET_Collection":
-        anim_path.users_collection[0].objects.link(control_path)                    # Add the Control Path Object in the scene
-    control_path.parent = anim_path                                                 # Make the Control Path a child of the Animation preview Object
-    control_path.lock_location[2] = True                                            # Locking Z-component of the Control Path, as it's going to be done with its Control Points
+        anim_path.users_collection[0].objects.link(control_path)                                            # Add the Control Path Object in the scene
+    control_path.parent = anim_path                                                                         # Make the Control Path a child of the Animation preview Object
+    control_path.lock_location[2] = True                                                                    # Locking Z-component of the Control Path, as it's going to be done with its Control Points
 
     for area in bpy.context.screen.areas:
         if area.type == 'PROPERTIES':

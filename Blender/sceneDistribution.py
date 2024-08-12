@@ -47,7 +47,7 @@ from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
-from .Avatar_HumanDescriptioon_Mixamo import blender_to_unity_bone_mapping
+#from .Avatar_HumanDescription import blender_to_unity_bone_mapping
 
 
 ## Creating empty classes to store node data
@@ -450,17 +450,20 @@ def processCharacter(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
-def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=False) -> curvePackage:
+def processControlPath_temp(anim_path: bpy.types.Object, is_cyclic=False) -> curvePackage:
     vpet = bpy.context.window_manager.vpet_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
     curve_package.look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
     value_error_msg = "The frame value of any point MUST be greater than the previous one!"
 
+    control_points = anim_path.get("Control Points")
+    bezier_points  = anim_path.children[0].data.splines[0].bezier_points
+
     for i, point in enumerate(control_points):
         # Read the attribute of the first point of the segment
-        coords_point_one    = point.location
-        r_handle_point_one  = Vector(point.get("Right Handle")) + point.location
+        coords_point_one    = bezier_points[i].co
+        r_handle_point_one  = bezier_points[i].handle_right
         frame_point_one     = point.get("Frame")
         ease_out_point_one  = point.get("Ease Out")
 
@@ -482,17 +485,18 @@ def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=Fa
         
         if next_point != None:
             # Read the attribute of the second point of the segment
-            coords_point_two    = next_point.location
-            l_handle_point_two  = Vector(next_point.get("Left Handle")) + next_point.location
+            coords_point_two    = bezier_points[i+1].co
+            l_handle_point_two  = bezier_points[i+1].handle_left
             frame_point_two     = next_point.get("Frame")        
             ease_in_point_two   = next_point.get("Ease In")
 
             segment_frames = frame_point_two - frame_point_one + 1      # Compute number of samples in the segment 
 
             if segment_frames > 0:
-                evaluated_positions = adaptive_sample_bezier( coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two,\
-                                                            segment_frames, ease_out_point_one, ease_in_point_two)
-                evaluated_rotations  = quaternion_slerp(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), segment_frames)
+                evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two,\
+                                                             segment_frames, ease_out_point_one, ease_in_point_two)
+                #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
+                evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), segment_frames)
                 
                 # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
                 if i < len(control_points)-2:
@@ -507,41 +511,6 @@ def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=Fa
     curve_package.pointsLen = int(len(curve_package.points) / 3)
     vpet.curveList.append(curve_package)
     return curve_package
-
-# def processCurve(obj, objList):
-#     vpet = bpy.context.window_manager.vpet_data
-#     curve_Pack = curvePackage()
-#     curve_Pack.points = []
-
-#     for frame in range(0, bpy.context.scene.frame_end + 1):
-#         points = evaluate_curve(obj, frame)
-#         vpet.points_for_frames[frame] = points
-
-#     for frame, points_list in vpet.points_for_frames.items():
-#         for point in points_list:
-#             curve_Pack.points.extend([point.x, point.z, point.y])
-#             print(point.x)
-
-#     curve_Pack.pointsLen = len(curve_Pack.points) # len is also equal to the nr of frames 
-
-#     vpet.curveList.append(curve_Pack)
-
-# #! This function appears to work only for two-points curves, interpolating linearly between them
-# def evaluate_curve(curve_object, frame):
-#     # Set the current frame
-#     bpy.context.scene.frame_set(frame)
-    
-#     evaluated_points = []
-    
-#     # Ensure the object is a curve and is using Bezier type
-#     if curve_object.data.splines.active.type == 'BEZIER':
-#         spline = curve_object.data.splines.active
-        
-#         # Evaluate the curve at current frame
-#         evaluated_point = spline.bezier_points[0].co.lerp(spline.bezier_points[1].co, frame / bpy.context.scene.frame_end)
-#         evaluated_points.append(evaluated_point)
-    
-#     return evaluated_points
 
 ##  Function that takes a curve object in the scene and samples it, filling the TRACER Curve Package with the obtained data 
 #   IMPORTANT: The points sampled on the curve are added to the Curve Package in the format XZY (instead of XYZ) in order to
@@ -692,8 +661,7 @@ def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot
 
     # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
     # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
-    #timings = adaptive_timings(ease_in/100, ease_out/100, resolution)          #! To be debugged...
-    timings = adaptive_timings_alt(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
+    timings = adaptive_timings_resampling(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
 
     # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
     for i in range(resolution):
@@ -703,31 +671,31 @@ def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot
     
     return sampled_segment
 
-def adaptive_timings(inf1: float, inf2: float, resolution: int) -> list [float]:
-    timings = []
-    for i in range(resolution):
-        t = i / resolution
-        ease_in_weight = weight_influence(t, 1, 1-inf2)
-        ease_out_weight = weight_influence(t, 1-inf1, 1)
-        eased_t = t
-        eased_t = ease_in( eased_t, inf1 * ease_in_weight)
-        eased_t = ease_out(eased_t, inf2 * ease_out_weight)
+# def adaptive_timings(ease_to: float, ease_from: float, resolution: int) -> list [float]:
+#     timings = []
+#     for i in range(resolution):
+#         t = i / resolution
+#         ease_to_weight = weight_influence(t, 1, 1-ease_from)
+#         ease_from_weight = weight_influence(t, 1-ease_to, 1)
+#         eased_t = t
+#         eased_t = ease_to_f( eased_t, ease_to * ease_to_weight)
+#         eased_t = ease_from_f(eased_t, ease_from * ease_from_weight)
         
-        timings.append(eased_t)
+#         timings.append(eased_t)
 		
-    return timings
+#     return timings
 
-def ease_in(t, factor):
-    return (1-factor) * t + factor * t**3
-def ease_out(t, factor):
-    return (1 - factor) * t + factor * ((t - 1)**3 + 1)
-def weight_influence(t, start_weight, end_weight):
-	return start_weight * (1 - t) + end_weight * t
+# def ease_to_f(t, factor):
+#     return (1-factor) * t + factor * t**3
+# def ease_from_f(t, factor):
+#     return (1 - factor) * t + factor * ((t - 1)**3 + 1)
+# def weight_influence(t, start_weight, end_weight):
+# 	return start_weight * (1 - t) + end_weight * t
 
-def adaptive_timings_alt(inf1: float, inf2: float, resolution: int) -> list [float]:
+def adaptive_timings_resampling(ease_to: float, ease_from: float, resolution: int) -> list [float]:
     timings = []
     # Good results with oversampling by a factor of 10 but no interpolation or with interpolation but no oversampling 
-    pre_sampling = mathutils.geometry.interpolate_bezier(Vector((0,0)), Vector((inf2,0)), Vector((1-inf1,1)), Vector((1,1)), 10*resolution)
+    pre_sampling = mathutils.geometry.interpolate_bezier(Vector((0,0)), Vector((ease_from,0)), Vector((1-ease_to,1)), Vector((1,1)), 10*resolution)
 
     for i in range(resolution):
         t = i / resolution
@@ -736,9 +704,9 @@ def adaptive_timings_alt(inf1: float, inf2: float, resolution: int) -> list [flo
         while pre_sampling[j].x < t:
             j += 1
 
-        #t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
-        #eased_t = t1 * pre_sampling[j].y + (1-t1) * pre_sampling[j-1].y
-        eased_t = pre_sampling[j].y
+        t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
+        eased_t = t1 * pre_sampling[j].y + (1-t1) * pre_sampling[j-1].y
+        #eased_t = pre_sampling[j].y
         
         timings.append(eased_t)
 		
@@ -756,19 +724,19 @@ def sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector
 # @param quat_1     value of the first Quaternion
 # @param quat_2     value of the second Quaternion
 # @param n_samples  number of samples to take on the range of the interpolation
-# @returns          list spherical-linearly interpolated Quaternions 
-def quaternion_slerp(quat_1: Quaternion, quat_2: Quaternion, n_samples: int) -> list[mathutils.Euler]:
-    t = 0
-    step = 1 / n_samples
-    angle = quat_1.dot(quat_2)
+# @returns          list of directional vectors derived from the spherical-linearly interpolated Quaternions 
+def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, n_samples: int) -> list[Vector]:
+    #angle = quat_1.dot(quat_2)
     samples = []
 
     for i in range(n_samples):
-        sample = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
-                 (math.sin(angle *    t ) / math.sin(angle)) * quat_2
-        euler_sample = sample.to_euler()
-        samples.extend([euler_sample.x, euler_sample.y, euler_sample.z])
-        t += step
+        t = i / n_samples
+        # quat_slerp = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
+        #              (math.sin(angle *    t ) / math.sin(angle)) * quat_2
+        quat_slerp = quat_1.slerp(quat_2, t)
+        fwd_vector = Vector((0, 1, 0))
+        fwd_vector.rotate(quat_slerp)
+        samples.extend([fwd_vector.x, fwd_vector.y, fwd_vector.z])
     
     return samples
 
