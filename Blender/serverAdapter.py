@@ -199,10 +199,11 @@ def listener():
                 
                 elif(type == "PARAMETERUPDATE"):
                     sceneID = msg[start]
-                    objID = msg[start+1]
-                    paramID = msg[start+3]
-                    length = msg[start+6]
-                    parameterData = msg[start+7:start+length] # splicing the byte array so that parameterData contains exactly the data of the parameter to be parsed
+                    
+                    objID = struct.unpack('<H', msg[start+1:start+3])[0] # unpack object ID; 2 bytes (unsigned short); little endian
+                    paramID =struct.unpack('<H', msg[start+3:start+5])[0]
+                    length = struct.unpack('<I', msg[start+6:start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian
+                    parameterData = msg[start+10:start+length] # splicing the byte array so that parameterData contains exactly the data of the parameter to be parsed
 
                     if 0 < objID <= len(vpet.SceneObjects) and 0 <= paramID < len(vpet.SceneObjects[objID - 1]._parameterList):
                         param = vpet.SceneObjects[objID - 1]._parameterList[paramID]

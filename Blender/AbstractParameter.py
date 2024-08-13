@@ -107,29 +107,35 @@ class Parameter(AbstractParameter):
 
     def decodeMsg(self, param_data):
         type = self._type
+        
+        # BOOL
         if type == 2 :
             floatVal = unpack('?', param_data, 0)
             self.set_value(floatVal)
-
-        if type == 4 :
-            floatVal = unpack('f', param_data, 0)
+        
+        # FLOAT
+        elif type == 4 :
+            floatVal = unpack('<f', param_data, 0)
             self.set_value(floatVal)
 
-        if type == 6 :
-            newVector3 = Vector((   unpack('f', param_data, 0),\
-                                    unpack('f', param_data, 4),\
-                                    unpack('f', param_data, 8)
+        # VECTOR3
+        elif type == 6 :
+            newVector3 = Vector((   unpack('<f', param_data, 0),\
+                                    unpack('<f', param_data, 4),\
+                                    unpack('<f', param_data, 8)
                                     ))
-             
-            unityToBlenderVector3 = Vector((newVector3[0], newVector3[2], newVector3[1]))
+            
+            #Swap Y and Z axis
+            TracerToBlenderVector3 = Vector((newVector3[0], newVector3[2], newVector3[1]))
 
-            self.set_value(unityToBlenderVector3)
+            self.set_value(TracerToBlenderVector3)
 
+        #QUATERNION
         elif type == 8 :
-            XYZW_quat = Quaternion((    unpack('f', param_data, 0 ),\
-                                        unpack('f', param_data, 4 ),\
-                                        unpack('f', param_data, 8 ),\
-                                        unpack('f', param_data, 12)
+            XYZW_quat = Quaternion((    unpack('<f', param_data, 0 ),\
+                                        unpack('<f', param_data, 4 ),\
+                                        unpack('<f', param_data, 8 ),\
+                                        unpack('<f', param_data, 12)
                                         ))
 
             WXYZ_quat = Quaternion((    XYZW_quat[3],\
@@ -140,10 +146,13 @@ class Parameter(AbstractParameter):
 
             self.set_value(WXYZ_quat)
 
+        # COLOR
         elif type == 9:
              newColor = (unpack('f', param_data, 0), unpack('f', param_data, 4), unpack('f', param_data, 8))
 
              self.set_value(newColor)
+        else:
+            print("Unknown type")
 
 
     def SerializeParameter(self):

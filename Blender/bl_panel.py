@@ -68,12 +68,10 @@ class VPET_PT_Panel(VPET_Panel, bpy.types.Panel):
         row = layout.row()
         row.prop(bpy.context.scene.vpet_properties, 'vpet_collection')
         row = layout.row()
-        #row.prop(bpy.context.scene.vpet_properties, 'edit_collection')
-        #row = layout.row()
         row.prop(bpy.context.scene.vpet_properties, 'server_ip')
 
         row = layout.row()
-        row.prop(bpy.context.scene.vpet_properties, 'mixamo_humanoid', text="Mixamo Humanoid?")
+        row.prop(bpy.context.scene.vpet_properties, 'humanoid_rig', text="Humanoid Rig?")
 
         row = layout.row()
         row.operator('object.rpc', text = "RPC CHANGE LATER")
@@ -85,6 +83,8 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
 
+        row = layout.row()
+        row.operator("path.interaction_listener", text="Start Path Operator")   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
         if bpy.context.mode == 'EDIT_CURVE':
             #if the user is edidting the points of the bezier spline, disable Control Point features and display message
             row = layout.row()
@@ -103,8 +103,6 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
             if AddPath.default_name in bpy.data.objects:
                 row = layout.row()
                 row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
-                #row.operator(ToggleAutoEval.bl_idname, text=ToggleAutoEval.bl_label)
-
 class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
     bl_idname = "VPET_PT_control_points_panel"
     bl_label = "Control Points"
@@ -123,15 +121,15 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
         elif bpy.context.tool_settings.use_proportional_edit_objects:
             # If the proportional editing is ENABLED, show warning message and disable control points property editing
             row = layout.row()
-            row.label(text="To use the Control Point Property Panel and the Path Auto Update")
+            row.label(text="To use the Control Point Editing Panel and the Path Auto Update")
             row = layout.row()
             row.label(text="Disable Proportional Editing")
         elif not (AddPath.default_name in bpy.data.objects and bpy.data.objects[AddPath.default_name]["Auto Update"]):
             # If Auto Update editing is DISABLED, disable control points property editing
             row = layout.row()
-            row.label(text="To use the Control Point Property Panel")
+            row.label(text="To use the Control Point Editing Panel")
             row = layout.row()
-            row.label(text="Enable Auto Update")
+            row.label(text="Enable Control Point Editing Panel")
         elif AddPath.default_name in bpy.data.objects:
             # Getting Control Points Properties
             cp_props = bpy.context.scene.control_point_settings

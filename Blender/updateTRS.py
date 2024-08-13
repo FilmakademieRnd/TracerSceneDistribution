@@ -82,7 +82,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
         return sum((c1 - c2) ** 2 for c1, c2 in zip(color1, color2)) ** 0.5
 
     def check_for_updates(self, context):
-        print("Update!")
+        #print("Update!")
         for obj in bpy.data.collections.get("VPET_Collection").objects:
             if obj.name not in self.start_transforms:
                 continue

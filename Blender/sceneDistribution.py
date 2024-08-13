@@ -47,7 +47,7 @@ from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
-from .Avatar_HumanDescriptioon_Mixamo import blender_to_unity_bone_mapping
+#from .Avatar_HumanDescription import blender_to_unity_bone_mapping
 
 
 ## Creating empty classes to store node data
@@ -220,7 +220,7 @@ def processSceneObject(obj, index):
 
     # When finding an Animation Path to be distributed
     if obj.name == "AnimPath":
-        processControlPath_temp(obj.get("Control Points", None), obj.get("Is Cyclic", False))
+        processControlPath_temp(obj)
             
         
     # gather general node data    
@@ -343,7 +343,7 @@ def processSkinnedMesh(obj, nodeSkinMesh):
         return(nodeSkinMesh)
 
 
-
+#! The part that processes a "Humanoid Rig" character is probably no longer valid
 def processCharacter(armature_obj, object_list):
     chr_pack = characterPackage()
     chr_pack.bonePosition = []
@@ -357,7 +357,7 @@ def processCharacter(armature_obj, object_list):
         bones = armature_obj.data.bones
         chr_pack.characterRootID = vpet.objectsToTransfer.index(armature_obj)
 
-        if(v_prop.mixamo_humanoid):
+        if(v_prop.humanoid_rig):
             for key, value in blender_to_unity_bone_mapping.items():
                 bone_index = -1
                 for idx, obj in enumerate(object_list):
@@ -450,21 +450,24 @@ def processCharacter(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
-def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=False) -> curvePackage:
+def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
     vpet = bpy.context.window_manager.vpet_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
     curve_package.look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
     value_error_msg = "The frame value of any point MUST be greater than the previous one!"
 
+    control_points = anim_path["Control Points"]
+    bezier_points  = anim_path.children[0].data.splines[0].bezier_points
+
     for i, point in enumerate(control_points):
         # Read the attribute of the first point of the segment
-        coords_point_one    = point.location
-        r_handle_point_one  = Vector(point.get("Right Handle")) + point.location
+        coords_point_one    = bezier_points[i].co
+        r_handle_point_one  = bezier_points[i].handle_right
         frame_point_one     = point.get("Frame")
         ease_out_point_one  = point.get("Ease Out")
 
-        if is_cyclic:
+        if anim_path.get("Is Cyclic", False):
             if i == 0:
                 # If cyclic, we assume that the frame of the first point is 0 at the beginning of the path and point.get("Frame") at the end 
                 frame_point_one = 0
@@ -482,17 +485,18 @@ def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=Fa
         
         if next_point != None:
             # Read the attribute of the second point of the segment
-            coords_point_two    = next_point.location
-            l_handle_point_two  = Vector(next_point.get("Left Handle")) + next_point.location
+            coords_point_two    = bezier_points[i+1].co
+            l_handle_point_two  = bezier_points[i+1].handle_left
             frame_point_two     = next_point.get("Frame")        
             ease_in_point_two   = next_point.get("Ease In")
 
             segment_frames = frame_point_two - frame_point_one + 1      # Compute number of samples in the segment 
 
             if segment_frames > 0:
-                evaluated_positions = adaptive_sample_bezier( coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two,\
-                                                            segment_frames, ease_out_point_one, ease_in_point_two)
-                evaluated_rotations  = quaternion_slerp(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), segment_frames)
+                timings = adaptive_timings_resampling(ease_out_point_one/100, ease_in_point_two/100, segment_frames)
+                evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two, timings)
+                #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
+                evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), timings)
                 
                 # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
                 if i < len(control_points)-2:
@@ -502,179 +506,11 @@ def processControlPath_temp(control_points: list[bpy.types.Object], is_cyclic=Fa
                 curve_package.points.extend(evaluated_positions)
                 curve_package.look_at.extend(evaluated_rotations) 
             else:
-                raise ValueError(value_error_msg)
+                bpy.context.window_manager.report({"ERROR"}, value_error_msg)
     
     curve_package.pointsLen = int(len(curve_package.points) / 3)
     vpet.curveList.append(curve_package)
     return curve_package
-
-# def processCurve(obj, objList):
-#     vpet = bpy.context.window_manager.vpet_data
-#     curve_Pack = curvePackage()
-#     curve_Pack.points = []
-
-#     for frame in range(0, bpy.context.scene.frame_end + 1):
-#         points = evaluate_curve(obj, frame)
-#         vpet.points_for_frames[frame] = points
-
-#     for frame, points_list in vpet.points_for_frames.items():
-#         for point in points_list:
-#             curve_Pack.points.extend([point.x, point.z, point.y])
-#             print(point.x)
-
-#     curve_Pack.pointsLen = len(curve_Pack.points) # len is also equal to the nr of frames 
-
-#     vpet.curveList.append(curve_Pack)
-
-# #! This function appears to work only for two-points curves, interpolating linearly between them
-# def evaluate_curve(curve_object, frame):
-#     # Set the current frame
-#     bpy.context.scene.frame_set(frame)
-    
-#     evaluated_points = []
-    
-#     # Ensure the object is a curve and is using Bezier type
-#     if curve_object.data.splines.active.type == 'BEZIER':
-#         spline = curve_object.data.splines.active
-        
-#         # Evaluate the curve at current frame
-#         evaluated_point = spline.bezier_points[0].co.lerp(spline.bezier_points[1].co, frame / bpy.context.scene.frame_end)
-#         evaluated_points.append(evaluated_point)
-    
-#     return evaluated_points
-
-##  Function that takes a curve object in the scene and samples it, filling the TRACER Curve Package with the obtained data 
-#   IMPORTANT: The points sampled on the curve are added to the Curve Package in the format XZY (instead of XYZ) in order to
-#   convert between the blender Z-up coord. space and the more conventional Y-up space
-#   @param      curve       An object (of type \'CURVE\' in the scene)
-#   @returns    void        It appends a new Curve Package to the Curve List of the VPET environment (temporary solution)
-def processCurve_alt(curve, objList):
-    vpet = bpy.context.window_manager.vpet_data
-    curve_Pack = curvePackage()
-    curve_Pack.points = []
-    curve_Pack.tangents = []
-
-    evaluated_bezier, bezier_tangents = evaluate_bezier_multi_seg(curve)
-
-    print("Size of evaluated_bezier " + str(len(evaluated_bezier)))
-    for i in range(0,len(evaluated_bezier)):
-        
-        point = evaluated_bezier[i]
-        curve_Pack.points.extend([point.x, point.y, point.z])
-        print(point)
-
-        tangent = bezier_tangents[i]
-        curve_Pack.tangents.extend([tangent.x, tangent.y, tangent.z]) #! TO BE TESTED!!!
-        print(tangent)
-
-    curve_Pack.pointsLen = int(len(curve_Pack.points) / 3) # len is also equal to the nr of frames 
-
-    vpet.curveList.append(curve_Pack)
-
-##  Function that evaluates a bezier spline with multiple knots (control points) - only 2D curves supported
-#   It selects the first spline element in a curve object, evaluates the various subsegments and returns the complete list of evaluated positions
-#   The number of returned points is determined by the PATH DURATION value of the curve object
-#   @param  curve_object    A specific curve object in the scene
-#   @returns                A list of points (of size equal to the path_duration of the curve) sampled along the spline contained in the curve
-def evaluate_bezier_multi_seg(curve_object):
-    bezier_points = curve_object.data.splines[0].bezier_points  # List of control points in the (first) bezier spline in the curve object - only one spline per curve supported at the moment
-    is_cyclic = curve_object.data.splines[0].use_cyclic_u       # Whether the curve is a closed loop or not
-    num_frames = curve_object.data.path_duration                     # Number of total frames to generate in the curve
-
-    #? curve_object.data.splines[0].sample_uniform_index_factors() # developer.blender.org/docs/features/objects/curve/
-
-    if len(bezier_points) == 0:
-        return [], []
-
-    if len(bezier_points) == 1:
-        knot = bezier_points[0]
-        coord = knot.co.copy()
-        tang  = knot.handle_left.copy()
-        return [coord], tang
-
-    evaluated_bezier = []
-    tangent_bezier = []
-    if is_cyclic:
-        num_segments = len(bezier_points)   # Number of segments to be evaluated (if the spline is cyclic the number of segments is equal to the number of points)
-        # Subdivide the total number of frames that have to be generated between the various bezier subsegments
-        segment_frames = math.floor(num_frames / num_segments)
-        # Accumulating possible approximation error in the first segment's frames
-        first_segment_frames = num_frames - (segment_frames * (num_segments - 1))
-
-        # Evaluate spline segments (excl. the cyclic part)
-        for segment in range (0, num_segments - 1):
-            evaluated_segment = []
-            
-            knot1 = bezier_points[segment].co
-            handle1 = bezier_points[segment].handle_right
-            knot2 = bezier_points[segment + 1].co
-            handle2 = bezier_points[segment + 1].handle_left
-            
-            if segment == 0:
-                evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
-                #TODO use custom sample_bezier function
-            else:
-                evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
-                #TODO use custom sample_bezier function
-                evaluated_segment.pop(0)
-            
-            evaluated_bezier.extend(evaluated_segment)
-        
-        # Evaluate cyclic segment (between last and first knot in the list)
-        evaluated_segment = []
-            
-        knot1 = bezier_points[-1].co
-        handle1 = bezier_points[-1].handle_right
-        knot2 = bezier_points[0].co
-        handle2 = bezier_points[0].handle_left
-
-        evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames)
-        #TODO use custom sample_bezier function
-        evaluated_bezier.extend(evaluated_segment)
-
-        # Extract tangents at every evaluated point
-        tangent_bezier.append(bezier_points[0].handle_right.normalized()) # first tangent can be extracted from the first handle
-        for frame in range (1, num_frames - 1):
-            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame - 1] # Direction from point-1 to point 
-            dir2 = evaluated_bezier[frame + 1] - evaluated_bezier[frame] # Direction from point to point+1
-            tang = dir1.normalize() + dir2.normalize() # Average direction 
-            tangent_bezier.append(tang.normalized())
-        tangent_bezier.append(bezier_points[0].handle_left.normalized()) # last tangent can be extracted from the last handle
-
-    else:
-        num_segments = len(bezier_points) - 1   # Number of segments to be evaluated
-        # Subdivide the total number of frames that have to be generated between the various bezier subsegments
-        segment_frames = math.floor(num_frames / num_segments)
-        # Accumulating possible approximation error in the first segment's frames
-        first_segment_frames = num_frames - (segment_frames * (num_segments - 1)) 
-        
-        # Evaluate spline segments
-        for segment in range (0, num_segments):
-            evaluated_segment = []
-
-            knot1 = bezier_points[segment].co
-            handle1 = bezier_points[segment].handle_right
-            knot2 = bezier_points[segment + 1].co
-            handle2 = bezier_points[segment + 1].handle_left
-            
-            if segment == 0:
-                evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, first_segment_frames)
-            else:
-                evaluated_segment = mathutils.geometry.interpolate_bezier(knot1, handle1, handle2, knot2, segment_frames + 1) # Accounting for the removal of the first frame of every segment (it's redundant)
-                evaluated_segment.pop(0)
-            
-            evaluated_bezier.extend(evaluated_segment)
-
-        # Extract tangents at every evaluated point
-        tangent_bezier.append(bezier_points[0].handle_right.normalized()) # first tangent can be extracted from the first handle
-        for frame in range (1, num_frames - 1):
-            dir1 = evaluated_bezier[frame] - evaluated_bezier[frame -1] # Direction from point-1 to point 
-            dir2 = evaluated_bezier[frame+1] - evaluated_bezier[frame] # Direction from point to point+1
-            tang = dir1.normalized() + dir2.normalized() # Average direction 
-            tangent_bezier.append(tang.normalized())
-        tangent_bezier.append(bezier_points[-1].handle_left.normalized()) # last tangent can be extracted from the last handle
-    
-    return evaluated_bezier, tangent_bezier
 
 ##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
 #   It uses the timing information provided by the artist through the UI (frames, ease-in, ease-out) to sample a given segment of the control path
@@ -686,48 +522,25 @@ def evaluate_bezier_multi_seg(curve_object):
 #   @param  influence1  Speed rate for easing out of the first point, aka the ease-out value of the first point of the beziér segment
 #   @param  influence2  Speed rate for easing into the second point, aka the ease-in value of the second point of the beziér segment
 #   @returns            A list of points (of size equal to resolution) sampled along the beziér segment between b0 and b3 (with handles defined by b1 and b2)
-def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, resolution: int, ease_out: int , ease_in: int) -> list[float]:
+def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, timings: list[float]) -> list[float]:
     sample: Vector
     sampled_segment = []
 
     # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
     # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
-    #timings = adaptive_timings(ease_in/100, ease_out/100, resolution)          #! To be debugged...
-    timings = adaptive_timings_alt(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
+    # timings = adaptive_timings_resampling(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
 
     # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
-    for i in range(resolution):
-        t = timings[i]
+    for t in timings:
         sample = sample_bezier(knot1, handle1, handle2, knot2, t)
         sampled_segment.extend([sample.x, sample.y, sample.z])
     
     return sampled_segment
 
-def adaptive_timings(inf1: float, inf2: float, resolution: int) -> list [float]:
-    timings = []
-    for i in range(resolution):
-        t = i / resolution
-        ease_in_weight = weight_influence(t, 1, 1-inf2)
-        ease_out_weight = weight_influence(t, 1-inf1, 1)
-        eased_t = t
-        eased_t = ease_in( eased_t, inf1 * ease_in_weight)
-        eased_t = ease_out(eased_t, inf2 * ease_out_weight)
-        
-        timings.append(eased_t)
-		
-    return timings
-
-def ease_in(t, factor):
-    return (1-factor) * t + factor * t**3
-def ease_out(t, factor):
-    return (1 - factor) * t + factor * ((t - 1)**3 + 1)
-def weight_influence(t, start_weight, end_weight):
-	return start_weight * (1 - t) + end_weight * t
-
-def adaptive_timings_alt(inf1: float, inf2: float, resolution: int) -> list [float]:
+def adaptive_timings_resampling(ease_from: float, ease_to: float, resolution: int) -> list [float]:
     timings = []
     # Good results with oversampling by a factor of 10 but no interpolation or with interpolation but no oversampling 
-    pre_sampling = mathutils.geometry.interpolate_bezier(Vector((0,0)), Vector((inf2,0)), Vector((1-inf1,1)), Vector((1,1)), 10*resolution)
+    pre_sampling = mathutils.geometry.interpolate_bezier(Vector((0,0)), Vector((ease_from,0)), Vector((1-ease_to,1)), Vector((1,1)), 10*resolution)
 
     for i in range(resolution):
         t = i / resolution
@@ -736,9 +549,9 @@ def adaptive_timings_alt(inf1: float, inf2: float, resolution: int) -> list [flo
         while pre_sampling[j].x < t:
             j += 1
 
-        #t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
-        #eased_t = t1 * pre_sampling[j].y + (1-t1) * pre_sampling[j-1].y
-        eased_t = pre_sampling[j].y
+        t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
+        eased_t = t1 * pre_sampling[j].y + (1-t1) * pre_sampling[j-1].y
+        #eased_t = pre_sampling[j].y
         
         timings.append(eased_t)
 		
@@ -756,19 +569,17 @@ def sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector
 # @param quat_1     value of the first Quaternion
 # @param quat_2     value of the second Quaternion
 # @param n_samples  number of samples to take on the range of the interpolation
-# @returns          list spherical-linearly interpolated Quaternions 
-def quaternion_slerp(quat_1: Quaternion, quat_2: Quaternion, n_samples: int) -> list[mathutils.Euler]:
-    t = 0
-    step = 1 / n_samples
-    angle = quat_1.dot(quat_2)
+# @returns          list of directional vectors derived from the spherical-linearly interpolated Quaternions 
+def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list[float]) -> list[Vector]:
     samples = []
 
-    for i in range(n_samples):
-        sample = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
-                 (math.sin(angle *    t ) / math.sin(angle)) * quat_2
-        euler_sample = sample.to_euler()
-        samples.extend([euler_sample.x, euler_sample.y, euler_sample.z])
-        t += step
+    for t in timings:
+        # quat_slerp = (math.sin(angle * (1-t)) / math.sin(angle)) * quat_1 +\
+        #              (math.sin(angle *    t ) / math.sin(angle)) * quat_2
+        quat_slerp = quat_1.slerp(quat_2, t)
+        fwd_vector = Vector((0, -1, 0))
+        fwd_vector.rotate(quat_slerp)
+        samples.extend([fwd_vector.x, fwd_vector.y, fwd_vector.z])
     
     return samples
 
