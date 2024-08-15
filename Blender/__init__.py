@@ -34,10 +34,10 @@ individual license agreement.
 """
 
 bl_info = {
-    "name" : "VPET Blender",
-    "author" : "Tonio Freitag, Alexandru Schwartz",
+    "name" : "TRACER for Blender",
+    "author" : "Tonio Freitag, Alexandru Schwartz, Francesco Andreussi",
     "description" : "",
-    "blender" : (4, 0, 2),
+    "blender" : (4, 1, 1),
     "version" : (1, 0, 0),
     "location" : "VIEW3D",
     "warning" : "",

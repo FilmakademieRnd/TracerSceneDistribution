@@ -40,7 +40,7 @@ from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, Toggl
 ## Interface
 # 
 class VPET_Panel:
-    bl_category = "VPET Addon"
+    bl_category = "TRACER Add-On"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
