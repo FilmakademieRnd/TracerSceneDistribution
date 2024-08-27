@@ -43,6 +43,9 @@ from collections import deque
 import numpy as np
 from .timer import TimerModalOperator
 
+from .AbstractParameter import Parameter
+from .settings import VpetData
+
 m_pingTimes = deque([0, 0, 0, 0, 0])
 pingRTT = 0
 ## Setup ZMQ thread
@@ -153,7 +156,7 @@ last_sync_time = None
 ## process scene updates
 def listener():
     global vpet, v_prop, last_sync_time
-    vpet = bpy.context.window_manager.vpet_data
+    vpet: VpetData = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
     msg = None
     
@@ -199,6 +202,7 @@ def listener():
                 
                 elif(type == "PARAMETERUPDATE"):
                     sceneID = msg[start]
+                    param: Parameter
                     
                     objID = struct.unpack('<H', msg[start+1:start+3])[0] # unpack object ID; 2 bytes (unsigned short); little endian
                     paramID =struct.unpack('<H', msg[start+3:start+5])[0]
@@ -207,7 +211,11 @@ def listener():
 
                     if 0 < objID <= len(vpet.SceneObjects) and 0 <= paramID < len(vpet.SceneObjects[objID - 1]._parameterList):
                         param = vpet.SceneObjects[objID - 1]._parameterList[paramID]
-                        param.decodeMsg(parameterData)
+                        # If receiveng an animated parameter udpate on a parameter that is not already animated
+                        if length > param.get_data_size():
+                            param.init_animation()
+                            
+                        param.deserialize(parameterData)
                     
                     start += length
 

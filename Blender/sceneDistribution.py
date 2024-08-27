@@ -493,7 +493,10 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
             segment_frames = frame_point_two - frame_point_one + 1      # Compute number of samples in the segment 
 
             if segment_frames > 0:
+                # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
+                # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
                 timings = adaptive_timings_resampling(ease_out_point_one/100, ease_in_point_two/100, segment_frames)
+                
                 evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two, timings)
                 #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
                 evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), timings)
@@ -525,10 +528,6 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
 def adaptive_sample_bezier(knot1: Vector, handle1: Vector, handle2: Vector, knot2: Vector, timings: list[float]) -> list[float]:
     sample: Vector
     sampled_segment = []
-
-    # Sampling a cubic bezier spline between (0,0) and (1,1) given handles parallel to X and as strong as the passed influence values
-    # This gives us a list of percentages for sampling the Control Path between two Control Points, with the given resolution and timings
-    # timings = adaptive_timings_resampling(ease_in/100, ease_out/100, resolution)       #! This seems to work fine (resampling method)
 
     # Sample the bezier segment between b0 and b3 given the sapmling rate in timings 
     for t in timings:
