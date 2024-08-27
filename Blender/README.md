@@ -11,9 +11,9 @@ If you want to have the whole repository on your machine, for playing around wit
 [//]: # (Looking for a better solution to connect repo and blender, so that when someone pulls from github blenders sees the updated version of the add-on)
 
 ## Requirements
-The Add-On is developed for and tested on Blender 4.1.1, on previous versions some function calls return errors because of a change in the internal blender API. It should ne compatible with blender 4.2, at least as far as we know.
+The Add-On is developed for and tested on Blender 4.1.1, on previous versions some function calls return errors because of a change in the internal blender API. It should be compatible with blender 4.2, at least as far as we know.
 
-In order to exploit the full set of functionalities of TRACER (insert link), an up-to-date version of DataHub is needed, AnimHost and other clients (like VPET) integrate in the same TRACER framework and can enhance the capabilities of this Add-On.
+In order to exploit the full set of functionalities of [TRACER](https://github.com/FilmakademieRnd/TRACER) (insert link), an up-to-date version of [DataHub](https://github.com/FilmakademieRnd/DataHub) is needed, [AnimHost](https://github.com/FilmakademieRnd/AnimHost) and other clients (like [VPET](https://github.com/FilmakademieRnd/VPET)) integrate in the same TRACER framework and can enhance the capabilities of this Add-On.
 
 ## Introduction
 
