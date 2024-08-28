@@ -44,6 +44,7 @@ class VpetProperties(bpy.types.PropertyGroup):
     Command_Module_port: bpy.props.StringProperty(default = '5558')
     humanoid_rig: bpy.props.BoolProperty(name="Humanoid Rig for Unity",description="Check if using humanoid rig and you need to send the character to Unity",default=False)
     vpet_collection: bpy.props.StringProperty(name = 'VPET Collection', default = 'VPET_Collection', maxlen=30)
+    overwrite_animation: bpy.props.BoolProperty(name="Overwrite Animation", description="When true, baking an animation received from AnimHost will overwrite the previous one; otherwhise, it writes it on a new layer", default=False)
     #edit_collection: bpy.props.StringProperty(name = 'Editable Collection', default = 'VPET_editable', maxlen=30)
 
 ## Class to keep data

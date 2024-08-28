@@ -156,7 +156,7 @@ last_sync_time = None
 ## process scene updates
 def listener():
     global vpet, v_prop, last_sync_time
-    vpet: VpetData = bpy.context.window_manager.vpet_data
+    vpet    #: VpetData = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
     msg = None
     
@@ -192,36 +192,50 @@ def listener():
 
             while(start < len(msg)):
                 
+                # for i in range(3,13):
+                #     print(struct.unpack('B', msg[i:i+1])[0])
+
                 if(type == "LOCK"):
-                    objID = msg[start+1]
-                    if 0 < objID <= len(vpet.SceneObjects):
+                    obj_id = msg[start+1]
+                    if 0 < obj_id <= len(vpet.SceneObjects):
                         lockstate = msg[start+3]
-                        vpet.SceneObjects[objID - 1].LockUnlock(lockstate)
+                        vpet.SceneObjects[obj_id - 1].LockUnlock(lockstate)
 
                     start = len(msg)
-                
-                elif(type == "PARAMETERUPDATE"):
-                    sceneID = msg[start]
-                    param: Parameter
-                    
-                    objID = struct.unpack('<H', msg[start+1:start+3])[0] # unpack object ID; 2 bytes (unsigned short); little endian
-                    paramID =struct.unpack('<H', msg[start+3:start+5])[0]
-                    length = struct.unpack('<I', msg[start+6:start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian
-                    parameterData = msg[start+10:start+length] # splicing the byte array so that parameterData contains exactly the data of the parameter to be parsed
 
-                    if 0 < objID <= len(vpet.SceneObjects) and 0 <= paramID < len(vpet.SceneObjects[objID - 1]._parameterList):
-                        param = vpet.SceneObjects[objID - 1]._parameterList[paramID]
-                        # If receiveng an animated parameter udpate on a parameter that is not already animated
-                        if length > param.get_data_size():
-                            param.init_animation()
-                            
-                        param.deserialize(parameterData)
+                elif(type == "PARAMETERUPDATE"):
+                    param: Parameter
+                    msg_size = len(msg) # for debugging
+                    updated_animation = False
+
+                    while start < msg_size:
+                        scene_id    = struct.unpack( 'B', msg[start  :start+1 ])[0]
+                        obj_id      = struct.unpack('<H', msg[start+1:start+3 ])[0] # unpack object ID; 2 bytes (unsigned short); little endian
+                        param_id    = struct.unpack('<H', msg[start+3:start+5 ])[0]
+                        param_type  = struct.unpack( 'B', msg[start+5:start+6 ])[0]
+                        length      = struct.unpack('<I', msg[start+6:start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
+
+                        msg_payload = msg[start+10:start+length] # Extracting only the data for the current parameter from the message
+
+                        if 0 < obj_id <= len(vpet.SceneObjects) and 0 <= param_id < len(vpet.SceneObjects[obj_id - 1]._parameterList):
+                            param = vpet.SceneObjects[obj_id - 1]._parameterList[param_id]
+                            # If receiveng an animated parameter udpate on a parameter that is not already animated
+                            # Note: 10 is the size of the header
+                            if param.get_size() < length-10:
+                                param.init_animation()
+
+                            param.deserialize(msg_payload)
+
+                            updated_animation = updated_animation or param.key_list.has_changed # If only one parameter animation is updated flag the animation to be updated later
                     
-                    start += length
+                        start += length
 
                 else:
                     start = len(msg)
 
+            # At the end of the reading, if the message received was an Animation Parameter Update, trigger baking the animation over the (Character) Object
+            if type == "PARAMETERUPDATE" and param != None and updated_animation:
+                param.parent_object.populate_timeline_with_animation()
 
                 
             
@@ -230,7 +244,7 @@ def listener():
 ## Stopping the thread and closing the sockets
 
 def createPingMessage():
-    vpet.pingByteMSG= bytearray([])
+    vpet.pingByteMSG = bytearray([])
     vpet.pingByteMSG.extend(struct.pack('B', vpet.cID))
     vpet.pingByteMSG.extend(struct.pack('B', vpet.time))
     vpet.pingByteMSG.extend(struct.pack('B', 3))
@@ -280,7 +294,7 @@ def SendParameterUpdate(parameter):
     vpet.ParameterUpdateMSG.extend(struct.pack('H', parameter._parent._id))
     vpet.ParameterUpdateMSG.extend(struct.pack('H', parameter._id))
     vpet.ParameterUpdateMSG.extend(struct.pack('B', parameter._type))
-    length = 7+ parameter._dataSize
+    length = 10 + parameter._dataSize
     vpet.ParameterUpdateMSG.extend(struct.pack('B', length))
     vpet.ParameterUpdateMSG.extend(parameter.SerializeParameter())
 

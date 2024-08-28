@@ -32,45 +32,50 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-
+from bpy.types import Object
 import functools
 import math
-from ..AbstractParameter import Parameter;
-from ..serverAdapter import SendParameterUpdate;
+from mathutils import Vector, Quaternion
 
-
+from ..AbstractParameter import Parameter
+from ..serverAdapter import SendParameterUpdate
 
 class SceneObject:
 
     s_id = 1
+    _parameterList : list[Parameter]
     
-    def __init__(self, obj):
+    def __init__(self, bl_obj: Object):
         self._id = SceneObject.s_id
         SceneObject.s_id += 1
         self._sceneID = 254
         self._parameterList = []
-        self._lock = False
-        self.editableObject = obj 
-        position = Parameter(obj.location, "Position", self)
-        self._parameterList.append(position)
-        rotation = Parameter(obj.rotation_quaternion, "Rotation", self)
-        self._parameterList.append(rotation)
-        scale = Parameter(obj.scale, "Scale", self)
-        self._parameterList.append(scale)
+        self.network_lock = False
+        self.editableObject = bl_obj 
+        tracer_pos = Parameter(bl_obj.location, bl_obj.name+"-location", self)
+        self._parameterList.append(tracer_pos)
+        tracer_rot = Parameter(bl_obj.rotation_quaternion, bl_obj.name+"-rotation_euler", self)
+        self._parameterList.append(tracer_rot)
+        tracer_scl = Parameter(bl_obj.scale, bl_obj.name+"-scale", self)
+        self._parameterList.append(tracer_scl)
         # Bind UpdatePosition to the instance using functools.partial
-        position.hasChanged.append(functools.partial(self.UpdatePosition, position))
-        rotation.hasChanged.append(functools.partial(self.UpdateRotation, rotation))
-        scale.hasChanged.append(functools.partial(self.UpdateScale, scale))
+        tracer_pos.hasChanged.append(functools.partial(self.UpdatePosition, tracer_pos))
+        tracer_rot.hasChanged.append(functools.partial(self.UpdateRotation, tracer_rot))
+        tracer_scl.hasChanged.append(functools.partial(self.UpdateScale,    tracer_scl))
 
 
-    def UpdatePosition(self, parameter, new_value):
-        if self._lock == True:
+    def UpdatePosition(self, tracer_pos: Parameter, new_value: Vector):
+        if self.network_lock:
             self.editableObject.location = new_value
+            if tracer_pos.key_list.has_changed:
+                for key in tracer_pos.get_key_list():
+                    self.editableObject.location = key.value
+                    self.editableObject.keyframe_insert("location", key.time)
         else:
-            SendParameterUpdate(parameter)
+            SendParameterUpdate(tracer_pos)
 
-    def UpdateRotation(self, parameter, new_value):
-        if self._lock == True:
+    def UpdateRotation(self, tracer_rot: Parameter, new_value: Quaternion):
+        if self.network_lock:
             self.editableObject.rotation_mode = 'QUATERNION'
             self.editableObject.rotation_quaternion = new_value
             self.editableObject.rotation_mode = 'XYZ'
@@ -78,20 +83,20 @@ class SceneObject:
             if self.editableObject.type == 'LIGHT' or self.editableObject.type == 'CAMERA' or self.editableObject.type == 'ARMATURE':
                 self.editableObject.rotation_euler.rotate_axis("X", math.radians(90))
         else:
-            SendParameterUpdate(parameter)
+            SendParameterUpdate(tracer_rot)
 
-    def UpdateScale(self, parameter, new_value):
-        if self._lock == True:
+    def UpdateScale(self, tracer_scl: Parameter, new_value: Vector):
+        if self.network_lock:
             self.editableObject.scale = new_value
         else:
-            SendParameterUpdate(parameter)
+            SendParameterUpdate(tracer_scl)
 
-    def LockUnlock(self, value):
+    def LockUnlock(self, value: int):
         if value == 1:
-            self._lock = True
+            self.network_lock = True
             self.editableObject.hide_select = True
         else:
-            self._lock = False
+            self.network_lock = False
             self.editableObject.hide_select = False
         
     

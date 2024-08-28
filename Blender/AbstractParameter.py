@@ -70,9 +70,8 @@ class Key:
 
     tangent_time : float
     # value of the keyframe - type of the value depends on the parameter that is being keyed
-    value: any | bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
-
-    tangent_value: any | bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
+    value:          bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
+    tangent_value:  bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
     # type of keyframe - KeyType (STEP, LINEAR, BEZIER)
     key_type:   KeyType
 
@@ -80,11 +79,11 @@ class Key:
         self.time = time
         self.value = value
         self.key_type = type
-        if self.key_type == KeyType.BEZIER:
-            # first component of tangent (for beziér keyframes) - INT/FLOAT
-            self.tangent_time = tangent_time if tangent_time != None else time
-            # other components of the tangent (for beziér keyframes) - type is same as value
-            self.tangent_value = tangent_value if tangent_value != None else value
+        self.tangent_time = tangent_time if tangent_time != None else time
+        self.tangent_value = tangent_value if tangent_value != None else value
+
+    def __sizeof__(self) -> int:
+        return self.get_key_size()
 
     def get_data_size(self):
         if isinstance(self.value, bool):
@@ -101,8 +100,8 @@ class Key:
             return struct.calcsize('c') * len(self._value) # len_of_string * size_of_char
 
     def get_key_size(self):
-        # byte (key_type) +           float (time) +           float (tangent_time) + size_of_param (value) + size_of_param (tangentvalue)
-        return          1 + self.time.__sizeof__() + self.tangent_time.__sizeof__() +  self.get_data_size() +         self.get_data_size()
+        # byte (key_type) +           float (time) +           float (tangent_time) +   size_of_param (value) +    size_of_param (tangentvalue)
+        return          1 + self.time.__sizeof__() + self.tangent_time.__sizeof__() + self.value.__sizeof__() + self.tangent_value.__sizeof__()
     
     def is_equal(self, other):
         return (self.key_type       == other.key_type       and\
@@ -113,9 +112,14 @@ class Key:
     
 class KeyList:
     __data: list[Key]
+    has_changed: bool
 
     def __init__(self) -> None:
         self.__data = []
+        self.has_changed = False
+
+    def __len__(self) -> int:
+        return len(self.__data)
 
     def clear(self) -> None:
         self.__data.clear()
@@ -123,16 +127,22 @@ class KeyList:
     def size(self) -> int:
         return len(self.__data)
     
+    def get_key(self, index: int) -> Key:
+        if index < len(self):
+            return self.__data[index]
+        else:
+            raise LookupError("Key not found in Parameter Key List")
+    
     def set_key(self, parameter, key: Key, index: int):
         if index > self.size():
             raise IndexError("Setting Key Out Of Bounds for KeyList")
         elif index == self.size() or index == -1:
             self.__data.append(key)
-            parameter.emitHasChanged()
+            self.has_changed = True
         else:
             if not key.is_equal(self.__data[index]):
                 self.__data[index] = key
-                parameter.emitHasChanged()
+                self.has_changed = True
 
     def remove_key(self, key: Key) -> Key:
         flagged_index = -1
@@ -147,11 +157,13 @@ class KeyList:
         else:
             raise LookupError("Key not found in Parameter Key List")
                 
-
     def remove_key_at_index(self, index: int) -> Key:
-        removed_key = self.__data[index]
-        self.__data.remove(index)
-        return removed_key
+        if index < len(self):
+            removed_key = self.__data[index]
+            self.__data.remove(index)
+            return removed_key
+        else:
+            raise LookupError("Key not found in Parameter Key List")
 
     def get_key(self, index: int) -> Key:
         return self.__data[index]
@@ -163,13 +175,13 @@ class AbstractParameter:
 
     ## Class attributes ##
     # Type of the Parameter according to Tracer' definition
-    __type: TRACERParamType = None
+    __type: TRACERParamType
     # Parameter value - type of the value depends on the parameter that is being keyed
-    value: any | bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
+    value: bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
     # Parameter name
     name: str
-    # Parametrized blender Object
-    parent: bpy.types.Object
+    # Parametrized blender Object (type SceneObject, not importable due to circular import)
+    parent_object = None
     # Flag that determines whether a Parameter is going to be distributed
     distribute: bool
     # Flag that determines whether a Parameter is locked from the network connection
@@ -179,22 +191,25 @@ class AbstractParameter:
     # Flag that determines whether a Parameter is animated
     is_animated: bool = False
 
-    def __init__ (self, value, name, parent = None, distribute = True, network_lock = False, is_RPC = False, is_animated = False):
+    def __init__ (self, value, name, parent_object = None, distribute = True, network_lock = False, is_RPC = False, is_animated = False):
         self.value = value
         self.__type = self.get_tracer_type()
         self.name = name
-        self.parent = parent
+        self.parent_object = parent_object
         self.distribute = distribute
         self.network_lock = network_lock
         self.is_RPC = is_RPC
         self.is_animated = is_animated
         self.initial_value = value
-        self.dataSize = self.getDataSize()
+        self.dataSize = self.get_data_size()
         self.hasChanged = []
 
-        if(parent):
-            self._id = len(parent._parameterList)
-            print(str(self._id))
+        if(parent_object):
+            self.__id = len(parent_object._parameterList)  #?!?!?!?!?!?!?!
+            print(str(self.__id))
+
+    def get_parameter_id(self):
+        return self.__id
 
     def get_tracer_type(self):
         if isinstance(self.value, bool):
@@ -241,8 +256,8 @@ class Parameter(AbstractParameter):
     ## Class Attributes ##
     key_list: KeyList
 
-    def __init__(self, value, name, parent=None, distribute=True, network_lock = False, is_RPC = False, is_animated = False):
-        super().__init__(value, name, parent, distribute, network_lock, is_RPC, is_animated)
+    def __init__(self, value, name, parent_object=None, distribute=True, network_lock = False, is_RPC = False, is_animated = False):
+        super().__init__(value, name, parent_object, distribute, network_lock, is_RPC, is_animated)
         self.key_list = KeyList()
 
     # resets value to initial value, why do we want to do that?
@@ -250,21 +265,33 @@ class Parameter(AbstractParameter):
         pass
 
     def init_animation(self):
-        #???
         self.is_animated = True
-        key_zero = Key()
+        key_zero = Key(0, self.value)
         self.key_list.set_key(self, key_zero, 0)
+
+        # Pose Bone Object in the scene corresponding to the current Parameter 
+        #if self.name == "TRACER Position":
+        #    self.parent_object.armature_obj_pose_bones[self.parent_object.name].animation_data.driver_add("location")
+        #elif self.name == "TRACER Rotation":
+        #    self.parent_object.armature_obj_pose_bones[self.parent_object.name].animation_data.driver_add("rotation_quat")
 
     def clear_animation(self):
         self.is_animated = False
         self.key_list.clear()
+        self.parent_object.armature_obj_pose_bones[self.parent_object.name].animation_data_clear()
+
+    def get_key_list(self) -> list[Key]:
+        return self.key_list.get_list()
+
+    def get_key(self, index: int) -> Key:
+        return self.key_list.get_key(index)
 
     def get_size(self) -> int:
         data_size = self.get_data_size()
         if self.is_animated:
             # When animated, the size of the parameter increases. After the first payload, there will be the number of keys that the animated parameter will have and then the list of those keys. 
             #         size_of_param +  size_of_short (nr_keys) +             nr_keys *                      size_of_key (= 2* size_of_param (value + tangent_value) + 2 * size_of_float (time + tangent_time) + byte (key_type))
-            return        data_size +                        2 + len(self.key_list) * self.key_list[0].get_key_size()
+            return        data_size +                        2 + len(self.key_list) * self.get_key(0).get_key_size()
         else:
             return data_size
 
@@ -295,18 +322,28 @@ class Parameter(AbstractParameter):
             has_changed = True
         self.network_lock = False
 
+    ################
+    ###  Baking  ###
+    ################
+    def bake_parameter_keyframes(self):
+        pass
+        #? Look at emitHasChanged structure for inspiration 
+        # for key in self.get_key_list():
+        #     self.set_value(key.value)
+        #     #!!! Set value calls sets the local matrix of the corresponding bone of the SceneCharacterObject given the name of the current parameter.
+        #     #??? Modiifying set_value to allow baking or new function called bake_value? 
 
-    #####################
-    ### Serialization ###
-    #####################
+    #######################
+    ###  Serialization  ###
+    #######################
 
     def serialize(self) -> bytearray:
-        payload = bytearray()
+        payload = bytearray([])
         payload.extend(self.serialize_data())
         if self.is_animated:
-            for key in self.key_list:
+            for key in self.key_list.get_list():
                 payload = bytearray(key.get_key_size())
-                payload.extend(struct.pack('<B', key.key_type))         # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
+                payload.extend(struct.pack( 'B', key.key_type))         # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
                 payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
                 payload.extend(struct.pack('<f', key.tangent_time))
                 payload.extend(self.serialize_data(key.value))
@@ -324,9 +361,9 @@ class Parameter(AbstractParameter):
             elif self.__type == TRACERParamType.VECTOR4:
                 value = self.value.xzyw
             elif self.__type == TRACERParamType.QUATERNION:
-                self.parent.editableObject.rotation_mode = 'QUATERNION'
+                self.parent_object.editableObject.rotation_mode = 'QUATERNION'
                 value = self.value.wxyz
-                self.parent.editableObject.rotation_mode = 'XYZ'
+                self.parent_object.editableObject.rotation_mode = 'XYZ'
             else:
                 value = self.value
 
@@ -353,71 +390,93 @@ class Parameter(AbstractParameter):
             format_string = string_length + "s"
             return struct.pack(format_string, value)
         
-    #####################
-    ## Deserialization ##
-    #####################
+    #######################
+    ##  Deserialization  ##
+    #######################
 
-    def deserialize(self, msg: bytearray) -> None:
+    def deserialize(self, msg_payload: bytearray) -> None:
         data_size = self.get_data_size()
-        msg_payload = msg[0:data_size]
-        self.set_value(self.deserialize_data(msg_payload))
+        msg_size  = len(msg_payload)
+        value_bytes = msg_payload[0:data_size]
+        self.set_value(self.deserialize_data(value_bytes))
 
-        if self.is_animated:
+        if self.is_animated and msg_size > data_size:
             byte_count = data_size
+            msg_n_keys = msg_payload[byte_count:byte_count+2]
+            n_keys = struct.unpack('<H', msg_n_keys)[0]
+            byte_count += 2
             key_count = 0
-            while byte_count < len(msg):
-                key_type        = struct.unpack('<B', msg[byte_count:byte_count+1])[0],           byte_count = byte_count + 1           # Read Key Type
-                time            = struct.unpack('<f', msg[byte_count:byte_count+4])[0],           byte_count = byte_count + 4           # Read time
-                #! Tangent time and Tangent value are due a refactoring
-                tangent_time    = struct.unpack('<f', msg[byte_count:byte_count+4])[0],           byte_count = byte_count + 4           # Read tangent time
-                value           = self.deserialize_data(msg[byte_count:byte_count+data_size]),    byte_count = byte_count + data_size   # Read value
-                tangent_value   = self.deserialize_data(msg[byte_count:byte_count+data_size]),    byte_count = byte_count + data_size   # Read tangent value
+            while key_count < n_keys:
+                # Read Key Type
+                key_type = struct.unpack('B', msg_payload[byte_count:byte_count+1])[0]
+                byte_count += 1
+                # Read Key Timestamp
+                time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                byte_count += 4
+                #? Are Tangent time and Tangent value due a refactoring?
+                # Read Key Tangent Time
+                tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                byte_count += 4
+                # Read Key Value
+                value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
+                byte_count += data_size
+                # Read Key Tangent Value
+                tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
+                byte_count += data_size
+                
                 deserialized_key = Key(time, value, key_type, tangent_time, tangent_value)
                 self.key_list.set_key(self, deserialized_key, key_count)
-                key_count = key_count + 1
+                
+                key_count += 1
+            
+            # if key_count > 1 and self.key_list.has_changed:
+            #     # If the key list has been modified and there are multiple keyframes, bake the deserialized animation
+            #     self.bake_parameter_keyframes()
+            #     self.key_list.has_changed = False
 
 
     def deserialize_data(self, msg_payload: bytearray):
-        if self.__type == TRACERParamType.BOOL:
-            bool_val = struct.unpack('?', msg_payload)[0]
-            return bool_val
+        match self.get_tracer_type():
+            case TRACERParamType.BOOL:
+                bool_val = struct.unpack('?', msg_payload)[0]
+                return bool_val
 
-        elif self.__type == TRACERParamType.INT:
-            #? Signed or unsigned Integer?
-            int_val = struct.unpack('<i', msg_payload)[0]
-            return int_val
+            case TRACERParamType.INT:
+                #? Signed or unsigned Integer?
+                int_val = struct.unpack('<i', msg_payload)[0]
+                return int_val
 
-        elif self.__type == TRACERParamType.FLOAT:
-            float_val = struct.unpack('<f', msg_payload)[0]
-            return float_val
+            case TRACERParamType.FLOAT:
+                float_val = struct.unpack('<f', msg_payload)[0]
+                return float_val
 
-        elif self.__type == TRACERParamType.VECTOR2:
-            vec2_val = Vector((struct.unpack('<2f', msg_payload)))
-            return vec2_val
+            case TRACERParamType.VECTOR2:
+                vec2_val = Vector((struct.unpack('<2f', msg_payload)))
+                return vec2_val
 
-        elif self.__type == TRACERParamType.VECTOR3:
-            vec3_val = Vector((struct.unpack('<3f', msg_payload)))
-            # Swap Y and Z axis to adapt to blender's handidness
-            return vec3_val.xzy
+            case TRACERParamType.VECTOR3:
+                vec3_val = Vector((struct.unpack('<3f', msg_payload)))
+                # Swap Y and Z axis to adapt to blender's handidness
+                return vec3_val.xzy
 
-        elif self.__type == TRACERParamType.VECTOR4:
-            vec3_val = Vector((struct.unpack('<4f', msg_payload)))
-            # Swap Y and Z axis to adapt to blender's handidness
-            return vec3_val.xzyw
+            case TRACERParamType.VECTOR4:
+                vec3_val = Vector((struct.unpack('<4f', msg_payload)))
+                # Swap Y and Z axis to adapt to blender's handidness
+                return vec3_val.xzyw
 
-        elif self.__type == TRACERParamType.QUATERNION:
-            # The quaternion is passed in the order XYZW
-            quat_val = Quaternion((struct.unpack('<4f', msg_payload)))
-            return Quaternion((quat_val.w, quat_val.x, quat_val.y, quat_val.z))
+            case TRACERParamType.QUATERNION:
+                # The quaternion is passed in the order XYZW
+                quat_val = Quaternion((struct.unpack('<4f', msg_payload)))
+                return Quaternion((quat_val[3], quat_val[0], quat_val[1], quat_val[2]))
 
-        elif self.__type == TRACERParamType.COLOR:
-            color_val = Color((struct.unpack('<4f', msg_payload)))
-            return color_val
+            case TRACERParamType.COLOR:
+                color_val = Color((struct.unpack('<4f', msg_payload)))
+                return color_val
 
-        elif self.__type == TRACERParamType.STRING:
-            # https://docs.python.org/3/library/stdtypes.html#bytearray.decode
-            string_val = msg_payload.decode(encoding='ascii', errors='strict')
-            return string_val
+            case TRACERParamType.STRING:
+                # https://docs.python.org/3/library/stdtypes.html#bytearray.decode
+                string_val = msg_payload.decode(encoding='ascii', errors='strict')
+                return string_val
 
-        else:
-            print("Unknown type")
+            case _:
+                print("Unknown type")
