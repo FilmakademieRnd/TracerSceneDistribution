@@ -35,25 +35,27 @@ individual license agreement.
 
 import functools
 import math
-from mathutils import Matrix, Quaternion, Vector
+from mathutils import Matrix, Quaternion, Vector, Euler
 import bpy
-from ..AbstractParameter import Parameter
+
+from ..settings import VpetProperties
+from ..AbstractParameter import Parameter, KeyList, Key
 from .SceneObject import SceneObject
 from ..serverAdapter import SendParameterUpdate
 
 class SceneCharacterObject(SceneObject):
 
     boneMap = {}
-    local_bone_rest_transform = {}      # Stores the local resting bone space transformations in a dictionary
-    local_rotation_map = {}             # Stores the values updated by TRACER local bone space transformations in a dictionary (may cause issues with values updated in a TRACER non-compliant way)
-    local_translation_map = {}
-    root_bone_name = None
-    armature_obj_name = None
-    armature_obj_pose_bones = None
+    local_bone_rest_transform = {}      # Stores the local resting bone space transformations in a dictionary (type = dict[str, Matrix])
+    local_rotation_map =        {}      # Stores the values updated by TRACER local bone space transformations in a dictionary (may cause issues with values updated in a TRACER non-compliant way) (type = dict[str, Matrix])
+    local_translation_map =     {}      # (type = dict[str, Matrix])
+    root_bone_name:             str
+    armature_obj_name:          str
+    armature_obj_pose_bones = None # type = bpy.types.bpy_prop_collection[bpy.types.PoseBone]
     armature_obj_bones_rest_data = None
     path_to_follow = None
 
-    def __init__(self, obj):
+    def __init__(self, obj: bpy.types.Object):
         super().__init__(obj)
 
         self.armature_obj_name = obj.name
@@ -61,9 +63,6 @@ class SceneCharacterObject(SceneObject):
         self.armature_obj_bones_rest_data = obj.data.bones              # The rest data of the armature bones (to compute the rest pose offsets)
         self.matrix_world = obj.matrix_world
         # self.edit_bones = obj.data.edit_bones
-
-        # for i in self.edit_bones:
-        #     print(i)
 
         # Saving initial/resting armature bone transforms in local **bone** space
         # Necessary for then applying animation displacements in the correct transform space
@@ -80,79 +79,170 @@ class SceneCharacterObject(SceneObject):
                 self.root_bone_name = bone.name
 
             bone_matrix_global = self.matrix_world @ bone.matrix
-            bone_rotation_quaternion = bone_matrix_global.to_quaternion()    
-            localBoneRotationParameter = Parameter(bone_rotation_quaternion, bone.name, self)
+            bone_rotation_quaternion = bone_matrix_global.to_quaternion()
+            localBoneRotationParameter = Parameter(bone_rotation_quaternion, bone.name+"-rotation_quaternion", self)
             self._parameterList.append(localBoneRotationParameter)
             localBoneRotationParameter.hasChanged.append(functools.partial(self.UpdateBoneRotation, localBoneRotationParameter))
-            self.boneMap[localBoneRotationParameter._id] = bone_rotation_quaternion
+            #localBoneRotationParameter.animation_has_changed.append(functools.partial(self.bake_bone_rotations, localBoneRotationParameter))
+            self.boneMap[localBoneRotationParameter.get_parameter_id] = bone_rotation_quaternion
 
         for bone in self.armature_obj_pose_bones:
             # finding root bone for hierarchy traversal
             if not bone.parent:
                 self.root_bone_name = bone.name
 
-            bone_Position = bone.location
-            localBonePositionParameter = Parameter(bone_Position, bone.name, self)
+            bone_location = bone.location
+            localBonePositionParameter = Parameter(bone_location, bone.name+"-location", self)
             self._parameterList.append(localBonePositionParameter)
             localBonePositionParameter.hasChanged.append(functools.partial(self.UpdateBonePosition, localBonePositionParameter))
-            print(str(localBonePositionParameter._id) + "   " + str(localBonePositionParameter._name) + "   " + str(localBonePositionParameter._value))
+            #localBoneRotationParameter.animation_has_changed.append(functools.partial(self.bake_bone_locations, localBoneRotationParameter))
+            # print(str(localBonePositionParameter.get_parameter_id()) + "   " + str(localBonePositionParameter.name) + "   " + str(localBonePositionParameter.value))
 
-            
+    def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
+        pose_bone: bpy.types.Bone
+        if pose_bone_obj.name in self.local_rotation_map:
+            rotation_matrix = self.local_rotation_map[pose_bone_obj.name]
+            translation_matrix = self.local_translation_map[pose_bone_obj.name]
+            pose_bone = pose_bone_obj.bone
 
-    def set_pose_matrices(self, current_pose_bone):
-
-        if current_pose_bone.name in self.local_rotation_map:
-            rotation_matrix = self.local_rotation_map[current_pose_bone.name]
-            translation_matrix = self.local_translation_map[current_pose_bone.name]
-            matrix = translation_matrix @ rotation_matrix
-
-            if current_pose_bone.parent:
-                current_pose_bone.matrix_basis = current_pose_bone.bone.convert_local_to_pose(
-                    matrix,
-                    current_pose_bone.bone.matrix_local,
-                    parent_matrix= self.local_rotation_map[current_pose_bone.parent.name],
-                    parent_matrix_local=current_pose_bone.parent.bone.matrix_local,
-                    invert=True
-                )
+            # Getting the translation matrix (only for the hip bone object)
+            # translation_matrix = translation_matrix if pose_bone.name == "hip" else Matrix.Identity(4)
+            # Composing translation and rotation matrices
+            new_matrix: Matrix = translation_matrix @ rotation_matrix
+            # Assigning the correct local transformation matrix to the Pose Bone Object (given the parent transform, if there is one)
+            if pose_bone_obj.parent:
+                parent_rotation_matrix = self.local_rotation_map[pose_bone_obj.parent.name]
+                pose_bone_obj.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local,
+                                                                              parent_matrix = parent_rotation_matrix,
+                                                                              parent_matrix_local = pose_bone.parent.matrix_local,
+                                                                              invert=True )
             else:
-                current_pose_bone.matrix_basis = current_pose_bone.bone.convert_local_to_pose(
+                pose_bone_obj.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local, invert=True )
 
-                    matrix,
-                    current_pose_bone.bone.matrix_local,
-                    invert=True
-                )
+    def UpdateBoneRotation(self, tracer_rot: Parameter, new_quat: Quaternion):
+        bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter (e.g: spine_1-rotation_quat -> hip)
+        target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
+        local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
         
+        # Initialize the local parent rotation matrix (4x4 identity matrix, if the target bone has no parent bone)
+        parent_rotation = self.local_rotation_map[target_bone.parent.name] if target_bone.parent else Matrix.Identity(4)
+        new_rotation_matrix =   parent_rotation @\
+                                Matrix.Translation(local_rest_transform.to_translation()) @\
+                                new_quat.to_matrix().to_4x4()
+        # Set the new transform, given by the new quaternion value, as the local rotation for the current target_bone
+        self.local_rotation_map[bone_name] = new_rotation_matrix
+        self.set_pose_matrices(target_bone)
+        
+    def UpdateBonePosition(self, tracer_pos: Parameter, new_value: Vector):
+        bone_name = tracer_pos.name.split("-")[0] # Extracting the name of the bone from the name of the parameter (e.g: hip-location -> hip)
+        target_bone: bpy.types.Bone = self.armature_obj_pose_bones[bone_name]
 
-    def rotate_local_transform(self, transforms, current_pose_bone, new_quat):
-        custom_matrix_map = {}
-
-        t = transforms[current_pose_bone.name]
-
-        if current_pose_bone.parent:
-            new_t = self.local_rotation_map[current_pose_bone.parent.name] @ Matrix.Translation(t.to_translation()) @ new_quat.to_matrix().to_4x4()
-            self.local_rotation_map[current_pose_bone.name] = new_t
-        else:
-            new_t = Matrix.Translation(t.to_translation()) @ new_quat.to_matrix().to_4x4()
-            self.local_rotation_map[current_pose_bone.name] = new_t
-
-        return custom_matrix_map
-
-    def UpdateBoneRotation(self, parameter, new_value):
-
-        name = parameter._name
-        targetBone = self.armature_obj_pose_bones[name]
-        #targetBone.keyframe_insert(data_path="rotation_quaternion")
-        #bpy.context.scene.frame_set(bpy.context.scene.frame_current + 1)
-        self.rotate_local_transform(self.local_bone_rest_transform, targetBone, new_value)
-        self.set_pose_matrices(targetBone)
-
-    def UpdateBonePosition(self, parameter, new_value):
-        name = parameter._name
-        targetBone = self.armature_obj_pose_bones[name]
-
-        self.local_translation_map[targetBone.name] = Matrix.Translation(Vector())
-
-        if targetBone.name == "hip":
+        if bone_name == "hip":
             #print(targetBone.name + " Position =  " + str(targetBone.location) + " - New Value = " + str(new_value))
-            rest_t, rest_r, rest_s = self.local_bone_rest_transform[targetBone.name].decompose()
-            self.local_translation_map[targetBone.name] = Matrix.Translation(new_value.xzy - rest_t)
+            bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
+            rest_t, rest_r, rest_s = bone_rest_transform.decompose()
+            self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
+        else:
+            self.local_translation_map[bone_name] = Matrix.Identity(4)
+
+    ## Writing the animation data received from TRACER (usually AnimHost) and replacing the previous animation data
+    def populate_timeline_with_animation(self):
+        # Retrieve the character object's armature on which to apply the animation data
+        target_character_obj: bpy.types.Armature = self.editableObject
+        # Clear the timeline from the old animation if there is one or initialise the data structure if there isn't one yet
+        if target_character_obj.animation_data == None:
+            target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
+        elif target_character_obj.animation_data.action:
+            target_character_obj.animation_data.action.name = "Old Animation"
+            old_action = self.editableObject.animation_data.action
+            target_character_obj.animation_data_clear()
+            target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
+            bpy.data.actions.remove(old_action)
+
+        # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone (the other bones won't get displaced)
+        local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
+        for parameter in self._parameterList:
+            bone_name, param_type = parameter.name.split("-")
+            if parameter.is_animated and bone_name == "hip" and param_type == "location":
+                offsets = {}
+                for key in parameter.get_key_list():
+                    # Compute the positional offset of the current bone from the rest position as a matrix 
+                    bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
+                    rest_t, rest_r, rest_s = bone_rest_transform.decompose()
+                    offsets[key.time] = (Matrix.Translation(key.value.xzy - rest_t))
+                local_pos_offest_from_rest[bone_name] = offsets
+
+        # Matrices encoding the rotational offsets form rest pose for every keyframe in every bone parameter
+        local_rot_offest_from_rest: dict[str, dict[int, Matrix]] = {}
+        for parameter in self._parameterList:
+            bone_name, param_type = parameter.name.split("-")
+            if parameter.is_animated and param_type == "rotation_quaternion":
+                offsets = {}
+                target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
+                local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
+                for key in parameter.get_key_list():
+                    # Compute the rotational offset of the current bone from the rest position as a matrix
+                    parent_rotation = local_rot_offest_from_rest[target_bone.parent.name][key.time] if target_bone.parent else Matrix.Identity(4)
+                    new_rotation_matrix =   parent_rotation @\
+                                            Matrix.Translation(local_rest_transform.to_translation()) @\
+                                            key.value.to_matrix().to_4x4()
+                    offsets[key.time] = new_rotation_matrix
+                local_rot_offest_from_rest[bone_name] = offsets
+
+        # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
+        # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
+        for parameter in self._parameterList:
+            if parameter.is_animated:
+                for key in parameter.get_key_list():
+                    bone_name, param_type = parameter.name.split("-")
+                    target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
+
+                    rotation_matrix = local_rot_offest_from_rest[bone_name][key.time]
+                    translation_matrix = local_pos_offest_from_rest[bone_name][key.time] if bone_name == "hip" else Matrix.Identity(4) # The translation matrix is defined only for the hip bone
+                    pose_bone: bpy.types.Bone = target_bone.bone
+                    new_matrix: Matrix = translation_matrix @ rotation_matrix
+                    # Assigning the correct local transformation matrix to the Pose Bone Object (given the parent transform, if there is one)
+                    if target_bone.parent:
+                        parent_rotation_matrix = local_rot_offest_from_rest[target_bone.parent.name][key.time]
+                        target_bone.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local,
+                                                                                      parent_matrix = parent_rotation_matrix,
+                                                                                      parent_matrix_local = pose_bone.parent.matrix_local,
+                                                                                      invert=True )
+                    else:
+                        target_bone.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local, invert=True )
+                    # Write keyframe for both location and rotation of the current bone at the current frame
+                    target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].location', frame=key.time)
+                    target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].rotation_quaternion', frame=key.time)
+        
+    def push_down_action(self):
+        '''Baking the animation as a new animation layer'''
+        # new_action = bpy.data.actions.new("AnimHost Output")
+
+        # if self.editableObject.animation_data == None:
+        #     self.editableObject.animation_data_create()
+        #     self.editableObject.animation_data.use_nla = True
+        #     new_track: bpy.types.NlaTrack = self.editableObject.animation_data.nla_tracks.active
+        #     new_track.select = True
+        #     new_track.name = "AnimHost Output"
+        # else:
+        #     if bpy.context.scene.vpet_properties.overwrite_animation:
+        #         self.editableObject.animation_data.use_nla = True
+        #         old_action_name = self.editableObject.animation_data.action.name
+        #         self.editableObject.animation_data_clear()
+        #         bpy.data.actions.remove(old_action_name)
+        #     new_track = self.editableObject.animation_data.nla_tracks.new()
+        #     new_track.select = True
+        #     new_track.name = "AnimHost Output"
+        
+        
+        # self.bake_parameter(self._parameterList[69], "location", self.armature_obj_pose_bones["hip"], new_action)
+
+        # for parameter in self._parameterList:
+        #     bone_name, parameter_type = parameter.name.split("-")
+        #     if parameter.key_list.has_changed and not (bone_name == "hip" and parameter_type == "location"):
+        #         target_bone = self.armature_obj_pose_bones[bone_name]
+        #         self.bake_parameter(parameter, parameter_type, target_bone, new_action)
+
+        # # Assign the newly filled action to the corresponding track of the current object
+        # new_track.strips.new(name="AnimHost Output", start=0, action=new_action)
+        pass
