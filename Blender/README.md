@@ -21,4 +21,4 @@ In order to exploit the full set of functionalities of [TRACER](https://github.c
 
 # License
 
-Please review the [License file](LICENSE.TXT).
+Please review the [License file](License_Info.txt).
