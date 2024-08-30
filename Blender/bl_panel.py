@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline
+from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline, AnimationRequest, AnimationSave
 
 ## Interface
 # 
@@ -180,7 +180,10 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
             row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
             row = layout.row()
             row.operator(EvaluateSpline.bl_idname, text=EvaluateSpline.bl_label)
-                
+            if context.active_object and context.active_object.type == 'ARMATURE':
+                row = layout.row()
+                row.operator(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
+                row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 
 class VPET_PT_Anim_Path_Menu(bpy.types.Menu):
     bl_label = "Animation Path"	   

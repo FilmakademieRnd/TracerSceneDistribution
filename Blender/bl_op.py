@@ -180,16 +180,17 @@ class FKIKToggle(bpy.types.Operator):
     bl_description = 'Switch between Forward and Inverse Kinematic for animating the character over its Control Path'
 
     def execute(self, context):
-        # If the toggling should happen only when the chartacter is selected, add also the following condition -> and context.active_object.type == 'ARMATURE' (to be tested)
-        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object.data["IK_FK_Switch"] >= 0:
-            context.active_object.data["IK_FK_Switch"] = abs(round(context.active_object.data["IK_FK_Switch"]) - 1)
+        # If the toggling should happen only when the chartacter is selected
+        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object["IK_FK_Switch"] >= 0:
+            context.active_object["IK_FK_Switch"] = abs(round(context.active_object["IK_FK_Switch"]) - 1)
+            object_data = context.active_object.data
 
             # Forcing update visualisation of Property Panel
             for area in bpy.context.screen.areas:
                 if area.type == 'PROPERTIES':
                     area.tag_redraw()
 
-            if context.active_object.data["IK_FK_Switch"] > 0:
+            if context.active_object["IK_FK_Switch"] > 0:
                 FKIKToggle.bl_label = "Switch to Forward Kinematics"
             else:
                 FKIKToggle.bl_label = "Switch to Inverse Kinematics"
@@ -454,7 +455,7 @@ class EditControlPointHandle(bpy.types.Operator):
 
         return {'FINISHED'}
 
-### Operator to evaluate the Animation on the path
+### Operator to evaluate the timings of the animation on the path
 #   Triggered by a button in the VPET Animation Path Panel
 #   Creates a new Object that is moved along the Animation Path
 #   It uses the information given by the User (as the Control Point location, orientation, frame, Ease In and Ease Out, and the tangents/handles of the Bezier Points)  
@@ -467,8 +468,8 @@ class EvaluateSpline(bpy.types.Operator):
     fwd_vector = Vector((0, -1))
 
     def execute(self, context):
-        if  "AnimPath" in bpy.data.objects:            
-            anim_path = bpy.data.objects["AnimPath"]
+        if context.active_object.type == 'ARMATURE' and context.active_object.get("Control Path") != None:           
+            anim_path = context.active_object.get("Control Path") #bpy.data.objects["AnimPath"]
             if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
                 anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
                 bpy.data.collections["Collection"].objects.link(anim_prev)
@@ -489,6 +490,48 @@ class EvaluateSpline(bpy.types.Operator):
 
                 anim_prev.keyframe_insert(data_path="location",         frame=i)
                 anim_prev.keyframe_insert(data_path="rotation_euler",   frame=i)
+
+        return {'FINISHED'}
+
+### Operator to request a new character animation from AnimHost given the designed path
+#   Triggered by a button in the VPET Animation Path Panel
+#   Looks for the Control Path property of the currently selected character
+#   If a Control Path is assigned, it sends the list Control Points to AnimHost
+class AnimationRequest(bpy.types.Operator):
+    bl_idname = "object.tracer_animation_request"
+    bl_label = "Request New Animation"
+    bl_description = "Request new animation for the selected character from AnimHost"
+
+    def execute(self, context: Context):
+        if context.active_object.type == 'ARMATURE':
+            print("Sending updated Animation Path, this triggers the sending of a new Animation Sequence")
+            if context.active_object.get("Control Path") != None:
+                print("The active object has a Control Path")
+                # TODO Send the Control Path to AnimHost as a Parameter Update
+                # Serialise every Control Point as a Parameter
+            else:
+                raise ValueError("The selected Armature Object doesn't have a valid Control Path associated to it")
+        else:
+            raise TypeError("Select an Armature Object to request an animation from AnimHost")
+        return {'FINISHED'}
+
+### Operator to save the latest received animation from AnimHost
+#   Triggered by a button in the VPET Animation Path Panel
+#   Takes the active action of the selected Character Object, which should be the latest animation received from AnimHost
+#   Creates a new NLA Track acting as an animation level and populate it with that action
+class AnimationSave(bpy.types.Operator):
+    bl_idname = "object.animation_save"
+    bl_label = "Save Animation"
+    bl_description = "Save the animation currently in the timeline into an NLA Track for its character"
+
+    def execute(self, context: Context):
+        if context.active_object.type == 'ARMATURE' and context.active_object.animation_data.action != None:
+            print("Animation Data Found!")
+            context.active_object.animation_data.use_nla = True
+            new_track = context.active_object.animation_data.nla_tracks.new()
+            new_track.select = True
+            new_track.name = "AnimHost Output"
+            new_track.strips.new(name="AnimHost Output", start=0, action=context.active_object.animation_data.action)
 
         return {'FINISHED'}
 

@@ -43,6 +43,9 @@ from ..AbstractParameter import Parameter, KeyList, Key
 from .SceneObject import SceneObject
 from ..serverAdapter import SendParameterUpdate
 
+def is_control_path(self, context):
+        return self.get("Control Points", False)
+
 class SceneCharacterObject(SceneObject):
 
     boneMap = {}
@@ -53,10 +56,22 @@ class SceneCharacterObject(SceneObject):
     armature_obj_name:          str
     armature_obj_pose_bones = None # type = bpy.types.bpy_prop_collection[bpy.types.PoseBone]
     armature_obj_bones_rest_data = None
-    path_to_follow = None
 
     def __init__(self, obj: bpy.types.Object):
         super().__init__(obj)
+
+        self.editableObject["IK_FK_Switch"] = 0
+        self.editableObject["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
+                                                                        override={'LIBRARY_OVERRIDABLE'}, poll=is_control_path)
+        self.editableObject["Control Path"] = bpy.data.objects["AnimPath"] if "AnimPath" in bpy.data.objects else None
+
+        self.editableObject.property_overridable_library_set('["Control Path"]', True)
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
+                area.tag_redraw()
 
         self.armature_obj_name = obj.name
         self.armature_obj_pose_bones = obj.pose.bones   # The pose bones (to which the rotations have to be applied)
@@ -153,11 +168,12 @@ class SceneCharacterObject(SceneObject):
         if target_character_obj.animation_data == None:
             target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
         elif target_character_obj.animation_data.action:
-            target_character_obj.animation_data.action.name = "Old Animation"
+            #target_character_obj.animation_data.action.name = "Old Animation"
             old_action = self.editableObject.animation_data.action
-            target_character_obj.animation_data_clear()
-            target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
-            bpy.data.actions.remove(old_action)
+            #target_character_obj.animation_data_clear()
+            target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
+            if old_action.users == 0:
+                bpy.data.actions.remove(old_action)
 
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone (the other bones won't get displaced)
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
@@ -189,6 +205,10 @@ class SceneCharacterObject(SceneObject):
                     offsets[key.time] = new_rotation_matrix
                 local_rot_offest_from_rest[bone_name] = offsets
 
+        # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the first parameter)
+        bpy.context.scene.frame_start = 1
+        bpy.context.scene.frame_end   = len(self._parameterList[0].key_list)
+
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
         for parameter in self._parameterList:
@@ -214,35 +234,35 @@ class SceneCharacterObject(SceneObject):
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].location', frame=key.time)
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].rotation_quaternion', frame=key.time)
         
-    def push_down_action(self):
-        '''Baking the animation as a new animation layer'''
-        # new_action = bpy.data.actions.new("AnimHost Output")
+    # def push_down_action(self):
+    #     '''Baking the animation as a new animation layer'''
+    #     new_action = bpy.data.actions.new("AnimHost Output")
 
-        # if self.editableObject.animation_data == None:
-        #     self.editableObject.animation_data_create()
-        #     self.editableObject.animation_data.use_nla = True
-        #     new_track: bpy.types.NlaTrack = self.editableObject.animation_data.nla_tracks.active
-        #     new_track.select = True
-        #     new_track.name = "AnimHost Output"
-        # else:
-        #     if bpy.context.scene.vpet_properties.overwrite_animation:
-        #         self.editableObject.animation_data.use_nla = True
-        #         old_action_name = self.editableObject.animation_data.action.name
-        #         self.editableObject.animation_data_clear()
-        #         bpy.data.actions.remove(old_action_name)
-        #     new_track = self.editableObject.animation_data.nla_tracks.new()
-        #     new_track.select = True
-        #     new_track.name = "AnimHost Output"
+    #     if self.editableObject.animation_data == None:
+    #         self.editableObject.animation_data_create()
+    #         self.editableObject.animation_data.use_nla = True
+    #         new_track: bpy.types.NlaTrack = self.editableObject.animation_data.nla_tracks.active
+    #         new_track.select = True
+    #         new_track.name = "AnimHost Output"
+    #     else:
+    #         if bpy.context.scene.vpet_properties.overwrite_animation:
+    #             self.editableObject.animation_data.use_nla = True
+    #             old_action_name = self.editableObject.animation_data.action.name
+    #             self.editableObject.animation_data_clear()
+    #             bpy.data.actions.remove(old_action_name)
+    #         new_track = self.editableObject.animation_data.nla_tracks.new()
+    #         new_track.select = True
+    #         new_track.name = "AnimHost Output"
         
         
-        # self.bake_parameter(self._parameterList[69], "location", self.armature_obj_pose_bones["hip"], new_action)
+    #     self.bake_parameter(self._parameterList[69], "location", self.armature_obj_pose_bones["hip"], new_action)
 
-        # for parameter in self._parameterList:
-        #     bone_name, parameter_type = parameter.name.split("-")
-        #     if parameter.key_list.has_changed and not (bone_name == "hip" and parameter_type == "location"):
-        #         target_bone = self.armature_obj_pose_bones[bone_name]
-        #         self.bake_parameter(parameter, parameter_type, target_bone, new_action)
+    #     for parameter in self._parameterList:
+    #         bone_name, parameter_type = parameter.name.split("-")
+    #         if parameter.key_list.has_changed and not (bone_name == "hip" and parameter_type == "location"):
+    #             target_bone = self.armature_obj_pose_bones[bone_name]
+    #             self.bake_parameter(parameter, parameter_type, target_bone, new_action)
 
-        # # Assign the newly filled action to the corresponding track of the current object
-        # new_track.strips.new(name="AnimHost Output", start=0, action=new_action)
-        pass
+    #     # Assign the newly filled action to the corresponding track of the current object
+    #     new_track.strips.new(name="AnimHost Output", start=0, action=new_action)
+    #     pass

@@ -43,12 +43,15 @@ from ..serverAdapter import SendParameterUpdate
 class SceneObject:
 
     s_id = 1
-    _parameterList : list[Parameter]
+    _sceneID = 254
+    _parameterList: list[Parameter]
+    network_lock: bool
+    editableObject: Object
     
     def __init__(self, bl_obj: Object):
         self._id = SceneObject.s_id
         SceneObject.s_id += 1
-        self._sceneID = 254
+        self._sceneID = SceneObject._sceneID
         self._parameterList = []
         self.network_lock = False
         self.editableObject = bl_obj 
