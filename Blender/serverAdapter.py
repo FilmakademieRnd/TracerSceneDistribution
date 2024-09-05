@@ -273,7 +273,7 @@ def send_parameter_update(parameter: Parameter):
     vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))         # parameter ID
     vpet.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))          # parameter type
     length = 10 + parameter._dataSize
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', length))                               # message length
+    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                               # message length
     vpet.ParameterUpdateMSG.extend(parameter.serialize())
 
     vpet.socket_u.send(vpet.ParameterUpdateMSG)
@@ -322,7 +322,7 @@ def send_RPC_msg(rpc_parameter: Parameter):
     vpet.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))  # parameter/call ID
     vpet.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))   # parameter type
     length = 10 + rpc_parameter.get_data_size()
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', length))                            # message length
+    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                            # message length
     vpet.ParameterUpdateMSG.extend(rpc_parameter.serialize_data())
 
     vpet.socket_u.send(vpet.ParameterUpdateMSG)
