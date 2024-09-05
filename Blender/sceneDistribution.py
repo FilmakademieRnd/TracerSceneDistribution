@@ -580,7 +580,7 @@ def processEditableObjects(obj, index):
         else:
             vpet.SceneObjects.append(SceneObject(obj))
 
-        #obj.tracer_id = len(vpet.SceneObjects) -1
+        obj.tracer_id = len(vpet.SceneObjects) -1
     
 
 ## Process a meshes material
