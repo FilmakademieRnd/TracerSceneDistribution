@@ -41,10 +41,21 @@ import bpy
 from ..settings import VpetProperties
 from ..AbstractParameter import Parameter, KeyList, Key
 from .SceneObject import SceneObject
-from ..serverAdapter import SendParameterUpdate
+from ..serverAdapter import send_parameter_update
 
 def is_control_path(self, context):
-        return self.get("Control Points", False)
+    return self.get("Control Points", False)
+
+def refresh_control_path(self, context: bpy.types.Context):
+    for object in context.collection.objects:
+        if object.type == 'ARMATURE' and object.get("Control Path") == self:
+            path_ID = -1
+            for i, obj in enumerate(bpy.data.collections["VPET Collection"].objects):
+                if obj == self.editableObject.get("Control Path"):
+                    path_ID = i
+
+            print("Updated Control Path Parameter")
+            
 
 class SceneCharacterObject(SceneObject):
 
@@ -61,8 +72,8 @@ class SceneCharacterObject(SceneObject):
         super().__init__(obj)
 
         self.editableObject["IK_FK_Switch"] = 0
-        self.editableObject["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
-                                                                        override={'LIBRARY_OVERRIDABLE'}, poll=is_control_path)
+        self.editableObject["Control Path"]: bpy.props.PointerProperty( type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
+                                                                        override={'LIBRARY_OVERRIDABLE'}, poll=is_control_path, update=refresh_control_path)
         self.editableObject["Control Path"] = bpy.data.objects["AnimPath"] if "AnimPath" in bpy.data.objects else None
 
         self.editableObject.property_overridable_library_set('["Control Path"]', True)
@@ -112,6 +123,14 @@ class SceneCharacterObject(SceneObject):
             localBonePositionParameter.hasChanged.append(functools.partial(self.UpdateBonePosition, localBonePositionParameter))
             #localBoneRotationParameter.animation_has_changed.append(functools.partial(self.bake_bone_locations, localBoneRotationParameter))
             # print(str(localBonePositionParameter.get_parameter_id()) + "   " + str(localBonePositionParameter.name) + "   " + str(localBonePositionParameter.value))
+
+        path_ID = -1
+        for i, obj in enumerate(bpy.data.collections["VPET_Collection"].objects):
+            if obj == self.editableObject.get("control_path-object"):
+                path_ID = i
+        # TODO Add Control Path Parameter (as Scene Object ID)
+        if path_ID >= 0:
+            self._parameterList.append(Parameter(value=path_ID, name="Control Path", parent_object=self))
 
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
         pose_bone: bpy.types.Bone
@@ -171,13 +190,15 @@ class SceneCharacterObject(SceneObject):
             #target_character_obj.animation_data.action.name = "Old Animation"
             old_action = self.editableObject.animation_data.action
             #target_character_obj.animation_data_clear()
-            target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
+            target_character_obj.animation_data.action = None
             if old_action.users == 0:
                 bpy.data.actions.remove(old_action)
+            target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
 
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone (the other bones won't get displaced)
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
         for parameter in self._parameterList:
+            print(parameter.name)
             bone_name, param_type = parameter.name.split("-")
             if parameter.is_animated and bone_name == "hip" and param_type == "location":
                 offsets = {}

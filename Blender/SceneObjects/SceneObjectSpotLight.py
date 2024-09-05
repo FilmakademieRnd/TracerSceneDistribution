@@ -35,9 +35,16 @@ individual license agreement.
 
 import functools
 import math
+from enum import Enum
 from ..AbstractParameter import Parameter
 from .SceneObjectLight import SceneObjectLight
-from ..serverAdapter import SendParameterUpdate;
+from ..serverAdapter import send_parameter_update
+
+class LightTypes(Enum):
+    SPOT    = 1
+    SUN     = 2
+    POINT   = 3
+    AREA    = 4
 
 class SceneObjectSpotLight(SceneObjectLight):
     def __init__(self, obj):
@@ -50,5 +57,5 @@ class SceneObjectSpotLight(SceneObjectLight):
         if self._lock == True:
             self.editableObject.data.spot_size = new_value
         else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)
 

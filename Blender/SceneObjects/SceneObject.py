@@ -38,7 +38,7 @@ import math
 from mathutils import Vector, Quaternion
 
 from ..AbstractParameter import Parameter
-from ..serverAdapter import SendParameterUpdate
+from ..serverAdapter import send_parameter_update
 
 class SceneObject:
 
@@ -66,6 +66,18 @@ class SceneObject:
         tracer_rot.hasChanged.append(functools.partial(self.UpdateRotation, tracer_rot))
         tracer_scl.hasChanged.append(functools.partial(self.UpdateScale,    tracer_scl))
 
+        # If the Blender Object has the property Control Path, add the respective Animated Parameters for path locations and path rotations  
+        control_path = bl_obj.get("Control Path", None) 
+        if control_path != None and len(control_path) > 0:
+            first_point: Object = control_path[0]
+            path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
+            path_locations.init_animation()
+            path_rotations = Parameter(first_point.rotation_quaternion, bl_obj.name+"-path_rotations", self)
+            path_rotations.init_animation()
+            self._parameterList.append(path_locations)
+            self._parameterList.append(path_rotations)
+
+
 
     def UpdatePosition(self, tracer_pos: Parameter, new_value: Vector):
         if self.network_lock:
@@ -75,7 +87,7 @@ class SceneObject:
                     self.editableObject.location = key.value
                     self.editableObject.keyframe_insert("location", key.time)
         else:
-            SendParameterUpdate(tracer_pos)
+            send_parameter_update(tracer_pos)
 
     def UpdateRotation(self, tracer_rot: Parameter, new_value: Quaternion):
         if self.network_lock:
@@ -86,13 +98,13 @@ class SceneObject:
             if self.editableObject.type == 'LIGHT' or self.editableObject.type == 'CAMERA' or self.editableObject.type == 'ARMATURE':
                 self.editableObject.rotation_euler.rotate_axis("X", math.radians(90))
         else:
-            SendParameterUpdate(tracer_rot)
+            send_parameter_update(tracer_rot)
 
     def UpdateScale(self, tracer_scl: Parameter, new_value: Vector):
         if self.network_lock:
             self.editableObject.scale = new_value
         else:
-            SendParameterUpdate(tracer_scl)
+            send_parameter_update(tracer_scl)
 
     def LockUnlock(self, value: int):
         if value == 1:

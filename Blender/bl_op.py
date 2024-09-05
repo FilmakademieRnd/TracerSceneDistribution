@@ -40,9 +40,13 @@ from mathutils import Vector, Euler
 
 from bpy.types import Context
 from bpy.app.handlers import persistent
-from .serverAdapter import set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
+
+from .settings import VpetData
+from .SceneObjects.SceneObject import SceneObject
+from .AbstractParameter import Parameter, AnimHostRPC
+from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
 from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
-from .sceneDistribution import gatherSceneData, resendCurve, processControlPath_temp
+from .sceneDistribution import gatherSceneData, resendCurve, processControlPath
 from .GenerateSkeletonObj import process_armature
 
 
@@ -161,7 +165,7 @@ class AddPath(bpy.types.Operator):
     default_name = "AnimPath"
 
     def execute(self, context):
-        self.total_frames = 180
+        #self.total_frames = 180
         #TODO: eventually bind the path to a character in the scene
         # if(context.active_object == "ARMATURE"):
         #     print('Add Path START')
@@ -171,6 +175,7 @@ class AddPath(bpy.types.Operator):
         #     print("Select a Character Object to execute this functionality")
         print('Add Path START')
         add_path(context.active_object, self.default_name)      # Call the function resposible of creating the animation path
+        #if not InteractionListener.is_running:
         bpy.ops.path.interaction_listener("INVOKE_DEFAULT")     # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
 
@@ -181,7 +186,7 @@ class FKIKToggle(bpy.types.Operator):
 
     def execute(self, context):
         # If the toggling should happen only when the chartacter is selected
-        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object["IK_FK_Switch"] >= 0:
+        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object.get("IK_FK_Switch", default=-1) >= 0:
             context.active_object["IK_FK_Switch"] = abs(round(context.active_object["IK_FK_Switch"]) - 1)
             object_data = context.active_object.data
 
@@ -477,7 +482,7 @@ class EvaluateSpline(bpy.types.Operator):
                 EvaluateSpline.bl_label = "Update Animation Preview"
                 anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
             
-            curve_path = processControlPath_temp(anim_path)
+            curve_path = processControlPath(anim_path)
             context.scene.frame_start = 0
             context.scene.frame_end = curve_path.pointsLen - 1
             anim_prev.animation_data_clear()
@@ -499,16 +504,53 @@ class EvaluateSpline(bpy.types.Operator):
 #   If a Control Path is assigned, it sends the list Control Points to AnimHost
 class AnimationRequest(bpy.types.Operator):
     bl_idname = "object.tracer_animation_request"
-    bl_label = "Request New Animation"
+    bl_label = "Request Animation"
     bl_description = "Request new animation for the selected character from AnimHost"
+
+    animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", None, distribute=False, is_RPC=True)
+    animation_request.__id = 1
+
+    animation_request_mode: bpy.props.EnumProperty(items = [("BLOCK",       "As a Block",           "Send Animation as a Block",        AnimHostRPC.BLOCK.value),
+                                                            ("STREAM",      "As a Stream",          "Start Animation Streaming",        AnimHostRPC.STREAM.value),
+                                                            ("STREAM_LOOP", "As a Looped Stream",   "Start Loop Animation Streaming",   AnimHostRPC.STREAM_LOOP.value),
+                                                            ("STOP",        "Stop Stream",          "Stop Animation Streaming",         AnimHostRPC.STOP.value)
+                                                            ])
+
+    @classmethod
+    def poll(cls, context):
+       return context.active_object != None and context.active_object.type == 'ARMATURE'
 
     def execute(self, context: Context):
         if context.active_object.type == 'ARMATURE':
             print("Sending updated Animation Path, this triggers the sending of a new Animation Sequence")
             if context.active_object.get("Control Path") != None:
                 print("The active object has a Control Path")
-                # TODO Send the Control Path to AnimHost as a Parameter Update
-                # Serialise every Control Point as a Parameter
+                control_path_bl_obj: bpy.types.Object = context.active_object.get("Control Path")
+                vpet_data: VpetData = bpy.context.window_manager.vpet_data
+                control_path_tracer_obj: SceneObject = vpet_data.SceneObjects[control_path_bl_obj.tracer_id]
+                #for tracer_obj in vpet_data.SceneObjects:
+                #    if tracer_obj.editableObject == control_path_bl_obj:
+                #        control_path_tracer_obj = tracer_obj
+
+                if control_path_tracer_obj == None:
+                    raise ValueError("The selected Control Path is invalid")
+                
+                spline = control_path_tracer_obj._parameterList[0]
+                # TODO Send the Control Path to AnimHost as a Parameter Update calling send_parameter_update(spline) instead of resendCurve()
+                # send_parameter_update(spline)
+                resendCurve()
+                # Request Animation from AnimHost through RPC call
+                match self.animation_request_mode:
+                    case 'BLOCK':
+                        self.animation_request.value = AnimHostRPC.BLOCK.value
+                    case 'STREAM':
+                        self.animation_request.value = AnimHostRPC.STREAM.value
+                    case 'STREAM_LOOP':
+                        self.animation_request.value = AnimHostRPC.STREAM_LOOP.value
+                    case 'STOP':
+                        self.animation_request.value = AnimHostRPC.STOP.value
+                send_RPC_msg(self.animation_request)
+                
             else:
                 raise ValueError("The selected Armature Object doesn't have a valid Control Path associated to it")
         else:
@@ -545,13 +587,16 @@ class AnimationSave(bpy.types.Operator):
 #   - When the user is into Edit Mode while selecting the Spline, record the various edits the user makes in order to be applied to later versions of the Control Path 
 class InteractionListener(bpy.types.Operator):
     bl_idname = "path.interaction_listener"
-    bl_label = "Interaction Listener"
+    bl_label = "Start Path Operator"
     bl_description = "Listening to Interaction Events on the Animation Path Object and Sub-Objects"
+
+    is_running = False
 
     def __init__(self):
         print("Start")
 
     def __del__(self):
+        InteractionListener.is_running = False
         print("End")
 
     def edit_handles(self, context):
@@ -665,19 +710,20 @@ class InteractionListener(bpy.types.Operator):
         return {'PASS_THROUGH'}
     
     def invoke(self, context, event):
-        # Add the modal listener to the list of called handlers and save the Animation Path object
-        context.window_manager.modal_handler_add(self)
-        self.anim_path = None
-        self.new_cp_locations = []
-        self.mode = 'OBJECT'
+        if not InteractionListener.is_running:
+            # Add the modal listener to the list of called handlers and save the Animation Path object
+            context.window_manager.modal_handler_add(self)
+            self.anim_path = None
+            self.new_cp_locations = []
+            self.mode = 'OBJECT'
 
-        # Check for inconsistency in Panel UI w.r.t. Auto Update property
-        if (AddPath.default_name in bpy.data.objects) and\
-            bool(bpy.data.objects[AddPath.default_name]["Auto Update"]) != bool(ToggleAutoUpdate.bl_label == "Disable Path Auto Update"):
-            
-            ToggleAutoUpdate.bl_label = "Disable Path Auto Update" if bpy.data.objects[AddPath.default_name]["Auto Update"] else "Enable Path Auto Update"
-            self.anim_path = bpy.data.objects[AddPath.default_name]
+            # Check for inconsistency in Panel UI w.r.t. Auto Update property
+            if (AddPath.default_name in bpy.data.objects) and\
+                bool(bpy.data.objects[AddPath.default_name]["Auto Update"]) != bool(ToggleAutoUpdate.bl_label == "Disable Path Auto Update"):
 
+                ToggleAutoUpdate.bl_label = "Disable Path Auto Update" if bpy.data.objects[AddPath.default_name]["Auto Update"] else "Enable Path Auto Update"
+                self.anim_path = bpy.data.objects[AddPath.default_name]
+            InteractionListener.is_running = True
         return {'RUNNING_MODAL'}
     
 class SendRpcCall(bpy.types.Operator):

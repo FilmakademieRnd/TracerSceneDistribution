@@ -36,7 +36,7 @@ individual license agreement.
 import functools
 from ..AbstractParameter import Parameter
 from .SceneObject import SceneObject
-from ..serverAdapter import SendParameterUpdate;
+from ..serverAdapter import send_parameter_update;
 
 class SceneObjectLight(SceneObject):
     def __init__(self, obj):
@@ -52,10 +52,10 @@ class SceneObjectLight(SceneObject):
         if self._lock == True:
             self.editableObject.data.color = new_value
         else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)
 
     def UpdateIntensity(self, parameter, new_value):
         if self._lock == True:
             self.editableObject.data.energy = new_value
         else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)

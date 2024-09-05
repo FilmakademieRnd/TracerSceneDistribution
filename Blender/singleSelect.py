@@ -34,7 +34,7 @@ individual license agreement.
 '''
 
 import bpy
-from .serverAdapter import SendLockMSG, SendUnlockMSG;
+from .serverAdapter import send_lock_msg, send_unlock_msg;
 
 
 class OBJECT_OT_single_select(bpy.types.Operator):
@@ -71,7 +71,7 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 for obj in deselected_objects:
                     for scene_obj in vpet.SceneObjects:
                         if obj == scene_obj.editableObject:
-                            SendUnlockMSG(scene_obj)
+                            send_unlock_msg(scene_obj)
                             print(f"Deselected object: {obj.name}")
 
                 # Check for new selection
@@ -79,7 +79,7 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 for obj in newly_selected_objects:
                     for scene_obj in vpet.SceneObjects:
                         if obj == scene_obj.editableObject:
-                            SendLockMSG(scene_obj)
+                            send_lock_msg(scene_obj)
                             print(f"Selected object: {obj.name}")
 
                 # Update the last selected objects set

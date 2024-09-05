@@ -91,6 +91,7 @@ def add_menu_path(self, context):
 #
 def register():
     bpy.types.WindowManager.vpet_data = VpetData()
+    # bpy.types.Object.tracer_id = bpy.props.IntProperty(name="TRACER ID", default=-1, description="The ID of the corresponding TRACER Object in the Scene")
     from bpy.utils import register_class
     for cls in classes:
         try:
