@@ -438,19 +438,19 @@ class Parameter(AbstractParameter):
                 # Read Key Tangent Time
                 right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
                 byte_count += 4
-                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
-                byte_count += 4
+                #left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                #byte_count += 4
                 # Read Key Value
                 value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
                 # Read Key Tangent Value
                 right_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
-                left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
-                byte_count += data_size
+                #left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
+                #byte_count += data_size
                 
-                deserialized_key = Key(time, value, key_type, right_tangent_time, right_tangent_value, left_tangent_time, left_tangent_value)
-                self.key_list.set_key(self, deserialized_key, key_count)
+                deserialized_key = Key(time, value, key_type, right_tangent_time, right_tangent_value)
+                self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
             

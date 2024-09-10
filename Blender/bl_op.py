@@ -546,8 +546,8 @@ class AnimationRequest(bpy.types.Operator):
                 control_path_tracer_obj.update_parameter(-1)
                 spline_param = control_path_tracer_obj._parameterList[-1]
                 # TODO Send the Control Path to AnimHost as a Parameter Update calling send_parameter_update(spline) instead of resendCurve()
-                send_parameter_update(spline_param)
-                #resendCurve()
+                #send_parameter_update(spline_param)
+                resendCurve()
                 # Request Animation from AnimHost through RPC call
                 match self.animation_request_mode:
                     case 'BLOCK':
