@@ -236,7 +236,7 @@ class SceneCharacterObject(SceneObject):
 
         # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the first parameter)
         bpy.context.scene.frame_start = 1
-        bpy.context.scene.frame_end   = len(self._parameterList[0].get_key_list())
+        bpy.context.scene.frame_end   = len(self._parameterList[-1].get_key_list())
 
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
