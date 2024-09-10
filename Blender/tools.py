@@ -262,6 +262,8 @@ def add_path(character, path_name):
         anim_path.lock_scale[1]    = True
         anim_path.lock_scale[2]    = True
 
+    # Set the new path as "Editable" by default
+    anim_path["VPET-Editable"] = True
     # Select and set as active the first point of the Path
     anim_path["Control Points"][0].select_set(True)
     bpy.context.view_layer.objects.active = anim_path["Control Points"][0]
