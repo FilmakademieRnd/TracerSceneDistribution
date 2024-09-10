@@ -182,9 +182,6 @@ class KeyList:
             return removed_key
         else:
             raise LookupError("Key not found in Parameter Key List")
-
-    def get_key(self, index: int) -> Key:
-        return self.__data[index]
     
     def get_list(self) -> list[Key]:
         return self.__data
@@ -359,7 +356,7 @@ class Parameter(AbstractParameter):
         if self.is_animated:
             for key in self.key_list.get_list():
                 payload = bytearray(key.get_key_size())
-                payload.extend(struct.pack( 'B', key.key_type))         # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
+                payload.extend(struct.pack( 'B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
                 payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
                 payload.extend(struct.pack('<f', key.right_tangent_time))   #! missing left
                 payload.extend(self.serialize_data(key.value))
@@ -373,12 +370,13 @@ class Parameter(AbstractParameter):
         if value == None:
             match self.get_tracer_type():
                 case TRACERParamType.VECTOR3.value:
-                    value = self.value.xzy
+                    value = self.value #.xzy
                 case TRACERParamType.VECTOR4.value:
-                    value = self.value.xzyw
+                    value = self.value #.xzyw
                 case TRACERParamType.QUATERNION.value:
                     self.parent_object.editableObject.rotation_mode = 'QUATERNION'
-                    value = self.value.wxyz
+                    quat: Quaternion = self.value
+                    value = Quaternion((quat.w, quat.x, quat.y, quat.z))
                     self.parent_object.editableObject.rotation_mode = 'XYZ'
                 case _:
                     value = self.value
@@ -391,17 +389,18 @@ class Parameter(AbstractParameter):
             case TRACERParamType.FLOAT.value:
                 return struct.pack('<f', value)
             case TRACERParamType.VECTOR2.value:
-                return struct.pack('<2f', value)
+                return struct.pack('<2f',  value.x, value.y)
             case TRACERParamType.VECTOR3.value:
                 unity_vec3 = value.xzy
-                return struct.pack('<3f', unity_vec3)
+                return struct.pack('<3f', value.x, value.z, value.y)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
-                return struct.pack('<4f', unity_vec4)
+                return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value)
+                return struct.pack('<4f', value.w, value.x, value.z, value.y)
             case TRACERParamType.COLOR.value:
-                return struct.pack('<4f', value)
+                #! Color in mathutils is only RGB
+                return struct.pack('<4f', value.r, value.b, value.g, 1)
             case TRACERParamType.STRING.value:
                 string_length = str(len(value))
                 format_string = string_length + "s"

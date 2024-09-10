@@ -33,6 +33,7 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 from bpy.types import Object
+import bpy
 import functools
 import math
 from mathutils import Vector, Quaternion
@@ -66,8 +67,9 @@ class SceneObject:
         tracer_rot.hasChanged.append(functools.partial(self.UpdateRotation, tracer_rot))
         tracer_scl.hasChanged.append(functools.partial(self.UpdateScale,    tracer_scl))
 
-        # If the Blender Object has the property Control Path, add the respective Animated Parameters for path locations and path rotations  
-        control_path = bl_obj.get("Control Path", None) 
+        # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
+        # These parameters are associated with the root object of the Control Path in the scene
+        control_path = bl_obj.get("Control Points", None) 
         if control_path != None and len(control_path) > 0:
             first_point: Object = control_path[0]
             path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
@@ -114,4 +116,29 @@ class SceneObject:
             self.network_lock = False
             self.editableObject.hide_select = False
         
-    
+    def update_parameter(self, param_id: int):
+        parameter = self._parameterList[param_id]
+        obj_name, param_type = parameter.name.split("-")
+
+        if self.editableObject.get("Control Points", None) != None and param_type == "path_rotations":
+            rotations = parameter
+            locations = self._parameterList[param_id - 1]
+
+            cp_list = self.editableObject.get("Control Points")
+            cp_curve = self.editableObject.children[0]
+            print(self.editableObject.name)
+            for i, cp in enumerate(cp_list):
+                print(cp.name)
+                # TODO Fill location and rotations with data from cp_list and cp_curve!
+                self._parameterList[param_id - 1]   = locations
+                self._parameterList[param_id]       = rotations
+
+        elif self.editableObject.get("Control Path", None) != None and param_type == "control_path":
+            path_ID = -1
+            for i, obj in enumerate(bpy.data.collections["VPET_Collection"].objects):
+                if obj == self.editableObject.get("Control Path"):
+                    path_ID = i
+                    break
+
+            if path_ID >= 0:
+                self._parameterList[-1] = Parameter(value=path_ID, name=self.editableObject.name+"-control_path", parent_object=self)

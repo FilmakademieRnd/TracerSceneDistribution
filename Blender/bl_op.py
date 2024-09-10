@@ -142,6 +142,11 @@ class MakeEditable(bpy.types.Operator):
         for obj in selected_objects:
             # Add custom property "Editable" with type bool and default value True
             obj["VPET-Editable"] = True
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
         return{'FINISHED'}
     
 class ParentToRoot(bpy.types.Operator):
@@ -175,6 +180,8 @@ class AddPath(bpy.types.Operator):
         #     print("Select a Character Object to execute this functionality")
         print('Add Path START')
         add_path(context.active_object, self.default_name)      # Call the function resposible of creating the animation path
+        # Set the new path as "Editable" by default
+        context.active_object["VPET-Editable"] = True
         #if not InteractionListener.is_running:
         bpy.ops.path.interaction_listener("INVOKE_DEFAULT")     # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
@@ -523,22 +530,24 @@ class AnimationRequest(bpy.types.Operator):
     def execute(self, context: Context):
         if context.active_object.type == 'ARMATURE':
             print("Sending updated Animation Path, this triggers the sending of a new Animation Sequence")
-            if context.active_object.get("Control Path") != None:
-                print("The active object has a Control Path")
-                control_path_bl_obj: bpy.types.Object = context.active_object.get("Control Path")
+            control_path_bl_obj: bpy.types.Object = context.active_object.get("Control Path", None)
+            if control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
                 vpet_data: VpetData = bpy.context.window_manager.vpet_data
+
+                tracer_character_object: SceneObject = vpet_data.SceneObjects[context.active_object.tracer_id]
+                tracer_character_object.update_parameter(-1)
+
                 control_path_tracer_obj: SceneObject = vpet_data.SceneObjects[control_path_bl_obj.tracer_id]
                 #for tracer_obj in vpet_data.SceneObjects:
                 #    if tracer_obj.editableObject == control_path_bl_obj:
                 #        control_path_tracer_obj = tracer_obj
-
-                if control_path_tracer_obj == None:
-                    raise ValueError("The selected Control Path is invalid")
-                
-                spline = control_path_tracer_obj._parameterList[0]
+                #if control_path_tracer_obj == None:
+                #    raise ValueError("The selected Control Path is invalid")
+                control_path_tracer_obj.update_parameter(-1)
+                spline_param = control_path_tracer_obj._parameterList[-1]
                 # TODO Send the Control Path to AnimHost as a Parameter Update calling send_parameter_update(spline) instead of resendCurve()
-                # send_parameter_update(spline)
-                resendCurve()
+                send_parameter_update(spline_param)
+                #resendCurve()
                 # Request Animation from AnimHost through RPC call
                 match self.animation_request_mode:
                     case 'BLOCK':
@@ -550,11 +559,11 @@ class AnimationRequest(bpy.types.Operator):
                     case 'STOP':
                         self.animation_request.value = AnimHostRPC.STOP.value
                 send_RPC_msg(self.animation_request)
-                
+                self.report({'INFO'}, "Sending updated Control Path and RPC call")
             else:
-                raise ValueError("The selected Armature Object doesn't have a valid Control Path associated to it")
+                self.report({'ERROR'}, "The selected Armature Object doesn't have a valid Control Path associated to it")
         else:
-            raise TypeError("Select an Armature Object to request an animation from AnimHost")
+            self.report({'ERROR'}, "Select an Armature Object to request an animation from AnimHost")
         return {'FINISHED'}
 
 ### Operator to save the latest received animation from AnimHost

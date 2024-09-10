@@ -272,7 +272,7 @@ def send_parameter_update(parameter: Parameter):
     vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object._id))          # scene object ID
     vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))         # parameter ID
     vpet.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))          # parameter type
-    length = 10 + parameter._dataSize
+    length = 10 + parameter.get_size()
     vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                               # message length
     vpet.ParameterUpdateMSG.extend(parameter.serialize())
 

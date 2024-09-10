@@ -110,6 +110,7 @@ def register():
 
     bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)  # Adding auto update handler for the animation path. Called any time the scene graph is updated
     bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)     # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
+    #bpy.app.handlers.depsgraph_update_post.append(SceneCharacterObject.)
     
     bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
     bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)
