@@ -32,13 +32,13 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-from bpy.types import Object
+from bpy.types import Object, SplineBezierPoints
 import bpy
 import functools
 import math
 from mathutils import Vector, Quaternion
 
-from ..AbstractParameter import Parameter
+from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
 
 class SceneObject:
@@ -124,12 +124,26 @@ class SceneObject:
             rotations = parameter
             locations = self._parameterList[param_id - 1]
 
-            cp_list = self.editableObject.get("Control Points")
-            cp_curve = self.editableObject.children[0]
+            cp_list: list[Object] = self.editableObject.get("Control Points")
+            cp_curve: SplineBezierPoints = self.editableObject.children[0].data.splines[0].bezier_points
             print(self.editableObject.name)
             for i, cp in enumerate(cp_list):
                 print(cp.name)
-                # TODO Fill location and rotations with data from cp_list and cp_curve!
+                for i, cp in enumerate(cp_list):
+                    locations.key_list.set_key(Key( time                = cp.get("Frame"),
+                                                    value               = cp_curve[i].co,
+                                                    type                = KeyType.BEZIER,
+                                                    right_tangent_time  = cp.get("Ease Out"),
+                                                    right_tangent_value = cp_curve[i].handle_right,
+                                                    left_tangent_time   = cp.get("Ease In"),
+                                                    left_tangent_value  = cp_curve[i].handle_left ),
+                                                i)
+                    
+                    rotations.key_list.set_key(Key( time                = cp.get("Frame"),
+                                                    value               = cp.rotation_quaternion,
+                                                    type                = KeyType.LINEAR ),
+                                                i)
+
                 self._parameterList[param_id - 1]   = locations
                 self._parameterList[param_id]       = rotations
 

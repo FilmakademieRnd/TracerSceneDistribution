@@ -91,14 +91,14 @@ class Key:
     # type of keyframe - KeyType (STEP, LINEAR, BEZIER)
     key_type:   KeyType
 
-    def __init__(self, time, value, type = KeyType.LINEAR, right_tangent_time = None, right_tangent_value = None):
+    def __init__(self, time, value, type = KeyType.LINEAR, right_tangent_time = None, right_tangent_value = None, left_tangent_time = None, left_tangent_value = None):
         self.time = time
         self.value = value
         self.key_type = type
         self.right_tangent_time = right_tangent_time if right_tangent_time != None else time
-        #self.left_tangent_time = left_tangent_time if left_tangent_time != None else time
+        self.left_tangent_time = left_tangent_time if left_tangent_time != None else time
         self.right_tangent_value = right_tangent_value if right_tangent_value != None else value
-        #self.left_tangent_value = left_tangent_value if left_tangent_value != None else value
+        self.left_tangent_value = left_tangent_value if left_tangent_value != None else value
 
     def __sizeof__(self) -> int:
         return self.get_key_size()
@@ -151,7 +151,7 @@ class KeyList:
         else:
             raise LookupError("Key not found in Parameter Key List")
     
-    def set_key(self, parameter, key: Key, index: int):
+    def set_key(self, key: Key, index: int):
         if index > self.size():
             raise IndexError("Setting Key Out Of Bounds for KeyList")
         elif index == self.size() or index == -1:
@@ -161,6 +161,9 @@ class KeyList:
             if not key.is_equal(self.__data[index]):
                 self.__data[index] = key
                 self.has_changed = True
+
+    def add_key(self, key: Key):
+        self.__data.append(key)
 
     def remove_key(self, key: Key) -> Key:
         flagged_index = -1
@@ -291,7 +294,7 @@ class Parameter(AbstractParameter):
     def init_animation(self):
         self.is_animated = True
         key_zero = Key(0, self.value)
-        self.key_list.set_key(self, key_zero, 0)
+        self.key_list.set_key(key_zero, 0)
 
         # Pose Bone Object in the scene corresponding to the current Parameter 
         #if self.name == "TRACER Position":
@@ -358,9 +361,11 @@ class Parameter(AbstractParameter):
                 payload = bytearray(key.get_key_size())
                 payload.extend(struct.pack( 'B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
                 payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
-                payload.extend(struct.pack('<f', key.right_tangent_time))   #! missing left
+                payload.extend(struct.pack('<f', key.left_tangent_time))
+                payload.extend(struct.pack('<f', key.right_tangent_time))
                 payload.extend(self.serialize_data(key.value))
-                payload.extend(self.serialize_data(key.right_tangent_value))    #!missing left
+                payload.extend(self.serialize_data(key.left_tangent_value))
+                payload.extend(self.serialize_data(key.right_tangent_value))
         return payload
 
     def serialize_data(self, value = None) -> bytearray:
@@ -433,18 +438,18 @@ class Parameter(AbstractParameter):
                 # Read Key Tangent Time
                 right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
                 byte_count += 4
-                #!left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
-                #!byte_count += 4
+                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                byte_count += 4
                 # Read Key Value
                 value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
                 # Read Key Tangent Value
                 right_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
-                #!left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
-                #!byte_count += data_size
+                left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
+                byte_count += data_size
                 
-                deserialized_key = Key(time, value, key_type, right_tangent_time, right_tangent_value)
+                deserialized_key = Key(time, value, key_type, right_tangent_time, right_tangent_value, left_tangent_time, left_tangent_value)
                 self.key_list.set_key(self, deserialized_key, key_count)
                 
                 key_count += 1

@@ -140,7 +140,11 @@ class SceneCharacterObject(SceneObject):
         pose_bone: bpy.types.Bone
         if pose_bone_obj.name in self.local_rotation_map:
             rotation_matrix = self.local_rotation_map[pose_bone_obj.name]
-            translation_matrix = self.local_translation_map[pose_bone_obj.name]
+            if pose_bone_obj.name in self.local_translation_map:
+                translation_matrix = self.local_translation_map[pose_bone_obj.name]
+            else:
+                print("Base Transation Matrix not found for bone " + pose_bone_obj.name + ". Using Identity.")
+                translation_matrix = Matrix.Identity(4)
             pose_bone = pose_bone_obj.bone
 
             # Getting the translation matrix (only for the hip bone object)
@@ -232,7 +236,7 @@ class SceneCharacterObject(SceneObject):
 
         # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the first parameter)
         bpy.context.scene.frame_start = 1
-        bpy.context.scene.frame_end   = len(self._parameterList[0].key_list)
+        bpy.context.scene.frame_end   = len(self._parameterList[0].get_key_list())
 
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
