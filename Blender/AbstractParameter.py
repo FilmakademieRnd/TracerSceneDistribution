@@ -115,11 +115,11 @@ class Key:
         elif isinstance(self.value, Vector) and len(self.value) == 4 or isinstance(self.value, Quaternion) or isinstance(self.value, Color):
             return struct.calcsize('f') * 4 # = 16
         elif isinstance(self.value, str):
-            return struct.calcsize('c') * len(self._value) # len_of_string * size_of_char
+            return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
 
     def get_key_size(self):
         # byte (key_type) +           float (time) +           float (tangent_time) +   size_of_param (value) +    size_of_param (tangentvalue)
-        return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__()
+        return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
     
     def is_equal(self, other):
         return (self.key_type               == other.key_type       and\
@@ -361,10 +361,10 @@ class Parameter(AbstractParameter):
                 payload = bytearray(key.get_key_size())
                 payload.extend(struct.pack( 'B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
                 payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
-                payload.extend(struct.pack('<f', key.left_tangent_time))
+                #payload.extend(struct.pack('<f', key.left_tangent_time))
                 payload.extend(struct.pack('<f', key.right_tangent_time))
                 payload.extend(self.serialize_data(key.value))
-                payload.extend(self.serialize_data(key.left_tangent_value))
+                #payload.extend(self.serialize_data(key.left_tangent_value))
                 payload.extend(self.serialize_data(key.right_tangent_value))
         return payload
 

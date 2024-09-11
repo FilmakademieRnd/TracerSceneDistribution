@@ -74,9 +74,9 @@ class SceneObject:
             first_point: Object = control_path[0]
             path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
             path_locations.init_animation()
+            self._parameterList.append(path_locations)
             path_rotations = Parameter(first_point.rotation_quaternion, bl_obj.name+"-path_rotations", self)
             path_rotations.init_animation()
-            self._parameterList.append(path_locations)
             self._parameterList.append(path_rotations)
 
 
