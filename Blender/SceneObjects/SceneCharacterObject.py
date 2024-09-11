@@ -195,12 +195,7 @@ class SceneCharacterObject(SceneObject):
         if target_character_obj.animation_data == None:
             target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
         elif target_character_obj.animation_data.action:
-            #target_character_obj.animation_data.action.name = "Old Animation"
-            old_action = self.editableObject.animation_data.action
-            #target_character_obj.animation_data_clear()
-            target_character_obj.animation_data.action = None
-            if old_action.users == 0:
-                bpy.data.actions.remove(old_action)
+            bpy.data.actions.remove(target_character_obj.animation_data.action)
             target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
 
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone (the other bones won't get displaced)
@@ -234,18 +229,18 @@ class SceneCharacterObject(SceneObject):
                     offsets[key.time] = new_rotation_matrix
                 local_rot_offest_from_rest[bone_name] = offsets
 
-        # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the first parameter)
-        bpy.context.scene.frame_start = 1
-        bpy.context.scene.frame_end   = len(self._parameterList[-1].get_key_list())
+        # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the hip rotation parameter)
+        bpy.context.scene.frame_end   = len(self._parameterList[3].get_key_list()) - 1
 
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
+        last_frame = 0
         for parameter in self._parameterList:
             if parameter.is_animated:
-                for key in parameter.get_key_list():
-                    bone_name, param_type = parameter.name.split("-")
-                    target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
+                bone_name, param_type = parameter.name.split("-")
+                target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
 
+                for key in parameter.get_key_list():
                     rotation_matrix = local_rot_offest_from_rest[bone_name][key.time]
                     translation_matrix = local_pos_offest_from_rest[bone_name][key.time] if bone_name == "hip" else Matrix.Identity(4) # The translation matrix is defined only for the hip bone
                     pose_bone: bpy.types.Bone = target_bone.bone
@@ -262,36 +257,4 @@ class SceneCharacterObject(SceneObject):
                     # Write keyframe for both location and rotation of the current bone at the current frame
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].location', frame=key.time)
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].rotation_quaternion', frame=key.time)
-        
-    # def push_down_action(self):
-    #     '''Baking the animation as a new animation layer'''
-    #     new_action = bpy.data.actions.new("AnimHost Output")
-
-    #     if self.editableObject.animation_data == None:
-    #         self.editableObject.animation_data_create()
-    #         self.editableObject.animation_data.use_nla = True
-    #         new_track: bpy.types.NlaTrack = self.editableObject.animation_data.nla_tracks.active
-    #         new_track.select = True
-    #         new_track.name = "AnimHost Output"
-    #     else:
-    #         if bpy.context.scene.vpet_properties.overwrite_animation:
-    #             self.editableObject.animation_data.use_nla = True
-    #             old_action_name = self.editableObject.animation_data.action.name
-    #             self.editableObject.animation_data_clear()
-    #             bpy.data.actions.remove(old_action_name)
-    #         new_track = self.editableObject.animation_data.nla_tracks.new()
-    #         new_track.select = True
-    #         new_track.name = "AnimHost Output"
-        
-        
-    #     self.bake_parameter(self._parameterList[69], "location", self.armature_obj_pose_bones["hip"], new_action)
-
-    #     for parameter in self._parameterList:
-    #         bone_name, parameter_type = parameter.name.split("-")
-    #         if parameter.key_list.has_changed and not (bone_name == "hip" and parameter_type == "location"):
-    #             target_bone = self.armature_obj_pose_bones[bone_name]
-    #             self.bake_parameter(parameter, parameter_type, target_bone, new_action)
-
-    #     # Assign the newly filled action to the corresponding track of the current object
-    #     new_track.strips.new(name="AnimHost Output", start=0, action=new_action)
-    #     pass
+                    last_frame = key.time

@@ -422,6 +422,8 @@ class Parameter(AbstractParameter):
         self.set_value(self.deserialize_data(value_bytes))
 
         if self.is_animated and msg_size > data_size:
+            self.key_list.clear()
+
             byte_count = data_size
             msg_n_keys = msg_payload[byte_count:byte_count+2]
             n_keys = struct.unpack('<H', msg_n_keys)[0]

@@ -477,7 +477,7 @@ def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
                 timings = adaptive_timings_resampling(ease_out_point_one/100, ease_in_point_two/100, segment_frames)
                 
                 evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two, timings)
-                #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
+                # Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
                 evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), timings)
                 
                 # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
@@ -491,7 +491,7 @@ def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
                 bpy.context.window_manager.report({"ERROR"}, value_error_msg)
     
     curve_package.pointsLen = int(len(curve_package.points) / 3)
-    vpet.curveList.append(curve_package)
+    vpet.curveList =  [curve_package]
     return curve_package
 
 ##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
