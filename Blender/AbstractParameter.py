@@ -355,17 +355,19 @@ class Parameter(AbstractParameter):
 
     def serialize(self) -> bytearray:
         payload = bytearray([])
-        payload.extend(self.serialize_data())
+        payload.extend(self.serialize_data(self.value))
         if self.is_animated:
+            payload.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
-                payload = bytearray(key.get_key_size())
-                payload.extend(struct.pack( 'B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
-                payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
-                #payload.extend(struct.pack('<f', key.left_tangent_time))
-                payload.extend(struct.pack('<f', key.right_tangent_time))
-                payload.extend(self.serialize_data(key.value))
-                #payload.extend(self.serialize_data(key.left_tangent_value))
-                payload.extend(self.serialize_data(key.right_tangent_value))
+                key_payload = bytearray([])
+                key_payload.extend(struct.pack(' B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
+                key_payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
+                key_payload.extend(struct.pack('<f', key.left_tangent_time))
+                key_payload.extend(struct.pack('<f', key.right_tangent_time))
+                key_payload.extend(self.serialize_data(key.value))
+                key_payload.extend(self.serialize_data(key.left_tangent_value))
+                key_payload.extend(self.serialize_data(key.right_tangent_value))
+                payload.extend(key_payload)
         return payload
 
     def serialize_data(self, value = None) -> bytearray:
@@ -402,7 +404,7 @@ class Parameter(AbstractParameter):
                 unity_vec4 = value.xzyw
                 return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value.w, value.x, value.z, value.y)
+                return struct.pack('<4f', value.w, value.x, value.y, value.z)
             case TRACERParamType.COLOR.value:
                 #! Color in mathutils is only RGB
                 return struct.pack('<4f', value.r, value.b, value.g, 1)

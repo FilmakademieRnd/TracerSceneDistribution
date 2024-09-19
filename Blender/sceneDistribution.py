@@ -524,7 +524,7 @@ def adaptive_timings_resampling(ease_from: float, ease_to: float, resolution: in
         t = i / resolution
         j = 0
 
-        while pre_sampling[j].x < t:
+        while pre_sampling[j].x <= t:
             j += 1
 
         t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
