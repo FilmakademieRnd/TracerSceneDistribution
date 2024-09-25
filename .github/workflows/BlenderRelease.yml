@@ -20,7 +20,7 @@ jobs:
     - name: Upload Release
       uses: ncipollo/release-action@v1.14.0
       with:
-        name: 'BlenderAddOn-Release'
+        name: 'TRACER Plug-in for Blender (Alpha)'
         draft: True
         artifacts: 'TRACER-Blender-4.2LTS.zip'
         token: ${{ secrets.GITHUB_TOKEN }}
