@@ -10,5 +10,5 @@ jobs:
       with:
         type: 'zip'
         filename: 'release.zip'
-        path: '/Blender'
+        path: 'Blender'
         exclusions: '*.git* /*node_modules/* .editorconfig'
