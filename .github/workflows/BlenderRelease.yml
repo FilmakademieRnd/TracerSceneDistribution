@@ -2,7 +2,7 @@ name: Create Blender Plugin Zip
 on:
   push:
     tags:
-      - 'beta'
+      - '*-alpha'
 permissions:
   contents: write
 jobs:
