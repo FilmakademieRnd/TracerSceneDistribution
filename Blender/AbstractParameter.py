@@ -130,7 +130,7 @@ class Key:
     
 class KeyList:
     __data: list[Key]
-    has_changed: bool
+    #has_changed: bool
 
     def __init__(self) -> None:
         self.__data = []
@@ -164,6 +164,7 @@ class KeyList:
 
     def add_key(self, key: Key):
         self.__data.append(key)
+        self.has_changed = True
 
     def remove_key(self, key: Key) -> Key:
         flagged_index = -1
@@ -182,6 +183,7 @@ class KeyList:
         if index < len(self):
             removed_key = self.__data[index]
             self.__data.remove(index)
+            self.has_changed = True
             return removed_key
         else:
             raise LookupError("Key not found in Parameter Key List")
@@ -209,6 +211,10 @@ class AbstractParameter:
     __is_RPC: bool = False
     # Flag that determines whether a Parameter is animated
     is_animated: bool = False
+    # Flag that determines whether a Parameter has been recently changed
+    has_changed: bool = False
+    # List of handlers that broadcast parameters updates when a parameter is changed
+    parameter_handler: list = []
 
     def __init__ (self, value, name: str, parent_object = None, distribute = True, network_lock = False, is_RPC = False, is_animated = False):
         self.value = value
@@ -220,7 +226,8 @@ class AbstractParameter:
         self.__is_RPC = is_RPC
         self.is_animated = is_animated
         self.initial_value = value
-        self.hasChanged = []
+        self.has_changed = False
+        self.parameter_handler = []
 
         if(parent_object):
             self.__id = len(parent_object._parameterList)
@@ -325,20 +332,22 @@ class Parameter(AbstractParameter):
     def set_value(self, new_value):
         self.network_lock = True
         if new_value != self.value:
+            self.has_changed = True
             self.value = new_value
-            self.emitHasChanged()
+            self.emit_has_changed()
         self.network_lock = False
     
-    def emitHasChanged(self):
-        for handler in self.hasChanged:
+    def emit_has_changed(self):
+        for handler in self.parameter_handler:
             handler(self.value)
+        self.has_changed = False
 
     def copy_value(self, other): # other: Parameter (returns Parameter)
         self.network_lock = True
-        has_changed = False
+        self.has_changed = False
         if self.value != other.value:
             self.value = other.value
-            has_changed = True
+            self.has_changed = True
         if self.is_animated != other.is_animated:
             self.is_animated = other.is_animated
             if self.is_animated:
@@ -346,7 +355,10 @@ class Parameter(AbstractParameter):
                 self.key_list = other.key_list
             else:
                 self.clear_animation()
-            has_changed = True
+            self.has_changed = True
+
+        if self.has_changed:
+            self.emit_has_changed()
         self.network_lock = False
 
     #######################
@@ -462,6 +474,8 @@ class Parameter(AbstractParameter):
             #     # If the key list has been modified and there are multiple keyframes, bake the deserialized animation
             #     self.bake_parameter_keyframes()
             #     self.key_list.has_changed = False
+        if self.has_changed:
+            self.emit_has_changed()
 
 
     def deserialize_data(self, msg_payload: bytearray):

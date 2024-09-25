@@ -77,11 +77,12 @@ from .settings import VpetData
 from .settings import VpetProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
+from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
 # imported classes to register
 classes = (DoDistribute, StopDistribute, SetupScene, VPET_PT_Panel, VPET_PT_Anim_Path_Panel, VPET_PT_Control_Points_Panel, VPET_PT_Anim_Path_Menu, VpetProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
            SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
-           AnimationRequest, AnimationSave, InteractionListener, SendRpcCall) 
+           AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 
 def add_menu_path(self, context):
     print("Registering Add Path Menu Entry")

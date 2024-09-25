@@ -43,6 +43,15 @@ from ..AbstractParameter import Parameter, KeyList, Key
 from .SceneObject import SceneObject
 from ..serverAdapter import send_parameter_update
 
+class ReportReceivedAnimation(bpy.types.Operator):
+    bl_idname = "wm.report_received_animation"
+    bl_label = "Received Animation"
+    bl_description = 'Reports whether an Animation has been received from a TRACER client'
+
+    def execute(self, context):
+        self.report({'INFO'}, "Animation Received")
+        return {'FINISHED'}
+
 class SceneCharacterObject(SceneObject):
 
     boneMap = {}
@@ -95,8 +104,8 @@ class SceneCharacterObject(SceneObject):
             bone_rotation_quaternion = bone_matrix_global.to_quaternion()
             localBoneRotationParameter = Parameter(bone_rotation_quaternion, bone.name+"-rotation_quaternion", self)
             self._parameterList.append(localBoneRotationParameter)
-            localBoneRotationParameter.hasChanged.append(functools.partial(self.UpdateBoneRotation, localBoneRotationParameter))
-            #localBoneRotationParameter.animation_has_changed.append(functools.partial(self.bake_bone_rotations, localBoneRotationParameter))
+            localBoneRotationParameter.parameter_handler.append(functools.partial(self.UpdateBoneRotation, localBoneRotationParameter))
+            #? Sending a Parameter Update when the animation data of a paramter changes
             self.boneMap[localBoneRotationParameter.get_parameter_id] = bone_rotation_quaternion
 
         for bone in self.armature_obj_pose_bones:
@@ -107,8 +116,8 @@ class SceneCharacterObject(SceneObject):
             bone_location = bone.location
             localBonePositionParameter = Parameter(bone_location, bone.name+"-location", self)
             self._parameterList.append(localBonePositionParameter)
-            localBonePositionParameter.hasChanged.append(functools.partial(self.UpdateBonePosition, localBonePositionParameter))
-            #localBoneRotationParameter.animation_has_changed.append(functools.partial(self.bake_bone_locations, localBoneRotationParameter))
+            localBonePositionParameter.parameter_handler.append(functools.partial(self.UpdateBonePosition, localBonePositionParameter))
+            #? Sending a Parameter Update when the animation data of a paramter changes
             # print(str(localBonePositionParameter.get_parameter_id()) + "   " + str(localBonePositionParameter.name) + "   " + str(localBonePositionParameter.value))
 
         # Add Control Path Parameter (as Scene Object ID) - Look for 
@@ -258,3 +267,6 @@ class SceneCharacterObject(SceneObject):
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].location', frame=key.time)
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].rotation_quaternion', frame=key.time)
                     last_frame = key.time
+
+        # REPORT (not displaying on UI...why?)
+        bpy.ops.wm.report_received_animation('EXEC_DEFAULT')

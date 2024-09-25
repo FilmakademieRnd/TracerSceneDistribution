@@ -63,9 +63,9 @@ class SceneObject:
         tracer_scl = Parameter(bl_obj.scale, bl_obj.name+"-scale", self)
         self._parameterList.append(tracer_scl)
         # Bind UpdatePosition to the instance using functools.partial
-        tracer_pos.hasChanged.append(functools.partial(self.UpdatePosition, tracer_pos))
-        tracer_rot.hasChanged.append(functools.partial(self.UpdateRotation, tracer_rot))
-        tracer_scl.hasChanged.append(functools.partial(self.UpdateScale,    tracer_scl))
+        tracer_pos.parameter_handler.append(functools.partial(self.UpdatePosition, tracer_pos))
+        tracer_rot.parameter_handler.append(functools.partial(self.UpdateRotation, tracer_rot))
+        tracer_scl.parameter_handler.append(functools.partial(self.UpdateScale,    tracer_scl))
 
         # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
         # These parameters are associated with the root object of the Control Path in the scene
