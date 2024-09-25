@@ -14,7 +14,7 @@ jobs:
       uses: thedoctor0/zip-release@0.7.5
       with:
         type: 'zip'
-        filename: 'release.zip'
+        filename: 'TRACER-Blender-4.2LTS.zip'
         path: 'Blender'
         exclusions: '*.git* /*node_modules/* .editorconfig'
     - name: Upload Release
@@ -22,5 +22,5 @@ jobs:
       with:
         name: 'BlenderAddOn-Release'
         draft: True
-        artifacts: "release.zip"
+        artifacts: 'TRACER-Blender-4.2LTS.zip'
         token: ${{ secrets.GITHUB_TOKEN }}
