@@ -41,7 +41,8 @@ import struct
 import re
 
 from mathutils import Vector, Quaternion
-from .AbstractParameter import Parameter
+from.settings import VpetData, VpetProperties
+from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight
@@ -87,6 +88,7 @@ def initialize():
     vpet = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
     
+    vpet.scene_obj_map.clear()
     vpet.objectsToTransfer.clear()
     vpet.nodeList.clear()
     vpet.geoList.clear()
@@ -110,21 +112,18 @@ def initialize():
 #
 def gatherSceneData():
     initialize()
-     #cID
     vpet.cID = int(str(v_prop.server_ip).split('.')[3])
-    print( vpet.cID)
+    print(vpet.cID)
     objectList = getObjectList()
 
     if len(objectList) > 0:
         vpet.objectsToTransfer = objectList
-        
-
         #iterate over all objects in the scene
-        for i, n in enumerate(vpet.objectsToTransfer):
-            processSceneObject(n, i)
+        for i, obj in enumerate(vpet.objectsToTransfer):
+            processSceneObject(obj, i)
 
-        for i, n in enumerate(vpet.objectsToTransfer):
-            processEditableObjects(n, i)
+        for i, obj in enumerate(vpet.objectsToTransfer):
+            processEditableObjects(obj, i)
 
         getHeaderByteArray()
         getNodesByteArray()
@@ -147,33 +146,21 @@ def gatherSceneData():
 def getObjectList():
     parent_object_name = "VPETsceneRoot"
     parent_object = bpy.data.objects.get(parent_object_name)
-    #objectList = []
-    #recursive_game_object_id_extract(parent_object, objectList)
-    
-    return parent_object.children_recursive    
-
-# def recursive_game_object_id_extract(location, objectList):
-#     # Iterate through each child of the location
-#     for child in location.children:
-#         # Add the child object to the game_objects list
-#         print(child.name)
-#         objectList.append(child)
-#         # Recursively call the function for the child to explore its children
-#         recursive_game_object_id_extract(child, objectList)    
+    return parent_object.children_recursive
     
 ## Process and store a scene object
 #
 # @param obj The scene object to process
 # @param index The objects index in the list of all objects
-def processSceneObject(obj, index):
+def processSceneObject(obj: bpy.types.Object, index):
     global vpet, v_prop
     node = sceneObject()
-    node.vpetType = vpet.nodeTypes.index('GROUP')
+    node.vpetType = NodeTypes.GROUP
     
     # gather light data
     if obj.type == 'LIGHT':
         nodeLight = sceneLight()
-        nodeLight.vpetType =vpet.nodeTypes.index('LIGHT')
+        nodeLight.vpetType = NodeTypes.LIGHT
         nodeLight.lightType = vpet.lightTypes.index(obj.data.type)
         nodeLight.intensity = obj.data.energy/100
         nodeLight.color = (obj.data.color.r, obj.data.color.g, obj.data.color.b)
@@ -192,7 +179,7 @@ def processSceneObject(obj, index):
     # gather camera data    
     elif obj.type == 'CAMERA':
         nodeCamera = sceneCamera()
-        nodeCamera.vpetType = vpet.nodeTypes.index('CAMERA')
+        nodeCamera.vpetType = NodeTypes.CAMERA
         nodeCamera.fov = math.degrees(obj.data.angle)
         nodeCamera.aspect = obj.data.sensor_width/obj.data.sensor_height
         nodeCamera.near = obj.data.clip_start
@@ -211,16 +198,12 @@ def processSceneObject(obj, index):
             node = processMesh(obj, nodeMesh)
                 
     elif obj.type == 'ARMATURE':
-        node.vpetType = vpet.nodeTypes.index('CHARACTER')
+        node.vpetType = NodeTypes.CHARACTER
         processCharacter(obj, vpet.objectsToTransfer)
     
-    #TODO define scene distribution when encountering a (any) curve
-    # elif obj.type == 'CURVE':
-    #     processCurve_alt(obj, vpet.objectsToTransfer)
-
     # When finding an Animation Path to be distributed
     if obj.name == "AnimPath":
-        processControlPath_temp(obj)
+        processControlPath(obj)
             
         
     # gather general node data    
@@ -244,25 +227,20 @@ def processSceneObject(obj, index):
         node.name[i] = n
     node.childCount = len(obj.children)
     
-    
+    #????
     if obj.name == 'VPETsceneRoot':
         node.childCount = vpet.rootChildCount
         
     node.vpetId = index
 
-    edit_property = "VPET-Editable"
-    # check if node is editable
-    if edit_property in obj and obj.get(edit_property):
-        node.editable = 1
-        vpet.editable_objects.append(obj)
-    else:
-        node.editable = 0
+    node.editable = int(obj.get("VPET-Editable", False))
+    vpet.editable_objects.append(obj)
 
     if obj.name != 'VPETsceneRoot':
         vpet.nodeList.append(node)
     
 def processMesh(obj, nodeMesh): 
-    nodeMesh.vpetType = vpet.nodeTypes.index('GEO')
+    nodeMesh.vpetType = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
     nodeMesh.roughness = 0.5
     nodeMesh.materialId = -1
@@ -286,7 +264,7 @@ def processMesh(obj, nodeMesh):
     return(nodeMesh)
 
 def processSkinnedMesh(obj, nodeSkinMesh):
-    nodeSkinMesh.vpetType = vpet.nodeTypes.index('SKINNEDMESH')
+    nodeSkinMesh.vpetType = NodeTypes.SKINNEDMESH
     nodeSkinMesh.color = (0,0,0,1)
     nodeSkinMesh.roughness = 0.5
     nodeSkinMesh.materialId = -1
@@ -358,6 +336,7 @@ def processCharacter(armature_obj, object_list):
         chr_pack.characterRootID = vpet.objectsToTransfer.index(armature_obj)
 
         if(v_prop.humanoid_rig):
+            raise RuntimeError("Update Humanoid Rig implementation")
             for key, value in blender_to_unity_bone_mapping.items():
                 bone_index = -1
                 for idx, obj in enumerate(object_list):
@@ -450,7 +429,7 @@ def processCharacter(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
-def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
+def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
     vpet = bpy.context.window_manager.vpet_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
@@ -498,7 +477,7 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
                 timings = adaptive_timings_resampling(ease_out_point_one/100, ease_in_point_two/100, segment_frames)
                 
                 evaluated_positions = adaptive_sample_bezier(coords_point_one, r_handle_point_one, l_handle_point_two, coords_point_two, timings)
-                #! Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
+                # Probably it is necessary to check whether Eulers or Quaternions are used by the user to define pointer rotations (more often than not Eulers are used though)
                 evaluated_rotations = rotation_interpolation(point.rotation_euler.to_quaternion(), next_point.rotation_euler.to_quaternion(), timings)
                 
                 # Removing the 3 elements (points coordinates and euler angle respectively) from the two lists for all the segments but not the last (to avoid duplicates)
@@ -512,7 +491,7 @@ def processControlPath_temp(anim_path: bpy.types.Object) -> curvePackage:
                 bpy.context.window_manager.report({"ERROR"}, value_error_msg)
     
     curve_package.pointsLen = int(len(curve_package.points) / 3)
-    vpet.curveList.append(curve_package)
+    vpet.curveList =  [curve_package]
     return curve_package
 
 ##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
@@ -545,7 +524,7 @@ def adaptive_timings_resampling(ease_from: float, ease_to: float, resolution: in
         t = i / resolution
         j = 0
 
-        while pre_sampling[j].x < t:
+        while pre_sampling[j].x <= t:
             j += 1
 
         t1 = (t - pre_sampling[j-1].x) / (pre_sampling[j].x - pre_sampling[j-1].x)
@@ -582,7 +561,7 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
     
     return samples
 
-##Create SceneObject for each object that will be sent iver network
+## Create SceneObject for each object that will be sent over network
 #
 #@param obj the acual object from the scene
 def processEditableObjects(obj, index):
@@ -600,6 +579,8 @@ def processEditableObjects(obj, index):
             vpet.SceneObjects.append(SceneCharacterObject(obj))
         else:
             vpet.SceneObjects.append(SceneObject(obj))
+
+        obj.tracer_id = len(vpet.SceneObjects) -1
     
 
 ## Process a meshes material
@@ -882,7 +863,7 @@ def getNodesByteArray():
     for node in vpet.nodeList:
         nodeBinary = bytearray([])
         
-        nodeBinary.extend(struct.pack('i', node.vpetType))
+        nodeBinary.extend(struct.pack('i', node.vpetType.value))
         nodeBinary.extend(struct.pack('i', node.editable)) #editable ?
         nodeBinary.extend(struct.pack('i', node.childCount))
         nodeBinary.extend(struct.pack('3f', *node.position))
@@ -890,19 +871,19 @@ def getNodesByteArray():
         nodeBinary.extend(struct.pack('4f', *node.rotation))
         nodeBinary.extend(node.name)
           
-        if (node.vpetType == vpet.nodeTypes.index('GEO')):
+        if (node.vpetType == NodeTypes.GEO):
             nodeBinary.extend(struct.pack('i', node.geoId))
             nodeBinary.extend(struct.pack('i', node.materialId))
             nodeBinary.extend(struct.pack('4f', *node.color))
             
-        if (node.vpetType == vpet.nodeTypes.index('LIGHT')):
+        if (node.vpetType == NodeTypes.LIGHT):
             nodeBinary.extend(struct.pack('i', node.lightType))
             nodeBinary.extend(struct.pack('f', node.intensity))
             nodeBinary.extend(struct.pack('f', node.angle))
             nodeBinary.extend(struct.pack('f', node.range))
             nodeBinary.extend(struct.pack('3f', *node.color))
             
-        if (node.vpetType == vpet.nodeTypes.index('CAMERA')):
+        if (node.vpetType == NodeTypes.CAMERA):
             nodeBinary.extend(struct.pack('f', node.fov))
             nodeBinary.extend(struct.pack('f', node.aspect))
             nodeBinary.extend(struct.pack('f', node.near))
@@ -910,7 +891,7 @@ def getNodesByteArray():
             nodeBinary.extend(struct.pack('f', node.focalDist))
             nodeBinary.extend(struct.pack('f', node.aperture))
         
-        if (node.vpetType == vpet.nodeTypes.index('SKINNEDMESH')):
+        if (node.vpetType == NodeTypes.SKINNEDMESH):
             nodeBinary.extend(struct.pack('i', node.geoID))
             nodeBinary.extend(struct.pack('i', node.materialId))
             nodeBinary.extend(struct.pack('4f', *node.color))
@@ -1009,15 +990,16 @@ def getCurvesByteArray():
         curveBinary.extend(struct.pack('i', curve.pointsLen))
         curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
         curveBinary.extend(struct.pack('%sf' % len(curve.look_at), *curve.look_at))
-
+    
         vpet.curvesByteData.extend(curveBinary)
 
 def resendCurve():
     vpet = bpy.context.window_manager.vpet_data
-    if bpy.context.selected_objects[0].type == 'CURVE' :
+    if bpy.context.active_object.type == 'ARMATURE' and bpy.context.active_object.get("Control Path") != None:
+        control_path_obj: bpy.types.Object = bpy.context.active_object.get("Control Path")
         vpet.curvesByteData = bytearray([])
         vpet.curveList = []
-        processCurve_alt(bpy.context.selected_objects[0], vpet.objectsToTransfer)
+        processControlPath(control_path_obj)
         getCurvesByteArray()
 
         # TODO MAKE IT NICER AFTER FMX!!!!!

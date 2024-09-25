@@ -39,12 +39,24 @@ import bpy
 import struct
 import mathutils
 import math
+from enum import Enum
 from collections import deque
 import numpy as np
 from .timer import TimerModalOperator
 
-from .AbstractParameter import Parameter
-from .settings import VpetData
+from .AbstractParameter import AbstractParameter, Parameter
+#from .settings import VpetData
+
+class MessageType(Enum):
+    PARAMETERUPDATE = 0
+    LOCK            = 1
+    SYNC            = 2
+    PING            = 3
+    RESENDUPDATE    = 4
+    UNDOREDOADD     = 5
+    RESETOBJECT     = 6
+    DATAHUB         = 7
+    RPC             = 8
 
 m_pingTimes = deque([0, 0, 0, 0, 0])
 pingRTT = 0
@@ -171,79 +183,37 @@ def listener():
     #   1   - time      - byte
     #   2   - msgType   - byte
     #   3+  - msgBody
-    if (msg != None ):
-        clientID = msg[0]
+    if msg != None:
+        client_ID   = msg[0]
+        msg_time    = msg[1]
+        msg_type    = msg[2]
+        #print(type)
         
-        if(vpet.messageType[msg[2]] == "SYNC"):
-            current_time = time.time()
-            sv_time = msg[1]
-            runtime = int(pingRTT * 0.5)
-            syncTime = sv_time + runtime
-            delta = delta_time(vpet.time, sv_time, TimerModalOperator.my_instance.m_timesteps)
-            if delta > 10 or delta>3 and runtime < 8:
-                vpet.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
+        if msg_type == MessageType.SYNC.value:
+            process_sync_msg(msg)
 
-        if clientID != vpet.cID:
-            msgtime = msg[1]
-            type = vpet.messageType[msg[2]]
-            #print(type)
-  
+        if client_ID != vpet.cID:
             start = 3
 
-            while(start < len(msg)):
-                
+            while start < len(msg):
                 # for i in range(3,13):
                 #     print(struct.unpack('B', msg[i:i+1])[0])
-
-                if(type == "LOCK"):
-                    obj_id = msg[start+1]
-                    if 0 < obj_id <= len(vpet.SceneObjects):
-                        lockstate = msg[start+3]
-                        vpet.SceneObjects[obj_id - 1].LockUnlock(lockstate)
-
-                    start = len(msg)
-
-                elif(type == "PARAMETERUPDATE"):
-                    param: Parameter
-                    msg_size = len(msg) # for debugging
-                    updated_animation = False
-
-                    while start < msg_size:
-                        scene_id    = struct.unpack( 'B', msg[start  :start+1 ])[0]
-                        obj_id      = struct.unpack('<H', msg[start+1:start+3 ])[0] # unpack object ID; 2 bytes (unsigned short); little endian
-                        param_id    = struct.unpack('<H', msg[start+3:start+5 ])[0]
-                        param_type  = struct.unpack( 'B', msg[start+5:start+6 ])[0]
-                        length      = struct.unpack('<I', msg[start+6:start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
-
-                        msg_payload = msg[start+10:start+length] # Extracting only the data for the current parameter from the message
-
-                        if 0 < obj_id <= len(vpet.SceneObjects) and 0 <= param_id < len(vpet.SceneObjects[obj_id - 1]._parameterList):
-                            param = vpet.SceneObjects[obj_id - 1]._parameterList[param_id]
-                            # If receiveng an animated parameter udpate on a parameter that is not already animated
-                            # Note: 10 is the size of the header
-                            if param.get_size() < length-10:
-                                param.init_animation()
-
-                            param.deserialize(msg_payload)
-
-                            updated_animation = updated_animation or param.key_list.has_changed # If only one parameter animation is updated flag the animation to be updated later
-                    
-                        start += length
-
+                if msg_type == MessageType.LOCK.value:
+                    last_index = process_lock_msg(msg, start)
+                    start = last_index
+                elif msg_type == MessageType.PARAMETERUPDATE.value:
+                    last_index = process_parameter_update(msg, start)
+                    start = last_index
+                elif msg_type == MessageType.RPC.value:
+                    last_index = process_RPC_msg(msg, start)
+                    start = last_index
                 else:
                     start = len(msg)
-
-            # At the end of the reading, if the message received was an Animation Parameter Update, trigger baking the animation over the (Character) Object
-            if type == "PARAMETERUPDATE" and param != None and updated_animation:
-                param.parent_object.populate_timeline_with_animation()
-
-                
-            
     return 0.01 # repeat every .1 second
                 
 ## Stopping the thread and closing the sockets
 
-def createPingMessage():
+def create_ping_msg():
     vpet.pingByteMSG = bytearray([])
     vpet.pingByteMSG.extend(struct.pack('B', vpet.cID))
     vpet.pingByteMSG.extend(struct.pack('B', vpet.time))
@@ -256,22 +226,21 @@ def ping_thread_function():
 
 def ping():
     global vpet, v_prop
-    createPingMessage()  # Ensure this updates vpet.pingByteMSG appropriately
+    create_ping_msg()  # Ensure this updates vpet.pingByteMSG appropriately
     if vpet.socket_c:
         try:
             vpet.socket_c.send(vpet.pingByteMSG)
             vpet.pingStartTime = vpet.time
             msg = vpet.socket_c.recv()
             if msg and msg[0] != vpet.cID:
-                DecodePongMessage(msg)
+                decode_pong_msg(msg)
         except Exception as e:
             print(f"Failed to receive pong: {e}")
     
-def DecodePongMessage(msg):
+def decode_pong_msg(msg):
     rtt = delta_time(vpet.time, vpet.pingStartTime ,TimerModalOperator.my_instance.m_timesteps)
     pingCount = len(m_pingTimes)
     
-
     if(pingCount > 4):
         m_pingTimes.popleft()
 
@@ -283,43 +252,119 @@ def DecodePongMessage(msg):
 
     if pingCount > 1:
         pingRTT = round((rttSum - rttMax) / (pingCount - 1))
+
+def process_sync_msg(msg: bytearray, start=0):
+    current_time = time.time()
+    sv_time = msg[1]
+    runtime = int(pingRTT * 0.5)
+    syncTime = sv_time + runtime
+    delta = delta_time(vpet.time, sv_time, TimerModalOperator.my_instance.m_timesteps)
+    if delta > 10 or delta>3 and runtime < 8:
+        vpet.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
     
 
-def SendParameterUpdate(parameter):
+def send_parameter_update(parameter: Parameter):
     vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 0))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', parameter._parent._id))
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', parameter._id))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', parameter._type))
-    length = 10 + parameter._dataSize
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', length))
-    vpet.ParameterUpdateMSG.extend(parameter.SerializeParameter())
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                             # client ID
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.time))                            # sync time
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))    # message type
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                             #? scene ID?
+    vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object._id))          # scene object ID
+    vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))         # parameter ID
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))          # parameter type
+    length = 10 + parameter.get_size()
+    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                               # message length
+    vpet.ParameterUpdateMSG.extend(parameter.serialize())
 
     vpet.socket_u.send(vpet.ParameterUpdateMSG)
 
+def process_parameter_update(msg: bytearray, start=0) -> int:
+    param: Parameter = None
+    msg_size = len(msg) # for debugging
+    updated_animation = False
 
-def SendLockMSG(sceneObject):
+    while start < len(msg):
+        scene_id    = struct.unpack( 'B', msg[start   : start+1 ])[0]
+        obj_id      = struct.unpack('<H', msg[start+1 : start+3 ])[0] # unpack object ID; 2 bytes (unsigned short); little endian
+        param_id    = struct.unpack('<H', msg[start+3 : start+5 ])[0]
+        param_type  = struct.unpack( 'B', msg[start+5 : start+6 ])[0]
+        length      = struct.unpack('<I', msg[start+6 : start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
+
+        msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
+
+        if 0 < obj_id <= len(vpet.SceneObjects) and 0 <= param_id < len(vpet.SceneObjects[obj_id - 1]._parameterList):
+            param = vpet.SceneObjects[obj_id - 1]._parameterList[param_id]
+            # If receiveng an animated parameter udpate on a parameter that is not already animated
+            # Note: 10 is the size of the header
+            if param.get_size() < length-10:
+                param.init_animation()
+
+            param.deserialize(msg_payload)
+
+            updated_animation = updated_animation or param.key_list.has_changed # If only one parameter animation is updated flag the animation to be updated later
+                    
+        start += length
+    
+    # At the end of the reading, if the message received was an Animation Parameter Update, trigger baking the animation over the (Character) Object
+    if param != None and updated_animation:
+        param.parent_object.populate_timeline_with_animation()
+
+    return start
+
+
+def send_RPC_msg(rpc_parameter: Parameter):
     vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 1))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 1))
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                          # client ID
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.time))                         # sync time
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))             # message type
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', 255))                               # scene ID (not assigned to a specific scene - for AnimHost)
+    vpet.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                 # object ID (not assigned to a specific object)
+    vpet.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))  # parameter/call ID
+    vpet.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))   # parameter type
+    length = 10 + rpc_parameter.get_data_size()
+    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                            # message length
+    vpet.ParameterUpdateMSG.extend(rpc_parameter.serialize_data())
+
     vpet.socket_u.send(vpet.ParameterUpdateMSG)
 
-def SendUnlockMSG(sceneObject):
+def process_RPC_msg(msg: bytearray, start=0):
+    scene_id    = struct.unpack( 'B', msg[start   : start+1 ])[0]
+    obj_id      = struct.unpack('<H', msg[start+1 : start+3 ])[0] # unpack object ID; 2 bytes (unsigned short); little endian
+    call_id     = struct.unpack('<H', msg[start+3 : start+5 ])[0]
+    param_type  = struct.unpack( 'B', msg[start+5 : start+6 ])[0]
+    length      = struct.unpack('<I', msg[start+6 : start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
+    start =+ length
+
+    return start
+
+def send_lock_msg(sceneObject, value: bool = True):
     vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 1))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B',vpet.cID))
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 0))
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  # client ID
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))                 # sync time
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  #? scene ID?
+    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                # bool value (True)
     vpet.socket_u.send(vpet.ParameterUpdateMSG)
+
+def send_unlock_msg(sceneObject):
+    vpet.ParameterUpdateMSG = bytearray([])
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  # client ID
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))                 # sync time
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
+    vpet.ParameterUpdateMSG.extend(struct.pack('B',vpet.cID))                   #? scene ID?
+    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
+    vpet.ParameterUpdateMSG.extend(struct.pack('B', 0))                         # bool value (False)
+    vpet.socket_u.send(vpet.ParameterUpdateMSG)
+
+def process_lock_msg(msg: bytearray, start = 0):
+    scene_id    = struct.unpack( 'B', msg[start   : start+1])[0]
+    obj_id      = struct.unpack('<H', msg[start+1 : start+3])[0]
+    if 0 < obj_id <= len(vpet.SceneObjects):
+        lockstate = struct.unpack( 'B', msg[start+3 : start+4])[0]
+        vpet.SceneObjects[obj_id-1].LockUnlock(lockstate)
+
+    return len(msg)
     
 def close_socket_d():
     global vpet, v_prop
@@ -346,9 +391,9 @@ def close_socket_c():
     global vpet, v_prop
     vpet = bpy.context.window_manager.vpet_data
     v_prop = bpy.context.scene.vpet_properties
-    if bpy.app.timers.is_registered(createPingMessage):
-        print("Stopping createPingMessage")
-        bpy.app.timers.unregister(createPingMessage)
+    if bpy.app.timers.is_registered(create_ping_msg):
+        print("Stopping create_ping_msg")
+        bpy.app.timers.unregister(create_ping_msg)
     if vpet.socket_c:
         vpet.socket_c.close()
 

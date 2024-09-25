@@ -34,6 +34,7 @@ individual license agreement.
 '''
 
 import bpy
+from .SceneObjects.SceneObject import SceneObject
 
 ## Class to keep editable parameters
 class VpetProperties(bpy.types.PropertyGroup):
@@ -51,7 +52,7 @@ class VpetProperties(bpy.types.PropertyGroup):
 #
 class VpetData():
 
-    sceneObject = {}
+    scene_obj_map: dict[int, SceneObject] = {}
     sceneLight = {}
     sceneCamera = {}
     sceneMesh = {}
@@ -74,7 +75,7 @@ class VpetData():
     curveList = []
     editable_objects = []
 
-    SceneObjects = []
+    SceneObjects: list[SceneObject] = []
 
     rootChildCount = 0
     
@@ -97,14 +98,6 @@ class VpetData():
     curvesByteData = bytearray([])
     pingByteMSG = bytearray([])
     ParameterUpdateMSG = bytearray([])
-
-    nodeTypes = ['GROUP', 'GEO', 'LIGHT', 'CAMERA', 'SKINNEDMESH', 'CHARACTER']
-    lightTypes = ['SPOT', 'SUN', 'POINT', 'AREA']
-
-    messageType = ['PARAMETERUPDATE', 'LOCK', \
-                'SYNC', 'PING', 'RESENDUPDATE', \
-                'UNDOREDOADD', 'RESETOBJECT', \
-                'DATAHUB']
 
     """
     parameterTypes = ['POS', 'ROT', 'SCALE', 'LOCK', 'HIDDENLOCK', 'KINEMATIC', \

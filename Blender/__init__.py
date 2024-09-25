@@ -63,6 +63,8 @@ from .bl_op import ControlPointSelect
 from .bl_op import EditControlPointHandle
 from .bl_op import UpdateCurveViz
 from .bl_op import EvaluateSpline
+from .bl_op import AnimationRequest
+from .bl_op import AnimationSave
 from .bl_op import InteractionListener
 from .bl_op import ToggleAutoUpdate
 from .bl_op import SendRpcCall
@@ -75,10 +77,12 @@ from .settings import VpetData
 from .settings import VpetProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
+from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
 # imported classes to register
 classes = (DoDistribute, StopDistribute, SetupScene, VPET_PT_Panel, VPET_PT_Anim_Path_Panel, VPET_PT_Control_Points_Panel, VPET_PT_Anim_Path_Menu, VpetProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
-           SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate, InteractionListener, SendRpcCall) 
+           SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
+           AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 
 def add_menu_path(self, context):
     print("Registering Add Path Menu Entry")
@@ -88,6 +92,7 @@ def add_menu_path(self, context):
 #
 def register():
     bpy.types.WindowManager.vpet_data = VpetData()
+    bpy.types.Object.tracer_id = bpy.props.IntProperty(name="TRACER ID", default=-1, description="The ID of the corresponding TRACER Object in the Scene")
     from bpy.utils import register_class
     for cls in classes:
         try:
@@ -106,6 +111,7 @@ def register():
 
     bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)  # Adding auto update handler for the animation path. Called any time the scene graph is updated
     bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)     # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
+    #bpy.app.handlers.depsgraph_update_post.append(SceneCharacterObject.)
     
     bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
     bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)

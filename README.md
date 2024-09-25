@@ -19,5 +19,4 @@ This project has received funding from the European Union's Horizon Europe Resea
 This development was inspired by projects under the the European Union’s Horizon 2020 Research and Innovation Programme under Grant Agreement No 780470 SAUCE and the European Commission’s Seventh Framework Programme under grant agreement no 610005 DREAMSPACE.
 
 # License
-Individual licenses apply for the TRACER Scene Distribution Plugins. 
-Please check the corresponding subfolder and license files.
+Individual licenses apply for the TRACER Scene Distribution Plugins. Please check the corresponding subfolder and license files.

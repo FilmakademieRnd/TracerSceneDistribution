@@ -36,7 +36,7 @@ individual license agreement.
 import functools
 from ..AbstractParameter import Parameter
 from .SceneObject import SceneObject
-from ..serverAdapter import SendParameterUpdate;
+from ..serverAdapter import send_parameter_update;
 
 
 class SceneObjectCamera(SceneObject):
@@ -62,16 +62,16 @@ class SceneObjectCamera(SceneObject):
          if self._lock == True:
             self.editableObject.data.angle = new_value
          else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)
 
     def UpdateNear(self, parameter, new_value):
          if self._lock == True:
             self.editableObject.data.clip_start = new_value
          else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)
 
     def UpdateFar(self, parameter, new_value):
          if self._lock == True:
             self.editableObject.data.clip_end = new_value
          else:
-            SendParameterUpdate(parameter)
+            send_parameter_update(parameter)
