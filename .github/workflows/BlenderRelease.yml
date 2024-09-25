@@ -1,5 +1,8 @@
 name: Create Blender Plugin Zip
-on: [push]
+on:
+  push:
+    tags:
+      - 'beta'
 permissions:
   contents: write
 jobs:
@@ -15,9 +18,9 @@ jobs:
         path: 'Blender'
         exclusions: '*.git* /*node_modules/* .editorconfig'
     - name: Upload Release
-      uses: ncipollo/release-action@v1.12.0
+      uses: ncipollo/release-action@v1.14.0
       with:
         name: 'BlenderAddOn-Release'
-        tag: v0.0.1
+        draft: True
         artifacts: "release.zip"
         token: ${{ secrets.GITHUB_TOKEN }}
