@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from .bl_op import AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline
+from .bl_op import InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline, AnimationRequest, AnimationSave
 
 ## Interface
 # 
@@ -84,7 +84,7 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
         layout = self.layout
 
         row = layout.row()
-        row.operator("path.interaction_listener", text="Start Path Operator")   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
+        row.operator(InteractionListener.bl_idname, text=InteractionListener.bl_label)   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
         if bpy.context.mode == 'EDIT_CURVE':
             #if the user is edidting the points of the bezier spline, disable Control Point features and display message
             row = layout.row()
@@ -178,9 +178,12 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
             
             row = layout.row()
             row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
-            row = layout.row()
-            row.operator(EvaluateSpline.bl_idname, text=EvaluateSpline.bl_label)
-                
+            if context.active_object and context.active_object.type == 'ARMATURE':
+                row = layout.row()
+                row.operator(EvaluateSpline.bl_idname, text=EvaluateSpline.bl_label)
+                row = layout.row()
+                row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
+                row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 
 class VPET_PT_Anim_Path_Menu(bpy.types.Menu):
     bl_label = "Animation Path"	   

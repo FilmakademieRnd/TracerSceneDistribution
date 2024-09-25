@@ -228,7 +228,12 @@ def add_path(character, path_name):
     elif "VPET_Collection" in bpy.data.collections:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
-        anim_path = bpy.data.objects.new(path_name, None)
+        # Adding a sphere mesh to the data (but deleting the corresponding object in the blender scene)
+        bpy.ops.mesh.primitive_uv_sphere_add(radius=1, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(0.5, 0.5, 0.5))
+        bpy.context.view_layer.objects.active = bpy.data.objects["Sphere"]
+        bpy.ops.object.delete(use_global=False, confirm=False)
+        # Assigning the sphere mesh to AnimPath (for later interaction with VPET)
+        anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["VPET_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["VPETsceneRoot"]
     else:
@@ -257,10 +262,13 @@ def add_path(character, path_name):
         anim_path.lock_scale[1]    = True
         anim_path.lock_scale[2]    = True
 
+    # Set the new path as "Editable" by default
+    anim_path["VPET-Editable"] = True
     # Select and set as active the first point of the Path
-    
     anim_path["Control Points"][0].select_set(True)
     bpy.context.view_layer.objects.active = anim_path["Control Points"][0]
+    # Hiding AnimPath mesh since we don't want to see it in blender 
+    anim_path.hide_set(True)
     
     #? We could allow multiple paths in the scene (for now only one for simplifying testing)
     #? We could associate control paths to character by simply setting them as children of an armature object
