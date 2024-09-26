@@ -41,20 +41,20 @@ from mathutils import Vector, Euler
 from bpy.types import Context
 from bpy.app.handlers import persistent
 
-from .settings import VpetData
+from .settings import TracerData
 from .SceneObjects.SceneObject import SceneObject
 from .AbstractParameter import Parameter, AnimHostRPC
 from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
 from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
-from .sceneDistribution import gatherSceneData, resendCurve, processControlPath
+from .sceneDistribution import gatherSceneData, processControlPath#, resendCurve
 from .GenerateSkeletonObj import process_armature
 
 
 ## operator classes
 #
 class SetupScene(bpy.types.Operator):
-    bl_idname = "object.setup_vpet"
-    bl_label = "VPET Scene Setup"
+    bl_idname = "object.setup_tracer"
+    bl_label = "TRACER Scene Setup"
     bl_description = 'Create Collections for static and editable objects'
 
     def execute(self, context):
@@ -64,8 +64,8 @@ class SetupScene(bpy.types.Operator):
 
 class DoDistribute(bpy.types.Operator):
     bl_idname = "object.zmq_distribute"
-    bl_label = "VPET Do Distribute"
-    bl_description = 'Distribute the scene to VPET clients'
+    bl_label = "Distribute to TRACER"
+    bl_description = 'Distribute the scene to TRACER clients'
 
     def execute(self, context):
         for obj in bpy.context.selected_objects:
@@ -79,9 +79,9 @@ class DoDistribute(bpy.types.Operator):
             cleanUp(level=1)
             if objCount > 0:
                 set_up_thread()
-                self.report({'INFO'}, f'Sending {str(objCount)} Objects to VPET')
+                self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
             else:
-                self.report({'ERROR'}, 'VPET collections not found or empty')
+                self.report({'ERROR'}, 'TRACER collections not found or empty')
         else:
             self.report({'ERROR'}, 'Please Install Zero MQ before continuing')
         
@@ -89,13 +89,13 @@ class DoDistribute(bpy.types.Operator):
 
 class StopDistribute(bpy.types.Operator):
     bl_idname = "object.zmq_stopdistribute"
-    bl_label = "VPET Stop Distribute"
+    bl_label = "Stop Distribution"
     bl_description = 'Stop the distribution and free the sockets. Important!'
 
     def execute(self, context):
         print('stop distribute')
         print('stop subscription')
-        self.report({'INFO'}, f'STOP SENDING Objects to VPET')
+        self.report({'INFO'}, f'STOP SENDING Objects to TRACER')
         reset()
         return {'FINISHED'}
 
@@ -119,7 +119,7 @@ class InstallZMQ(bpy.types.Operator):
 
 class SetupCharacter(bpy.types.Operator):
     bl_idname = "object.setup_character"
-    bl_label = "VPET Character Setup"
+    bl_label = "TRACER Character Setup"
     bl_description = 'generate obj for each Character bone'
 
     def execute(self, context):
@@ -141,7 +141,7 @@ class MakeEditable(bpy.types.Operator):
         selected_objects = bpy.context.selected_objects
         for obj in selected_objects:
             # Add custom property "Editable" with type bool and default value True
-            obj["VPET-Editable"] = True
+            obj["TRACER-Editable"] = True
 
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
@@ -160,7 +160,7 @@ class ParentToRoot(bpy.types.Operator):
         return {'FINISHED'}
    
 ### Operator to add a new Animation Path
-#   The execution is triggered by a button in the VPET Panel or by an entry in the Add Menu
+#   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
 class AddPath(bpy.types.Operator):
     bl_idname = "object.add_path"
     bl_label = "Add Control Path"
@@ -170,18 +170,11 @@ class AddPath(bpy.types.Operator):
     default_name = "AnimPath"
 
     def execute(self, context):
-        #self.total_frames = 180
-        #TODO: eventually bind the path to a character in the scene
-        # if(context.active_object == "ARMATURE"):
-        #     print('Add Path START')
-        #     add_path(context.active_object)
-        #     #resendCurve()
-        # else:
-        #     print("Select a Character Object to execute this functionality")
         print('Add Path START')
-        add_path(context.active_object, self.default_name)      # Call the function resposible of creating the animation path
-        #if not InteractionListener.is_running:
-        bpy.ops.path.interaction_listener("INVOKE_DEFAULT")     # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
+        #if context.active_object.get(""):
+        report: tuple[set[str], str] = add_path(self.default_name)     # Call the function resposible of creating the animation path
+        self.report(report)
+        bpy.ops.path.interaction_listener("INVOKE_DEFAULT")             # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
 
 class FKIKToggle(bpy.types.Operator):
@@ -191,24 +184,40 @@ class FKIKToggle(bpy.types.Operator):
 
     def execute(self, context):
         # If the toggling should happen only when the chartacter is selected
-        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object.get("IK_FK_Switch", default=-1) >= 0:
-            context.active_object["IK_FK_Switch"] = abs(round(context.active_object["IK_FK_Switch"]) - 1)
-            object_data = context.active_object.data
+        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object.animation_data.action != None:
+            selected_armature: bpy.types.Object = context.active_object
+            if selected_armature.get("IK_FK_Switch", -1) >= 0:
+                selected_armature["IK_FK_Switch"] = abs(round(selected_armature["IK_FK_Switch"]) - 1)
 
-            # Forcing update visualisation of Property Panel
-            for area in bpy.context.screen.areas:
-                if area.type == 'PROPERTIES':
-                    area.tag_redraw()
-
-            if context.active_object["IK_FK_Switch"] > 0:
-                FKIKToggle.bl_label = "Switch to Forward Kinematics"
+                if selected_armature["IK_FK_Switch"] > 0:
+                    FKIKToggle.bl_label = "Switch to Forward Kinematics"
+                else:
+                    FKIKToggle.bl_label = "Switch to Inverse Kinematics"
             else:
-                FKIKToggle.bl_label = "Switch to Inverse Kinematics"
+                selected_armature["IK_FK_Switch"] = 1
+                FKIKToggle.bl_label = "Switch to Forward Kinematics"
+
+            #! To be checked with Eddy
+            # Updating Bone Constraints Values for the currently selected Armature
+            # for bone in selected_armature.pose.bones:
+            #     ik_prop_idx = bone.constraints.find("IK_constraint")
+            #     if ik_prop_idx >= 0:
+            #         bone.constraints[ik_prop_idx] = selected_armature["IK_FK_Switch"]
+
+            # for bone in bpy.data.objects["IK_Rig"].pose.bones:
+            #     ik_prop_idx = bone.constraints.find("IK_constraint")
+            #     if ik_prop_idx >= 0:
+            #         bone.constraints[ik_prop_idx] = 1 - selected_armature["IK_FK_Switch"]
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
 
         return {'FINISHED'}
 
 ### Operator to add a new Animation Control Point
-#   The execution is triggered by a button in the VPET Panel or by an entry in the Add Menu
+#   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
 class AddPointAfter(bpy.types.Operator):
     bl_idname = "object.add_control_point_after"
     bl_label = "Add Point After"
@@ -216,24 +225,18 @@ class AddPointAfter(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        #TODO: eventually make it contextual to the selection of a specific path
-        # if(context.active_object == "ARMATURE"):
-        #     print('Add Path START')
-        #     add_path(context.active_object)
-        #     #resendCurve()
-        # else:
-        #     print("Select a Character Object to execute this functionality")
         print('Add Point START')
         anim_path = bpy.data.objects[AddPath.default_name]
         new_point_index = anim_path["Control Points"].index(context.active_object)  if (context.active_object in anim_path["Control Points"] \
                                                                                         and anim_path["Control Points"].index(context.active_object) < len(anim_path["Control Points"])-1) \
                     else  -1
 
-        add_point(anim_path, pos=new_point_index, after=True)
+        report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=True)
+        self.report(report)
         return {'FINISHED'}
     
 ### Operator to add a new Animation Control Point
-#   The execution is triggered by a button in the VPET Panel or by an entry in the Add Menu
+#   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
 class AddPointBefore(bpy.types.Operator):
     bl_idname = "object.add_control_point_before"
     bl_label = "New Point Before"
@@ -241,20 +244,14 @@ class AddPointBefore(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        #TODO: eventually make it contextual to the selection of a specific path
-        # if(context.active_object == "ARMATURE"):
-        #     print('Add Path START')
-        #     add_path(context.active_object)
-        #     #resendCurve()
-        # else:
-        #     print("Select a Character Object to execute this functionality")
         print('Add Point START')
         anim_path = bpy.data.objects[AddPath.default_name]
         new_point_index = anim_path["Control Points"].index(context.active_object) if (context.active_object in anim_path["Control Points"] \
                                                                                    and anim_path["Control Points"].index(context.active_object) < len(anim_path["Control Points"])) \
                     else  0
 
-        add_point(anim_path, pos=new_point_index, after=False)
+        report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=False)
+        self.report(report)
         return {'FINISHED'}
     
 ### Operator to manage the Properties of the Animation Control Points
@@ -326,7 +323,7 @@ class ControlPointProps(bpy.types.PropertyGroup):
     style: bpy.props.EnumProperty(items=get_items(), name="Style", description="Choose a Locomotion Style", default="Running", update=update_style)
 
 ### Operator to add a new Animation Path
-#   The execution is triggered by a button in the VPET Panel or by an entry in the Add Menu
+#   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
 class UpdateCurveViz(bpy.types.Operator):
     bl_idname = "object.update_curve"
     bl_label = "Update Curve"
@@ -382,7 +379,7 @@ class UpdateCurveViz(bpy.types.Operator):
                 area.tag_redraw()
 
 ### Operator toggling the automatic updating of the animation path
-#   Inverts value of the Auto Update bool property for the AnimPath object. Triggered by a button in the VPET Add On Panel
+#   Inverts value of the Auto Update bool property for the AnimPath object. Triggered by a button in the TRACER Add On Panel
 class ToggleAutoUpdate(bpy.types.Operator):
     bl_idname = "object.toggle_auto_eval"
     bl_label = "Enable Path Auto Update"
@@ -409,7 +406,7 @@ class ToggleAutoUpdate(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Operator for selecting a Control Point.
-#   The cp_name property is used to pass the name of the Control Point to be selected on to the Operator, at the click of the corresponding button in the VPET Control Point UI Panel
+#   The cp_name property is used to pass the name of the Control Point to be selected on to the Operator, at the click of the corresponding button in the TRACER Control Point UI Panel
 class ControlPointSelect(bpy.types.Operator):
     bl_idname = "object.control_point_select"
     bl_label = ""
@@ -432,7 +429,7 @@ class ControlPointSelect(bpy.types.Operator):
 
         return {'FINISHED'}
 
-### Operator that allows the user to enter Edit Mode directly from the click of a button in the VPET Control Points Panel
+### Operator that allows the user to enter Edit Mode directly from the click of a button in the TRACER Control Points Panel
 #   The user is going to edit the curve with the traditional Blender UX, the selected bezier point is the one corresponding to the currently selected Animation Path Control Point Object
 #   If no point is selected, the button doesn't do anything other then checking that everything is up to date and eventually updating the appearance of the curve and
 class EditControlPointHandle(bpy.types.Operator):
@@ -466,7 +463,7 @@ class EditControlPointHandle(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Operator to evaluate the timings of the animation on the path
-#   Triggered by a button in the VPET Animation Path Panel
+#   Triggered by a button in the TRACER Animation Path Panel
 #   Creates a new Object that is moved along the Animation Path
 #   It uses the information given by the User (as the Control Point location, orientation, frame, Ease In and Ease Out, and the tangents/handles of the Bezier Points)  
 class EvaluateSpline(bpy.types.Operator):
@@ -504,7 +501,7 @@ class EvaluateSpline(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Operator to request a new character animation from AnimHost given the designed path
-#   Triggered by a button in the VPET Animation Path Panel
+#   Triggered by a button in the TRACER Animation Path Panel
 #   Looks for the Control Path property of the currently selected character
 #   If a Control Path is assigned, it sends the list Control Points to AnimHost
 class AnimationRequest(bpy.types.Operator):
@@ -530,24 +527,24 @@ class AnimationRequest(bpy.types.Operator):
             print("Sending updated Animation Path, this triggers the sending of a new Animation Sequence")
             control_path_bl_obj: bpy.types.Object = context.active_object.get("Control Path", None)
             if control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
-                vpet_data: VpetData = bpy.context.window_manager.vpet_data
+                tracer_data: TracerData = bpy.context.window_manager.tracer_data
 
-                tracer_character_object: SceneObject = vpet_data.SceneObjects[context.active_object.tracer_id]
+                tracer_character_object: SceneObject = tracer_data.SceneObjects[context.active_object.tracer_id]
                 tracer_character_object.update_parameter(-1)
 
-                control_path_tracer_obj: SceneObject = vpet_data.SceneObjects[control_path_bl_obj.tracer_id]
-                #for tracer_obj in vpet_data.SceneObjects:
+                control_path_tracer_obj: SceneObject = tracer_data.SceneObjects[control_path_bl_obj.tracer_id]
+                #for tracer_obj in tracer_data.SceneObjects:
                 #    if tracer_obj.editableObject == control_path_bl_obj:
                 #        control_path_tracer_obj = tracer_obj
                 #if control_path_tracer_obj == None:
                 #    raise ValueError("The selected Control Path is invalid")
                 control_path_tracer_obj.update_parameter(-1)
                 spline_param = control_path_tracer_obj._parameterList[-1]
-                # TODO Send the Control Path to AnimHost as a Parameter Update calling send_parameter_update(spline) instead of resendCurve()
+
                 send_parameter_update(spline_param)
                 send_parameter_update(control_path_tracer_obj._parameterList[-2])
 
-                # [Not needed anymore, realying on the ParameterUpdate Message] resendCurve()
+                # [Deprecated - realying on the ParameterUpdate Message] resendCurve()
                 # Request Animation from AnimHost through RPC call
                 match self.animation_request_mode:
                     case 'BLOCK':
@@ -567,7 +564,7 @@ class AnimationRequest(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Operator to save the latest received animation from AnimHost
-#   Triggered by a button in the VPET Animation Path Panel
+#   Triggered by a button in the TRACER Animation Path Panel
 #   Takes the active action of the selected Character Object, which should be the latest animation received from AnimHost
 #   Creates a new NLA Track acting as an animation level and populate it with that action
 class AnimationSave(bpy.types.Operator):

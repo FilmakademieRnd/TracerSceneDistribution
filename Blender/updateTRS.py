@@ -50,11 +50,11 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        collection = bpy.data.collections.get("VPET_Collection")
+        tracer_collection = bpy.data.collections.get("TRACER_Collection")
         self.start_transforms = {}
-        global vpet
-        vpet = bpy.context.window_manager.vpet_data
-        for obj in collection.objects:
+        global tracer_data
+        tracer_data = bpy.context.window_manager.tracer_data
+        for obj in tracer_collection.objects:
             # Common properties for all objects
             transform_data = (obj.location.copy(), obj.rotation_euler.copy(), obj.scale.copy())
 
@@ -83,7 +83,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
     def check_for_updates(self, context):
         #print("Update!")
-        for obj in bpy.data.collections.get("VPET_Collection").objects:
+        for obj in bpy.data.collections.get("TRACER_Collection").objects:
             if obj.name not in self.start_transforms:
                 continue
 
@@ -92,18 +92,18 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 # Compare the current transform with the starting one
             if (obj.location - start_location).length > 0.0001:
-                for scene_obj in vpet.SceneObjects:
+                for scene_obj in tracer_data.SceneObjects:
                     if obj == scene_obj.editableObject:
                         scene_obj._parameterList[0].set_value(obj.location)
 
             rotation_difference = (start_rotation.to_matrix().inverted() @ obj.rotation_euler.to_matrix()).to_euler()
             if any(abs(value) > 0.0001 for value in rotation_difference):
-                for scene_obj in vpet.SceneObjects:
+                for scene_obj in tracer_data.SceneObjects:
                     if obj == scene_obj.editableObject:
                         scene_obj._parameterList[1].set_value(obj.rotation_quaternion)
 
             if (obj.scale - start_scale).length > 0.0001:
-                for scene_obj in vpet.SceneObjects:
+                for scene_obj in tracer_data.SceneObjects:
                     if obj == scene_obj.editableObject:
                         scene_obj._parameterList[2].set_value(obj.scale)
 
@@ -111,12 +111,12 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 start_color, start_energy = self.start_transforms[obj.name][3:5]
 
                 if RealTimeUpdaterOperator.color_difference(obj.data.color, start_color) > 0.0001:
-                    for scene_obj in vpet.SceneObjects:
+                    for scene_obj in tracer_data.SceneObjects:
                         if obj == scene_obj.editableObject:
                             scene_obj._parameterList[3].set_value(obj.data.color)
 
                 if abs(obj.data.energy - start_energy) > 0.0001:
-                    for scene_obj in vpet.SceneObjects:
+                    for scene_obj in tracer_data.SceneObjects:
                         if obj == scene_obj.editableObject:
                             scene_obj._parameterList[4].set_value(obj.data.energy)
 
@@ -125,17 +125,17 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 start_angle, start_clip_start, start_clip_end = stored_values[3:6]
 
                 if abs(obj.data.angle - start_angle) > 0.0001:
-                    for scene_obj in vpet.SceneObjects:
+                    for scene_obj in tracer_data.SceneObjects:
                         if obj == scene_obj.editableObject:
                             scene_obj._parameterList[3].set_value(obj.data.angle)
 
                 if abs(obj.data.clip_start - start_clip_start) > 0.0001:
-                    for scene_obj in vpet.SceneObjects:
+                    for scene_obj in tracer_data.SceneObjects:
                         if obj == scene_obj.editableObject:
                             scene_obj._parameterList[4].set_value(obj.data.clip_start)
 
                 if abs(obj.data.clip_end - start_clip_end) > 0.0001:
-                    for scene_obj in vpet.SceneObjects:
+                    for scene_obj in tracer_data.SceneObjects:
                         if obj == scene_obj.editableObject:
                             scene_obj._parameterList[5].set_value(obj.data.clip_end)
 

@@ -41,7 +41,7 @@ import struct
 import re
 
 from mathutils import Vector, Quaternion
-from.settings import VpetData, VpetProperties
+from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
@@ -84,45 +84,45 @@ class curvePackage:
     pass
 
 def initialize():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, tracer_props
+    tracer_data  = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
     
-    vpet.scene_obj_map.clear()
-    vpet.objectsToTransfer.clear()
-    vpet.nodeList.clear()
-    vpet.geoList.clear()
-    vpet.materialList.clear()
-    vpet.textureList.clear()
-    vpet.editableList.clear()
-    vpet.characterList.clear()
-    vpet.curveList.clear()
-    vpet.editable_objects.clear()
-    vpet.SceneObjects.clear()
+    tracer_data.scene_obj_map.clear()
+    tracer_data.objectsToTransfer.clear()
+    tracer_data.nodeList.clear()
+    tracer_data.geoList.clear()
+    tracer_data.materialList.clear()
+    tracer_data.textureList.clear()
+    tracer_data.editableList.clear()
+    tracer_data.characterList.clear()
+    tracer_data.curveList.clear()
+    tracer_data.editable_objects.clear()
+    tracer_data.SceneObjects.clear()
     
-    vpet.nodesByteData.clear()
-    vpet.geoByteData.clear()
-    vpet.texturesByteData.clear()
-    vpet.headerByteData.clear()
-    vpet.materialsByteData.clear()
-    vpet.charactersByteData.clear()
-    vpet.curvesByteData.clear()
+    tracer_data.nodesByteData.clear()
+    tracer_data.geoByteData.clear()
+    tracer_data.texturesByteData.clear()
+    tracer_data.headerByteData.clear()
+    tracer_data.materialsByteData.clear()
+    tracer_data.charactersByteData.clear()
+    tracer_data.curvesByteData.clear()
 
 ## General function to gather scene data
 #
 def gatherSceneData():
     initialize()
-    vpet.cID = int(str(v_prop.server_ip).split('.')[3])
-    print(vpet.cID)
+    tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
+    print(tracer_data.cID)
     objectList = getObjectList()
 
     if len(objectList) > 0:
-        vpet.objectsToTransfer = objectList
+        tracer_data.objectsToTransfer = objectList
         #iterate over all objects in the scene
-        for i, obj in enumerate(vpet.objectsToTransfer):
+        for i, obj in enumerate(tracer_data.objectsToTransfer):
             processSceneObject(obj, i)
 
-        for i, obj in enumerate(vpet.objectsToTransfer):
+        for i, obj in enumerate(tracer_data.objectsToTransfer):
             processEditableObjects(obj, i)
 
         getHeaderByteArray()
@@ -131,20 +131,16 @@ def gatherSceneData():
         getMaterialsByteArray()
         getTexturesByteArray()
         getCharacterByteArray()
-        getCurvesByteArray()
-
-        #for i, v in enumerate(vpet.nodeList):
-        #    if v.editable == 1:
-        #        vpet.editableList.append((bytearray(v.name).decode('ascii'), v.vpetType))
+        #getCurvesByteArray()
         
-        return len(vpet.objectsToTransfer)
+        return len(tracer_data.objectsToTransfer)
     
     else:
         return 0
     
 
 def getObjectList():
-    parent_object_name = "VPETsceneRoot"
+    parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
     return parent_object.children_recursive
     
@@ -153,15 +149,15 @@ def getObjectList():
 # @param obj The scene object to process
 # @param index The objects index in the list of all objects
 def processSceneObject(obj: bpy.types.Object, index):
-    global vpet, v_prop
+    global tracer_data, tracer_props
     node = sceneObject()
-    node.vpetType = NodeTypes.GROUP
+    node.tracer_type = NodeTypes.GROUP
     
     # gather light data
     if obj.type == 'LIGHT':
         nodeLight = sceneLight()
-        nodeLight.vpetType = NodeTypes.LIGHT
-        nodeLight.lightType = vpet.lightTypes.index(obj.data.type)
+        nodeLight.tracer_type = NodeTypes.LIGHT
+        nodeLight.lightType = tracer_data.lightTypes.index(obj.data.type)
         nodeLight.intensity = obj.data.energy/100
         nodeLight.color = (obj.data.color.r, obj.data.color.g, obj.data.color.b)
         nodeLight.type = obj.data.type
@@ -179,7 +175,7 @@ def processSceneObject(obj: bpy.types.Object, index):
     # gather camera data    
     elif obj.type == 'CAMERA':
         nodeCamera = sceneCamera()
-        nodeCamera.vpetType = NodeTypes.CAMERA
+        nodeCamera.tracer_type = NodeTypes.CAMERA
         nodeCamera.fov = math.degrees(obj.data.angle)
         nodeCamera.aspect = obj.data.sensor_width/obj.data.sensor_height
         nodeCamera.near = obj.data.clip_start
@@ -198,8 +194,8 @@ def processSceneObject(obj: bpy.types.Object, index):
             node = processMesh(obj, nodeMesh)
                 
     elif obj.type == 'ARMATURE':
-        node.vpetType = NodeTypes.CHARACTER
-        processCharacter(obj, vpet.objectsToTransfer)
+        node.tracer_type = NodeTypes.CHARACTER
+        processCharacter(obj, tracer_data.objectsToTransfer)
     
     # When finding an Animation Path to be distributed
     if obj.name == "AnimPath":
@@ -227,20 +223,20 @@ def processSceneObject(obj: bpy.types.Object, index):
         node.name[i] = n
     node.childCount = len(obj.children)
     
-    #????
-    if obj.name == 'VPETsceneRoot':
-        node.childCount = vpet.rootChildCount
+    # Assign the child count of the root object
+    if obj.name == 'TRACER Scene Root':
+        node.childCount = tracer_data.rootChildCount
         
-    node.vpetId = index
+    node.tracer_id = index
 
-    node.editable = int(obj.get("VPET-Editable", False))
-    vpet.editable_objects.append(obj)
+    node.editable = int(obj.get("TRACER-Editable", False))
+    tracer_data.editable_objects.append(obj)
 
-    if obj.name != 'VPETsceneRoot':
-        vpet.nodeList.append(node)
+    if obj.name != 'TRACER Scene Root':
+        tracer_data.nodeList.append(node)
     
 def processMesh(obj, nodeMesh): 
-    nodeMesh.vpetType = NodeTypes.GEO
+    nodeMesh.tracer_type = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
     nodeMesh.roughness = 0.5
     nodeMesh.materialId = -1
@@ -254,7 +250,7 @@ def processMesh(obj, nodeMesh):
                 
     if mat != None:
         nodeMesh.materialId = processMaterial(obj)
-        nodeMaterial = vpet.materialList[nodeMesh.materialId]
+        nodeMaterial = tracer_data.materialList[nodeMesh.materialId]
                     
         # add material parameters to node
         nodeMesh.color = nodeMaterial.color
@@ -264,11 +260,11 @@ def processMesh(obj, nodeMesh):
     return(nodeMesh)
 
 def processSkinnedMesh(obj, nodeSkinMesh):
-    nodeSkinMesh.vpetType = NodeTypes.SKINNEDMESH
+    nodeSkinMesh.tracer_type = NodeTypes.SKINNEDMESH
     nodeSkinMesh.color = (0,0,0,1)
     nodeSkinMesh.roughness = 0.5
     nodeSkinMesh.materialId = -1
-    nodeSkinMesh.characterRootID = vpet.objectsToTransfer.index(obj.parent)
+    nodeSkinMesh.characterRootID = tracer_data.objectsToTransfer.index(obj.parent)
     
     nodeSkinMesh.geoID = processGeoNew(obj)
     # get material of mesh
@@ -276,7 +272,7 @@ def processSkinnedMesh(obj, nodeSkinMesh):
     mat = obj.active_material
     if mat != None:
         nodeSkinMesh.materialId = processMaterial(obj)
-        nodeMaterial = vpet.materialList[nodeSkinMesh.materialId]
+        nodeMaterial = tracer_data.materialList[nodeSkinMesh.materialId]
         
         # add material parameters to node
         nodeSkinMesh.color = nodeMaterial.color
@@ -308,7 +304,7 @@ def processSkinnedMesh(obj, nodeSkinMesh):
             nodeSkinMesh.skinnedMeshBoneIDs = [-1] * 99  # Initialize all to -1
             for i, bone in enumerate(armature_data.bones):
                 bone_index = -1
-                for idx, obj in enumerate(vpet.objectsToTransfer):
+                for idx, obj in enumerate(tracer_data.objectsToTransfer):
                     if obj.name == bone.name:
                         bone_index = idx
                         break
@@ -333,9 +329,9 @@ def processCharacter(armature_obj, object_list):
 
     if armature_obj.type == 'ARMATURE':
         bones = armature_obj.data.bones
-        chr_pack.characterRootID = vpet.objectsToTransfer.index(armature_obj)
+        chr_pack.characterRootID = tracer_data.objectsToTransfer.index(armature_obj)
 
-        if(v_prop.humanoid_rig):
+        if(tracer_props.humanoid_rig):
             raise RuntimeError("Update Humanoid Rig implementation")
             for key, value in blender_to_unity_bone_mapping.items():
                 bone_index = -1
@@ -348,7 +344,7 @@ def processCharacter(armature_obj, object_list):
         else:
             for i, bone in enumerate(bones):
                 bone_index = -1
-                for idx, obj in enumerate(vpet.objectsToTransfer):
+                for idx, obj in enumerate(tracer_data.objectsToTransfer):
                     if obj.name == bone.name:
                         bone_index = idx
                         break
@@ -408,7 +404,7 @@ def processCharacter(armature_obj, object_list):
             chr_pack.boneScale.extend(scale)
 
         chr_pack.sMSize = len(chr_pack.skeletonMapping)
-    vpet.characterList.append(chr_pack)
+    tracer_data.characterList.append(chr_pack)
     return chr_pack
 
 ##TODO Process and store a Control Path for sending it to TRACER
@@ -428,9 +424,9 @@ def processCharacter(armature_obj, object_list):
 ## Given a Control Path in the scene, it evaluates it, it fills a new Curve Package object with the sampled data, and adds it to the list of curves to be shared with the other TRACER clients
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
-# @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to vpet_data.curveList (@see VpetData())
+# @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to tracer_data.curveList (@see TracerData())
 def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
-    vpet = bpy.context.window_manager.vpet_data
+    tracer_data = bpy.context.window_manager.tracer_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
     curve_package.look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
@@ -491,7 +487,7 @@ def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
                 bpy.context.window_manager.report({"ERROR"}, value_error_msg)
     
     curve_package.pointsLen = int(len(curve_package.points) / 3)
-    vpet.curveList =  [curve_package]
+    tracer_data.curveList =  [curve_package]
     return curve_package
 
 ##  Function that ADAPTIVELY samples a cubic Beziér between two points - only 2D curves supported
@@ -565,22 +561,22 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
 #
 #@param obj the acual object from the scene
 def processEditableObjects(obj, index):
-    is_editable = obj.get("VPET-Editable", False)
-    print(obj.name + " VPET-Editable: " + str(is_editable))
+    is_editable = obj.get("TRACER-Editable", False)
+    print(obj.name + " TRACER-Editable: " + str(is_editable))
     if is_editable:
         if obj.type == 'CAMERA':
-            vpet.SceneObjects.append(SceneObjectCamera(obj))
+            tracer_data.SceneObjects.append(SceneObjectCamera(obj))
         elif obj.type == 'LIGHT':
             if obj.data.type == 'SPOT':
-                vpet.SceneObjects.append(SceneObjectSpotLight(obj))
+                tracer_data.SceneObjects.append(SceneObjectSpotLight(obj))
             else:
-                vpet.SceneObjects.append(SceneObjectLight(obj))
+                tracer_data.SceneObjects.append(SceneObjectLight(obj))
         elif obj.type == 'ARMATURE':
-            vpet.SceneObjects.append(SceneCharacterObject(obj))
+            tracer_data.SceneObjects.append(SceneCharacterObject(obj))
         else:
-            vpet.SceneObjects.append(SceneObject(obj))
+            tracer_data.SceneObjects.append(SceneObject(obj))
 
-        obj.tracer_id = len(vpet.SceneObjects) -1
+        obj.tracer_id = len(tracer_data.SceneObjects) -1
     
 
 ## Process a meshes material
@@ -603,7 +599,7 @@ def processMaterial(mesh):
     matPack.textureId = -1
     
     # need to check if the material was already processed
-    for i, n in enumerate(vpet.materialList):
+    for i, n in enumerate(tracer_data.materialList):
         if n.name == name:
             return i
         
@@ -654,16 +650,16 @@ def processMaterial(mesh):
     
             
     matPack.diffuseTexture = matPack.tex
-    matPack.materialID = len(vpet.materialList)
-    vpet.materialList.append(matPack)
-    return (len(vpet.materialList)-1)
+    matPack.materialID = len(tracer_data.materialList)
+    tracer_data.materialList.append(matPack)
+    return (len(tracer_data.materialList)-1)
     
 ## Process Texture
 #
 # @param tex Texture to process
 def processTexture(tex):
     # check if texture is already processed
-    for i, t in enumerate(vpet.textureList):
+    for i, t in enumerate(tracer_data.textureList):
         if t.texture == tex.name_full:
             return i
 
@@ -695,10 +691,10 @@ def processTexture(tex):
     texBinary.extend(struct.pack('i', texPack.colorMapDataSize))
     texBinary.extend(texPack.colorMapData)
     
-    vpet.textureList.append(texPack)
+    tracer_data.textureList.append(texPack)
     
     # return index of texture in texture list
-    return (len(vpet.textureList)-1)
+    return (len(tracer_data.textureList)-1)
 
 def get_vertex_bone_weights_and_indices(vert):
     #for vert_idx, vert in enumerate(obj.data.vertices):
@@ -727,9 +723,9 @@ def processGeoNew(mesh):
     vertex_bone_indices = {}
     isParentArmature = False
 
-    for existing_geo in vpet.geoList:
+    for existing_geo in tracer_data.geoList:
         if existing_geo.identifier == mesh_identifier:
-            return vpet.geoList.index(existing_geo)
+            return tracer_data.geoList.index(existing_geo)
 
     if mesh.parent != None:
         if mesh.parent.type == 'ARMATURE':
@@ -834,8 +830,8 @@ def processGeoNew(mesh):
     geoPack.mesh = mesh
     
     
-    vpet.geoList.append(geoPack)
-    return (len(vpet.geoList)-1)
+    tracer_data.geoList.append(geoPack)
+    return (len(tracer_data.geoList)-1)
 
 def generate_mesh_identifier(obj):
     if obj.type == 'MESH':
@@ -851,19 +847,19 @@ def getHeaderByteArray():
     headerBin = bytearray([])
     
     lightIntensityFactor = 1.0
-    senderID = int(vpet.cID)
+    senderID = int(tracer_data.cID)
 
     headerBin.extend(struct.pack('f', lightIntensityFactor))
     headerBin.extend(struct.pack('i', senderID))
     headerBin.extend(struct.pack('i', 60))# frame rate that should be modified later
 
-    vpet.headerByteData.extend(headerBin)
+    tracer_data.headerByteData.extend(headerBin)
 
 def getNodesByteArray():
-    for node in vpet.nodeList:
+    for node in tracer_data.nodeList:
         nodeBinary = bytearray([])
         
-        nodeBinary.extend(struct.pack('i', node.vpetType.value))
+        nodeBinary.extend(struct.pack('i', node.tracer_type.value))
         nodeBinary.extend(struct.pack('i', node.editable)) #editable ?
         nodeBinary.extend(struct.pack('i', node.childCount))
         nodeBinary.extend(struct.pack('3f', *node.position))
@@ -871,19 +867,19 @@ def getNodesByteArray():
         nodeBinary.extend(struct.pack('4f', *node.rotation))
         nodeBinary.extend(node.name)
           
-        if (node.vpetType == NodeTypes.GEO):
+        if (node.tracer_type == NodeTypes.GEO):
             nodeBinary.extend(struct.pack('i', node.geoId))
             nodeBinary.extend(struct.pack('i', node.materialId))
             nodeBinary.extend(struct.pack('4f', *node.color))
             
-        if (node.vpetType == NodeTypes.LIGHT):
+        if (node.tracer_type == NodeTypes.LIGHT):
             nodeBinary.extend(struct.pack('i', node.lightType))
             nodeBinary.extend(struct.pack('f', node.intensity))
             nodeBinary.extend(struct.pack('f', node.angle))
             nodeBinary.extend(struct.pack('f', node.range))
             nodeBinary.extend(struct.pack('3f', *node.color))
             
-        if (node.vpetType == NodeTypes.CAMERA):
+        if (node.tracer_type == NodeTypes.CAMERA):
             nodeBinary.extend(struct.pack('f', node.fov))
             nodeBinary.extend(struct.pack('f', node.aspect))
             nodeBinary.extend(struct.pack('f', node.near))
@@ -891,7 +887,7 @@ def getNodesByteArray():
             nodeBinary.extend(struct.pack('f', node.focalDist))
             nodeBinary.extend(struct.pack('f', node.aperture))
         
-        if (node.vpetType == NodeTypes.SKINNEDMESH):
+        if (node.tracer_type == NodeTypes.SKINNEDMESH):
             nodeBinary.extend(struct.pack('i', node.geoID))
             nodeBinary.extend(struct.pack('i', node.materialId))
             nodeBinary.extend(struct.pack('4f', *node.color))
@@ -903,11 +899,11 @@ def getNodesByteArray():
             nodeBinary.extend(struct.pack('%si'% node.skinnedMeshBoneIDsSize, *node.skinnedMeshBoneIDs))
         
                     
-        vpet.nodesByteData.extend(nodeBinary)
+        tracer_data.nodesByteData.extend(nodeBinary)
 
 ## pack geo data into byte array
 def getGeoBytesArray():        
-    for geo in vpet.geoList:
+    for geo in tracer_data.geoList:
         geoBinary = bytearray([])
         
         geoBinary.extend(struct.pack('i', geo.vSize))
@@ -924,12 +920,12 @@ def getGeoBytesArray():
             geoBinary.extend(struct.pack('%si' % geo.bWSize*4, *geo.boneIndices))
 
         
-        vpet.geoByteData.extend(geoBinary)
+        tracer_data.geoByteData.extend(geoBinary)
 
 ## pack texture data into byte array        
 def getTexturesByteArray():
-    if len(vpet.textureList) > 0:
-        for tex in vpet.textureList:
+    if len(tracer_data.textureList) > 0:
+        for tex in tracer_data.textureList:
             texBinary = bytearray([])
     
             texBinary.extend(struct.pack('i', tex.width))
@@ -938,12 +934,12 @@ def getTexturesByteArray():
             texBinary.extend(struct.pack('i', tex.colorMapDataSize))
             texBinary.extend(tex.colorMapData)
             
-            vpet.texturesByteData.extend(texBinary)
+            tracer_data.texturesByteData.extend(texBinary)
 
 ## pack Material data into byte array        
 def getMaterialsByteArray():
-    if len(vpet.materialList) > 0:
-        for mat in vpet.materialList:
+    if len(tracer_data.materialList) > 0:
+        for mat in tracer_data.materialList:
             matBinary = bytearray([])
             matBinary.extend(struct.pack('i', mat.type)) #type
             matBinary.extend(struct.pack('i', 64))# name.size
@@ -951,7 +947,7 @@ def getMaterialsByteArray():
             matBinary.extend(struct.pack('i', 64)) # src.size
             matBinary.extend(mat.src) # src
             matBinary.extend(struct.pack('i', mat.materialID)) # mat id
-            matBinary.extend(struct.pack('i', len(vpet.textureList)))# tex id size
+            matBinary.extend(struct.pack('i', len(tracer_data.textureList)))# tex id size
             if(mat.textureId != -1):
                 matBinary.extend(struct.pack('i', mat.textureId))# tex id
                 matBinary.extend(struct.pack('f', 0)) # tex offsets
@@ -959,11 +955,11 @@ def getMaterialsByteArray():
                 matBinary.extend(struct.pack('f', 1)) # tex scales
                 matBinary.extend(struct.pack('f', 1)) # tex scales
 
-            vpet.materialsByteData.extend(matBinary) 
+            tracer_data.materialsByteData.extend(matBinary) 
 
 def getCharacterByteArray():
-    if len(vpet.characterList):
-        for chr in vpet.characterList:
+    if len(tracer_data.characterList):
+        for chr in tracer_data.characterList:
             charBinary = bytearray([]) 
             
             charBinary.extend(struct.pack('i', chr.bMSize))
@@ -979,29 +975,26 @@ def getCharacterByteArray():
             charBinary.extend(struct.pack('%sf' % chr.sMSize*4, *chr.boneRotation))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.boneScale))
 
-            vpet.charactersByteData.extend(charBinary) 
+            tracer_data.charactersByteData.extend(charBinary) 
 
-           
-def getCurvesByteArray():
-    vpet = bpy.context.window_manager.vpet_data
-    vpet.curvesByteData.clear()
-    for curve in vpet.curveList:
-        curveBinary = bytearray([])
-        curveBinary.extend(struct.pack('i', curve.pointsLen))
-        curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
-        curveBinary.extend(struct.pack('%sf' % len(curve.look_at), *curve.look_at))
-    
-        vpet.curvesByteData.extend(curveBinary)
+#! DEPRECATED           
+# def getCurvesByteArray():
+#     tracer_data = bpy.context.window_manager.tracer_data
+#     tracer_data.curvesByteData.clear()
+#     for curve in tracer_data.curveList:
+#         curveBinary = bytearray([])
+#         curveBinary.extend(struct.pack('i', curve.pointsLen))
+#         curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
+#         curveBinary.extend(struct.pack('%sf' % len(curve.look_at), *curve.look_at))
+#    
+#         tracer_data.curvesByteData.extend(curveBinary)
 
-def resendCurve():
-    vpet = bpy.context.window_manager.vpet_data
-    if bpy.context.active_object.type == 'ARMATURE' and bpy.context.active_object.get("Control Path") != None:
-        control_path_obj: bpy.types.Object = bpy.context.active_object.get("Control Path")
-        vpet.curvesByteData = bytearray([])
-        vpet.curveList = []
-        processControlPath(control_path_obj)
-        getCurvesByteArray()
-
-        # TODO MAKE IT NICER AFTER FMX!!!!!
-
+# def resendCurve():
+#     tracer_data = bpy.context.window_manager.tracer_data
+#     if bpy.context.active_object.type == 'ARMATURE' and bpy.context.active_object.get("Control Path") != None:
+#         control_path_obj: bpy.types.Object = bpy.context.active_object.get("Control Path")
+#         tracer_data.curvesByteData = bytearray([])
+#         tracer_data.curveList = []
+#         processControlPath(control_path_obj)
+#         getCurvesByteArray()
     

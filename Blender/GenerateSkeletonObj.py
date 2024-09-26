@@ -118,7 +118,7 @@ def process_armature(armature):
                     bpy.context.view_layer.objects.active = armature
                     bpy.ops.object.parent_set(type='BONE', keep_transform=True)
 
-        collection_name = "VPET_Collection"  # Specify the collection name
+        collection_name = "TRACER_Collection"  # Specify the collection name
         collection = bpy.data.collections.get(collection_name)
         if collection is None:
             setupCollections()

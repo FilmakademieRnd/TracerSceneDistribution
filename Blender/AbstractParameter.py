@@ -201,12 +201,12 @@ class AbstractParameter:
     value: bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
     # Parameter name
     name: str
-    # Parametrized blender Object (type SceneObject, not importable due to circular import)
-    parent_object = None
+    # Parametrized TRACER Object (type SceneObject, not importable due to circular import)
+    parent_object = None # see SceneObject.py
     # Flag that determines whether a Parameter is going to be distributed
     distribute: bool
     # Flag that determines whether a Parameter is locked from the network connection
-    network_lock: bool = False
+    #network_lock: bool = False
     # Flag that determines whether a Parameter is a RPC parameter
     __is_RPC: bool = False
     # Flag that determines whether a Parameter is animated
@@ -216,13 +216,12 @@ class AbstractParameter:
     # List of handlers that broadcast parameters updates when a parameter is changed
     parameter_handler: list = []
 
-    def __init__ (self, value, name: str, parent_object = None, distribute = True, network_lock = False, is_RPC = False, is_animated = False):
+    def __init__ (self, value, name: str, parent_object = None, distribute = True, is_RPC = False, is_animated = False):
         self.value = value
         self.__type = self.get_tracer_type()
         self.name = name
         self.parent_object = parent_object
         self.distribute = distribute
-        self.network_lock = network_lock
         self.__is_RPC = is_RPC
         self.is_animated = is_animated
         self.initial_value = value
@@ -290,8 +289,8 @@ class Parameter(AbstractParameter):
     ## Class Attributes ##
     key_list: KeyList
 
-    def __init__(self, value, name, parent_object=None, distribute=True, network_lock = False, is_RPC = False, is_animated = False):
-        super().__init__(value, name, parent_object, distribute, network_lock, is_RPC, is_animated)
+    def __init__(self, value, name, parent_object=None, distribute=True, is_RPC = False, is_animated = False):
+        super().__init__(value, name, parent_object, distribute, is_RPC, is_animated)
         self.key_list = KeyList()
 
     # resets value to initial value, why do we want to do that?
@@ -330,12 +329,13 @@ class Parameter(AbstractParameter):
             return data_size
 
     def set_value(self, new_value):
-        self.network_lock = True
-        if new_value != self.value:
-            self.has_changed = True
-            self.value = new_value
-            self.emit_has_changed()
-        self.network_lock = False
+        if not self.parent_object.network_lock:
+            self.parent_object.network_lock = True
+            if new_value != self.value:
+                self.has_changed = True
+                self.value = new_value
+                self.emit_has_changed()
+            self.parent_object.network_lock = False
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:
@@ -343,23 +343,24 @@ class Parameter(AbstractParameter):
         self.has_changed = False
 
     def copy_value(self, other): # other: Parameter (returns Parameter)
-        self.network_lock = True
-        self.has_changed = False
-        if self.value != other.value:
-            self.value = other.value
-            self.has_changed = True
-        if self.is_animated != other.is_animated:
-            self.is_animated = other.is_animated
-            if self.is_animated:
-                self.init_animation()
-                self.key_list = other.key_list
-            else:
-                self.clear_animation()
-            self.has_changed = True
+        if not self.parent_object.network_lock:
+            self.parent_object.network_lock = True
+            self.has_changed = False
+            if self.value != other.value:
+                self.value = other.value
+                self.has_changed = True
+            if self.is_animated != other.is_animated:
+                self.is_animated = other.is_animated
+                if self.is_animated:
+                    self.init_animation()
+                    self.key_list = other.key_list
+                else:
+                    self.clear_animation()
+                self.has_changed = True
 
-        if self.has_changed:
-            self.emit_has_changed()
-        self.network_lock = False
+            if self.has_changed:
+                self.emit_has_changed()
+            self.parent_object.network_lock = False
 
     #######################
     ###  Serialization  ###
@@ -454,33 +455,32 @@ class Parameter(AbstractParameter):
                 # Read Key Timestamp
                 time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
                 byte_count += 4
-                #? Are Tangent time and Tangent value due a refactoring?
-                # Read Key Tangent Time
+                # Read Key Tangent Times
                 right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
                 byte_count += 4
-                #left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
-                #byte_count += 4
+                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                byte_count += 4
                 # Read Key Value
                 value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
-                # Read Key Tangent Value
+                # Read Key Tangent Values
                 right_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
-                #left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
-                #byte_count += data_size
+                left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
+                byte_count += data_size
                 
-                deserialized_key = Key(time, value, key_type, right_tangent_time, right_tangent_value)
+                deserialized_key = Key(time = time, value = value, type = key_type,
+                                       right_tangent_time = right_tangent_time, right_tangent_value = right_tangent_value,
+                                       left_tangent_time  = left_tangent_time,  left_tangent_value  = left_tangent_value )
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
-            
-            # if key_count > 1 and self.key_list.has_changed:
-            #     # If the key list has been modified and there are multiple keyframes, bake the deserialized animation
-            #     self.bake_parameter_keyframes()
-            #     self.key_list.has_changed = False
-        if self.has_changed:
+        
+        # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
+        if self.has_changed and not self.parent_object.network_lock:
+            self.parent_object.network_lock = True
             self.emit_has_changed()
-
+            self.parent_object.network_lock = False
 
     def deserialize_data(self, msg_payload: bytearray):
         match self.get_tracer_type():

@@ -38,7 +38,7 @@ import math
 from mathutils import Matrix, Quaternion, Vector, Euler
 import bpy
 
-from ..settings import VpetProperties
+from ..settings import TracerProperties
 from ..AbstractParameter import Parameter, KeyList, Key
 from .SceneObject import SceneObject
 from ..serverAdapter import send_parameter_update
@@ -122,7 +122,7 @@ class SceneCharacterObject(SceneObject):
 
         # Add Control Path Parameter (as Scene Object ID) - Look for 
         path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["VPET_Collection"].objects):
+        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
             if obj == self.editableObject.get("Control Path"):
                 path_ID = i
                 break
@@ -137,7 +137,7 @@ class SceneCharacterObject(SceneObject):
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
     def refresh_control_path(self, context: bpy.types.Context) -> None:
         path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["VPET Collection"].objects):
+        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
             if obj == context.active_object.get("Control Path"):
                 path_ID = i
         if path_ID >= 0:

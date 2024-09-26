@@ -35,49 +35,51 @@ individual license agreement.
 
 import bpy
 
-from .bl_op import InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate, ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline, AnimationRequest, AnimationSave
+from .bl_op import  DoDistribute, StopDistribute, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot,\
+                    InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
+                    ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline, AnimationRequest, AnimationSave
 
 ## Interface
 # 
-class VPET_Panel:
+class TRACER_Panel:
     bl_category = "TRACER Add-On"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
-class VPET_PT_Panel(VPET_Panel, bpy.types.Panel):
+class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "VPET_PT_PANEL"
-    bl_label = "VPET"
+    bl_label = "TRACER"
     
     def draw(self, context):
         layout = self.layout
-        #scene = context.scene
         
         row = layout.row()
-        row.operator('object.zmq_install', text = 'Pip Install ZMQ')
-        row.operator('object.setup_vpet', text='Setup Scene for VPET')
+        row.operator(InstallZMQ.bl_idname, text = InstallZMQ.bl_label)
+        row.operator(SetupScene.bl_idname, text = SetupScene.bl_label)
 
         row = layout.row()
-        row.operator('object.setup_character', text='Setup Character for VPET')
-        row.operator('object.make_obj_editable', text='Make selected Editable')
-        row.operator('object.parent_to_root', text='Parent TO Root')
+        row.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
+        row.operator(MakeEditable.bl_idname, text = MakeEditable.bl_label)
+        row.operator(ParentToRoot.bl_idname, text = ParentToRoot.bl_label)
         
         row = layout.row()
-        row.operator('object.zmq_distribute', text = "Do Distribute")
-        row.operator('object.zmq_stopdistribute', text = "Stop Distribute")
+        row.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
+        row.operator(StopDistribute.bl_idname, text = StopDistribute.bl_label)
 
         row = layout.row()
-        row.prop(bpy.context.scene.vpet_properties, 'vpet_collection')
+        row.prop(bpy.context.scene.tracer_properties, 'tracer_collection')
         row = layout.row()
-        row.prop(bpy.context.scene.vpet_properties, 'server_ip')
+        row.prop(bpy.context.scene.tracer_properties, 'server_ip')
 
-        row = layout.row()
-        row.prop(bpy.context.scene.vpet_properties, 'humanoid_rig', text="Humanoid Rig?")
+        #? Still needed?
+        #row = layout.row()
+        #row.prop(bpy.context.scene.tracer_properties, 'humanoid_rig', text="Humanoid Rig?")
 
         row = layout.row()
         row.operator('object.rpc', text = "RPC CHANGE LATER")
 
-class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
-    bl_idname = "VPET_PT_ANIM_PATH_PANEL"
+class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
+    bl_idname = "TRACER_PT_ANIM_PATH_PANEL"
     bl_label = "Animation Path"
 
     def draw(self, context):
@@ -103,12 +105,12 @@ class VPET_PT_Anim_Path_Panel(VPET_Panel, bpy.types.Panel):
             if AddPath.default_name in bpy.data.objects:
                 row = layout.row()
                 row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
-class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
-    bl_idname = "VPET_PT_control_points_panel"
+class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
+    bl_idname = "TRACER_PT_control_points_panel"
     bl_label = "Control Points"
 
     # By setting VPET_PT_Anim_Path_Panel as parent of Control_Points_Panel, this panel will be nested into its parent in the UI 
-    bl_parent_id = VPET_PT_Anim_Path_Panel.bl_idname
+    bl_parent_id = TRACER_PT_Anim_Path_Panel.bl_idname
 
     def draw(self, context):
         layout = self.layout
@@ -185,7 +187,7 @@ class VPET_PT_Control_Points_Panel(VPET_Panel, bpy.types.Panel):
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 
-class VPET_PT_Anim_Path_Menu(bpy.types.Menu):
+class TRACER_PT_Anim_Path_Menu(bpy.types.Menu):
     bl_label = "Animation Path"	   
     bl_idname = "OBJECT_MT_custom_spline_menu"
 

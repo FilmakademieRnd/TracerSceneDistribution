@@ -149,7 +149,7 @@ class SceneObject:
 
         elif self.editableObject.get("Control Path", None) != None and param_type == "control_path":
             path_ID = -1
-            for i, obj in enumerate(bpy.data.collections["VPET_Collection"].objects):
+            for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
                 if obj == self.editableObject.get("Control Path"):
                     path_ID = i
                     break
