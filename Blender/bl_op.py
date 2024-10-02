@@ -174,7 +174,7 @@ class AddPath(bpy.types.Operator):
         print('Add Path START')
         #if context.active_object.get(""):
         report: tuple[set[str], str] = add_path(self.default_name)     # Call the function resposible of creating the animation path
-        self.report(report)
+        self.report(report[0], report[1])
         bpy.ops.path.interaction_listener("INVOKE_DEFAULT")             # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
 
@@ -234,7 +234,7 @@ class AddPointAfter(bpy.types.Operator):
                     else  -1
 
         report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=True)
-        self.report(report)
+        self.report(report[0], report[1])
         return {'FINISHED'}
     
 ### Operator to add a new Animation Control Point
@@ -253,7 +253,7 @@ class AddPointBefore(bpy.types.Operator):
                     else  0
 
         report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=False)
-        self.report(report)
+        self.report(report[0], report[1])
         return {'FINISHED'}
     
 ### Operator to manage the Properties of the Animation Control Points
@@ -286,7 +286,8 @@ class ControlPointProps(bpy.types.PropertyGroup):
             scene.control_point_settings.frame = active_obj["Frame"]
             scene.control_point_settings.ease_in = active_obj["Ease In"]
             scene.control_point_settings.ease_out = active_obj["Ease Out"]
-            scene.control_point_settings.style = active_obj["Style"]
+            #! Style label not currently used
+            #scene.control_point_settings.style = active_obj["Style"]
             active_obj.select_set(True)
         else:
             return

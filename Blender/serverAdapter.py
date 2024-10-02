@@ -335,7 +335,7 @@ def send_lock_msg(sceneObject, value: bool = True):
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject.object_id))      # object ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                 # bool value (True)
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
@@ -344,8 +344,8 @@ def send_unlock_msg(sceneObject):
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B',tracer_data.cID))             #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject.object_id))      # object ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack('B', 0))                          # bool value (False)
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
