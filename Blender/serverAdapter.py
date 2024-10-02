@@ -354,7 +354,7 @@ def process_lock_msg(msg: bytearray, start = 0):
     obj_id      = struct.unpack('<H', msg[start+1 : start+3])[0]
     if 0 < obj_id <= len(tracer_data.SceneObjects):
         lockstate = struct.unpack( 'B', msg[start+3 : start+4])[0]
-        tracer_data.SceneObjects[obj_id-1].LockUnlock(lockstate)
+        tracer_data.SceneObjects[obj_id-1].lock_unlock(lockstate)
 
     return len(msg)
     
