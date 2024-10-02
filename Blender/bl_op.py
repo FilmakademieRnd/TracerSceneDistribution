@@ -52,6 +52,7 @@ from .GenerateSkeletonObj import process_armature
 
 
 
+
 ## operator classes
 #
 class SetupScene(bpy.types.Operator):
