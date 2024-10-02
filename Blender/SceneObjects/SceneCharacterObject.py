@@ -181,14 +181,14 @@ class SceneCharacterObject(SceneObject):
             else:
                 pose_bone_obj.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local, invert=True )
 
-    ### Function that takes the new rotaional offset (w.r.t. the rest transform) as a quaternion and translates it into a 4x4 matrix
-    #   that expresses the bone rotation relative to the parent and own rest bone (to be used as the new matrix_basis)
+    ### Function that takes the new rotaional offset -w.r.t. the rest transform- as a quaternion and translates it into a 4x4 matrix
+    #   that expresses the bone rotation relative to the parent and own rest bone -to be used as the new matrix_basis-
     def update_bone_rotation(self, tracer_rot: Parameter, new_quat: Quaternion):
-        bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter (e.g: spine_1-rotation_quat -> hip)
+        bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: spine_1-rotation_quat -> hip-
         target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
         local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
         
-        # Initialize the local parent rotation matrix (4x4 identity matrix, if the target bone has no parent bone)
+        # Initialize the local parent rotation matrix -4x4 identity matrix, if the target bone has no parent bone-
         parent_rotation = self.local_rotation_map[target_bone.parent.name] if target_bone.parent else Matrix.Identity(4)
         new_rotation_matrix =   parent_rotation @\
                                 Matrix.Translation(local_rest_transform.to_translation()) @\
@@ -197,11 +197,11 @@ class SceneCharacterObject(SceneObject):
         self.local_rotation_map[bone_name] = new_rotation_matrix
         self.set_pose_matrices(target_bone)
     
-    ### Function that takes the new positional offset (w.r.t. the rest transform) as a 3D vector and translates it into a 4x4 matrix
+    ### Function that takes the new positional offset -w.r.t. the rest transform- as a 3D vector and translates it into a 4x4 matrix
     #   that expresses the bone position of the bone in world space
     #!  It applies only to the hip bone, while the other bones have just an Identity matrix as positional matrix since they do not get directly displaced during the animation 
     def update_bone_position(self, tracer_pos: Parameter, new_value: Vector):
-        bone_name = tracer_pos.name.split("-")[0] # Extracting the name of the bone from the name of the parameter (e.g: hip-location -> hip)
+        bone_name = tracer_pos.name.split("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: hip-location -> hip-
         target_bone: bpy.types.Bone = self.armature_obj_pose_bones[bone_name]
 
         if bone_name == "hip":
@@ -224,7 +224,7 @@ class SceneCharacterObject(SceneObject):
             if path_ID >= 0:
                 self.parameter_list[-1] = Parameter(value=path_ID, name=self.editable_object.name+"-control_path", parent_object=self)
 
-    ### Writing the animation data received from TRACER (usually AnimHost) and replacing the previous animation data
+    ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
         # Retrieve the character object's armature on which to apply the animation data
         target_character_obj: bpy.types.Armature = self.editable_object
@@ -235,7 +235,7 @@ class SceneCharacterObject(SceneObject):
             bpy.data.actions.remove(target_character_obj.animation_data.action)
             target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
 
-        # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone (the other bones won't get displaced)
+        # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone -the other bones won't get displaced-
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
         for parameter in self.parameter_list:
             print(parameter.name)
@@ -266,7 +266,7 @@ class SceneCharacterObject(SceneObject):
                     offsets[key.time] = new_rotation_matrix
                 local_rot_offest_from_rest[bone_name] = offsets
 
-        # Resizing the range of the timeline according to the number of keyframes received (arbitrarily choosing the number of keys from the hip rotation parameter)
+        # Resizing the range of the timeline according to the number of keyframes received -arbitrarily choosing the number of keys from the hip rotation parameter-
         bpy.context.scene.frame_end   = len(self.parameter_list[3].get_key_list()) - 1
 
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
@@ -282,7 +282,7 @@ class SceneCharacterObject(SceneObject):
                     translation_matrix = local_pos_offest_from_rest[bone_name][key.time] if bone_name == "hip" else Matrix.Identity(4) # The translation matrix is defined only for the hip bone
                     pose_bone: bpy.types.Bone = target_bone.bone
                     new_matrix: Matrix = translation_matrix @ rotation_matrix
-                    # Assigning the correct local transformation matrix to the Pose Bone Object (given the parent transform, if there is one)
+                    # Assigning the correct local transformation matrix to the Pose Bone Object -given the parent transform, if there is one-
                     if target_bone.parent:
                         parent_rotation_matrix = local_rot_offest_from_rest[target_bone.parent.name][key.time]
                         target_bone.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local,
