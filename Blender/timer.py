@@ -48,7 +48,7 @@ class TimerClass:
         self.accumulated_increments = 0.0  # To accumulate fractional increments
 
     def update_time(self):
-        global vpet
+        global tracer_data
         current_time = time.time()
         elapsed = current_time - self.last_update_time  # Elapsed time since last update
         increments = elapsed * self.framerate  # Calculate potential fractional increments
@@ -62,16 +62,16 @@ class TimerClass:
         # Adjust accumulated increments to keep only the fractional part
         self.accumulated_increments -= whole_increments
         
-        # Update vpet.time with whole increments
-        new_time = vpet.time + whole_increments     
+        # Update tracer_data.time with whole increments
+        new_time = tracer_data.time + whole_increments     
 
-        # Handle cycle reset and ensure vpet.time remains an integer
+        # Handle cycle reset and ensure tracer_data.time remains an integer
         if new_time >= self.m_timesteps - 1:
-            vpet.time = int(new_time % self.m_timesteps)  # Loop back if exceeding m_timesteps
+            tracer_data.time = int(new_time % self.m_timesteps)  # Loop back if exceeding m_timesteps
             self.start_time = current_time  # Reset start time for the new cycle
             self.time_60_start_time = None  # Reset to measure next span from 60 to 119 again
         else:
-            vpet.time = int(new_time)
+            tracer_data.time = int(new_time)
         
         self.last_update_time = current_time  # Update the last_update_time for the next cycle
 
@@ -90,8 +90,8 @@ class TimerModalOperator(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        global vpet
-        vpet = bpy.context.window_manager.vpet_data
+        global tracer_data
+        tracer_data = bpy.context.window_manager.tracer_data
         self._timer = wm.event_timer_add(1.0 / self.my_instance.framerate, window=context.window)
         wm.modal_handler_add(self)
         return {'RUNNING_MODAL'}

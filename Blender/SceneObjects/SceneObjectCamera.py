@@ -43,35 +43,35 @@ class SceneObjectCamera(SceneObject):
     def __init__(self, obj):
         super().__init__(obj)
         fov = Parameter(obj.data.angle, "Fov", self)
-        self._parameterList.append(fov)
+        self.parameter_list.append(fov)
         aspect = Parameter(obj.data.sensor_width/obj.data.sensor_height, "Aspect", self)
-        self._parameterList.append(aspect)
+        self.parameter_list.append(aspect)
         near = Parameter(obj.data.clip_start, "Near", self)
-        self._parameterList.append(near)
+        self.parameter_list.append(near)
         far = Parameter(obj.data.clip_end, "Far", self)
-        self._parameterList.append(far)
+        self.parameter_list.append(far)
 
-        fov.hasChanged.append(functools.partial(self.UpdateFov, fov))
-        near.hasChanged.append(functools.partial(self.UpdateNear, near))
-        far.hasChanged.append(functools.partial(self.UpdateFar, far))
-
-
+        fov.parameter_handler.append(functools.partial(self.update_fov, fov))
+        near.parameter_handler.append(functools.partial(self.update_near, near))
+        far.parameter_handler.append(functools.partial(self.update_far, far))
 
 
-    def UpdateFov(self, parameter, new_value):
-         if self._lock == True:
-            self.editableObject.data.angle = new_value
+
+
+    def update_fov(self, parameter, new_value):
+         if self.network_lock == True:
+            self.editable_object.data.angle = new_value
          else:
             send_parameter_update(parameter)
 
-    def UpdateNear(self, parameter, new_value):
-         if self._lock == True:
-            self.editableObject.data.clip_start = new_value
+    def update_near(self, parameter, new_value):
+         if self.network_lock == True:
+            self.editable_object.data.clip_start = new_value
          else:
             send_parameter_update(parameter)
 
-    def UpdateFar(self, parameter, new_value):
-         if self._lock == True:
-            self.editableObject.data.clip_end = new_value
+    def update_far(self, parameter, new_value):
+         if self.network_lock == True:
+            self.editable_object.data.clip_end = new_value
          else:
             send_parameter_update(parameter)

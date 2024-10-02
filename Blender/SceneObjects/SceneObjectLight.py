@@ -42,20 +42,20 @@ class SceneObjectLight(SceneObject):
     def __init__(self, obj):
         super().__init__(obj)
         color = Parameter(obj.data.color, "Color", self)
-        self._parameterList.append(color)
+        self.parameter_list.append(color)
         intensity = Parameter(obj.data.energy, "Intensity", self)
-        self._parameterList.append(intensity)
-        color.hasChanged.append(functools.partial(self.UpdateColor, color))
-        intensity.hasChanged.append(functools.partial(self.UpdateIntensity, intensity))
+        self.parameter_list.append(intensity)
+        color.parameter_handler.append(functools.partial(self.update_color, color))
+        intensity.parameter_handler.append(functools.partial(self.update_intensity, intensity))
 
-    def UpdateColor(self, parameter, new_value):
-        if self._lock == True:
-            self.editableObject.data.color = new_value
+    def update_color(self, parameter, new_value):
+        if self.network_lock == True:
+            self.editable_object.data.color = new_value
         else:
             send_parameter_update(parameter)
 
-    def UpdateIntensity(self, parameter, new_value):
-        if self._lock == True:
-            self.editableObject.data.energy = new_value
+    def update_intensity(self, parameter, new_value):
+        if self.network_lock == True:
+            self.editable_object.data.energy = new_value
         else:
             send_parameter_update(parameter)

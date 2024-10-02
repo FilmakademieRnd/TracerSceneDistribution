@@ -50,12 +50,12 @@ class SceneObjectSpotLight(SceneObjectLight):
     def __init__(self, obj):
         super().__init__(obj)
         range = Parameter(1, "Range", self)
-        spotAngle = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
-        spotAngle.hasChanged.append(functools.partial(self.UpdatespotAngle, spotAngle))
+        spot_angle = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
+        spot_angle.parameter_handler.append(functools.partial(self.update_spot_angle, spot_angle))
 
-    def UpdatespotAngle(self, parameter, new_value):
-        if self._lock == True:
-            self.editableObject.data.spot_size = new_value
+    def update_spot_angle(self, parameter, new_value):
+        if self.network_lock == True:
+            self.editable_object.data.spot_size = new_value
         else:
             send_parameter_update(parameter)
 

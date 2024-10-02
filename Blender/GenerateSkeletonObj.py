@@ -34,21 +34,22 @@ individual license agreement.
 '''
 
 import bpy
-from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setupCollections;
+from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
+### Function to create an empty object
+def create_empty(name, location, rotation, scale, parent):
+    empty = bpy.data.objects.new(name, None)
+    empty.location = location
+    empty.rotation_euler = rotation.to_euler()
+    empty.scale = scale
+    bpy.context.collection.objects.link(empty)
+    if parent:
+        empty.parent = parent
+    return empty
+
+### Function to create an object for every bone present in the armature so that the character can be interfaced with TRACER
 def process_armature(armature):
-# Function to create an empty object
-    def create_empty(name, location, rotation, scale, parent):
-        empty = bpy.data.objects.new(name, None)
-        empty.location = location
-        empty.rotation_euler = rotation.to_euler()
-        empty.scale = scale
-        bpy.context.collection.objects.link(empty)
-        if parent:
-            empty.parent = parent
-        return empty
-
-    # Get the active armature object
+    # Get the active armature object???
     armature = armature
 
     # Check if the active object is an armature
@@ -118,10 +119,10 @@ def process_armature(armature):
                     bpy.context.view_layer.objects.active = armature
                     bpy.ops.object.parent_set(type='BONE', keep_transform=True)
 
-        collection_name = "VPET_Collection"  # Specify the collection name
+        collection_name = "TRACER_Collection"  # Specify the collection name
         collection = bpy.data.collections.get(collection_name)
         if collection is None:
-            setupCollections()
+            setup_tracer_collection()
 
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')

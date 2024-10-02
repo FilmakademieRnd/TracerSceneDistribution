@@ -45,7 +45,6 @@ import numpy as np
 from .timer import TimerModalOperator
 
 from .AbstractParameter import AbstractParameter, Parameter
-#from .settings import VpetData
 
 class MessageType(Enum):
     PARAMETERUPDATE = 0
@@ -66,54 +65,47 @@ def set_up_thread():
         import zmq
     except Exception as e:
         print('Could not import ZMQ\n' + str(e))
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
     # Prepare ZMQ
-    vpet.ctx = zmq.Context()
+    tracer_data.ctx = zmq.Context()
 
     # Prepare Subscriber
-    vpet.socket_s = vpet.ctx.socket(zmq.SUB)
-    vpet.socket_s.connect(f'tcp://{v_prop.server_ip}:{v_prop.sync_port}')
-    vpet.socket_s.setsockopt_string(zmq.SUBSCRIBE, "")
-    vpet.socket_s.setsockopt(zmq.RCVTIMEO,1)
+    tracer_data.socket_s = tracer_data.ctx.socket(zmq.SUB)
+    tracer_data.socket_s.connect(f'tcp://{v_prop.server_ip}:{v_prop.sync_port}')
+    tracer_data.socket_s.setsockopt_string(zmq.SUBSCRIBE, "")
+    tracer_data.socket_s.setsockopt(zmq.RCVTIMEO,1)
     
 
     
     bpy.app.timers.register(listener)
     
     # Prepare Distributor
-    vpet.socket_d = vpet.ctx.socket(zmq.REP)
-    vpet.socket_d.bind(f'tcp://{v_prop.server_ip}:{v_prop.dist_port}')
+    tracer_data.socket_d = tracer_data.ctx.socket(zmq.REP)
+    tracer_data.socket_d.bind(f'tcp://{v_prop.server_ip}:{v_prop.dist_port}')
 
     # Prepare poller
-    vpet.poller = zmq.Poller()
-    vpet.poller.register(vpet.socket_d, zmq.POLLIN)    
+    tracer_data.poller = zmq.Poller()
+    tracer_data.poller.register(tracer_data.socket_d, zmq.POLLIN)    
 
     bpy.app.timers.register(read_thread)
-
-
     
-    #bpy.app.timers.register(ping)
-    
-
     bpy.utils.register_class(TimerModalOperator)
     bpy.ops.wm.timer_modal_operator()
 
-    vpet.socket_u = vpet.ctx.socket(zmq.PUB)
-    vpet.socket_u.connect(f'tcp://{v_prop.server_ip}:{v_prop.update_sender_port}')
+    tracer_data.socket_u = tracer_data.ctx.socket(zmq.PUB)
+    tracer_data.socket_u.connect(f'tcp://{v_prop.server_ip}:{v_prop.update_sender_port}')
 
     #set_up_thread_socket_c()
 
     
 def set_up_thread_socket_c():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
-    #vpet.ctx = zmq.Context()
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data_data
+    tracer_props = bpy.context.scene.tracer_properties
 
-    #vpet.socket_c = vpet.ctx.socket(zmq.REQ)
-    vpet.socket_c.connect(f'tcp://{v_prop.server_ip}:{v_prop.Command_Module_port}')
+    tracer_data.socket_c.connect(f'tcp://{v_prop.server_ip}:{v_prop.Command_Module_port}')
    
     ping_thread = threading.Thread(target=ping_thread_function, daemon=True)
     ping_thread.start()
@@ -121,45 +113,45 @@ def set_up_thread_socket_c():
 
 ## Read requests and send packages
 def read_thread():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
-    if vpet.socket_d:
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
+    if tracer_data.socket_d:
         # Get sockets with messages (0: don't wait for msgs)
-        sockets = dict(vpet.poller.poll(0))
+        sockets = dict(tracer_data.poller.poll(0))
         # Check if this socket has a message
-        if vpet.socket_d in sockets:
+        if tracer_data.socket_d in sockets:
             # Receive message
-            msg = vpet.socket_d.recv_string()
+            msg = tracer_data.socket_d.recv_string()
             #print(msg) # debug
             # Classify message
             if msg == "header":
                 print("Header request! Sending...")
-                vpet.socket_d.send(vpet.headerByteData)
+                tracer_data.socket_d.send(tracer_data.headerByteData)
             elif msg == "nodes":
                 print("Nodes request! Sending...")
-                vpet.socket_d.send(vpet.nodesByteData)
+                tracer_data.socket_d.send(tracer_data.nodesByteData)
             elif msg == "objects":
                 print("Object request! Sending...")
-                vpet.socket_d.send(vpet.geoByteData)
+                tracer_data.socket_d.send(tracer_data.geoByteData)
             elif msg == "characters":
                 print("Characters request! Sending...")
-                if(vpet.charactersByteData != None):
-                    vpet.socket_d.send(vpet.charactersByteData)
+                if(tracer_data.charactersByteData != None):
+                    tracer_data.socket_d.send(tracer_data.charactersByteData)
             elif msg == "textures":
                 print("Texture request! Sending...")                
-                if(vpet.textureList != None):
-                    vpet.socket_d.send(vpet.texturesByteData)
+                if(tracer_data.textureList != None):
+                    tracer_data.socket_d.send(tracer_data.texturesByteData)
             elif msg == "materials":
                 print("Materials request! Sending...")
-                if(vpet.materialsByteData != None):
-                    vpet.socket_d.send(vpet.materialsByteData)
+                if(tracer_data.materialsByteData != None):
+                    tracer_data.socket_d.send(tracer_data.materialsByteData)
             elif msg == "curve":
                 print("curve request! Sending...")
-                if(vpet.curvesByteData != None):
-                    vpet.socket_d.send(vpet.curvesByteData)
+                if(tracer_data.curvesByteData != None):
+                    tracer_data.socket_d.send(tracer_data.curvesByteData)
             else: # sent empty
-                vpet.socket_d.send_string("")
+                tracer_data.socket_d.send_string("")
     return 0.1 # repeat every .1 second
 
 global last_sync_time
@@ -167,13 +159,13 @@ last_sync_time = None
 
 ## process scene updates
 def listener():
-    global vpet, v_prop, last_sync_time
-    vpet    #: VpetData = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, tracer_props, last_sync_time
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
     msg = None
     
     try:
-        msg = vpet.socket_s.recv()
+        msg = tracer_data.socket_s.recv()
     except Exception as e:
         msg = None
 
@@ -192,7 +184,7 @@ def listener():
         if msg_type == MessageType.SYNC.value:
             process_sync_msg(msg)
 
-        if client_ID != vpet.cID:
+        if client_ID != tracer_data.cID:
             start = 3
 
             while start < len(msg):
@@ -214,10 +206,10 @@ def listener():
 ## Stopping the thread and closing the sockets
 
 def create_ping_msg():
-    vpet.pingByteMSG = bytearray([])
-    vpet.pingByteMSG.extend(struct.pack('B', vpet.cID))
-    vpet.pingByteMSG.extend(struct.pack('B', vpet.time))
-    vpet.pingByteMSG.extend(struct.pack('B', 3))
+    tracer_data.pingByteMSG = bytearray([])
+    tracer_data.pingByteMSG.extend(struct.pack('B', tracer_data.cID))
+    tracer_data.pingByteMSG.extend(struct.pack('B', tracer_data.time))
+    tracer_data.pingByteMSG.extend(struct.pack('B', 3))
     
 def ping_thread_function():
     while True:
@@ -225,20 +217,20 @@ def ping_thread_function():
         time.sleep(1)
 
 def ping():
-    global vpet, v_prop
-    create_ping_msg()  # Ensure this updates vpet.pingByteMSG appropriately
-    if vpet.socket_c:
+    global tracer_data, v_prop
+    create_ping_msg()  # Ensure this updates tracer_data.pingByteMSG appropriately
+    if tracer_data.socket_c:
         try:
-            vpet.socket_c.send(vpet.pingByteMSG)
-            vpet.pingStartTime = vpet.time
-            msg = vpet.socket_c.recv()
-            if msg and msg[0] != vpet.cID:
+            tracer_data.socket_c.send(tracer_data.pingByteMSG)
+            tracer_data.pingStartTime = tracer_data.time
+            msg = tracer_data.socket_c.recv()
+            if msg and msg[0] != tracer_data.cID:
                 decode_pong_msg(msg)
         except Exception as e:
             print(f"Failed to receive pong: {e}")
     
 def decode_pong_msg(msg):
-    rtt = delta_time(vpet.time, vpet.pingStartTime ,TimerModalOperator.my_instance.m_timesteps)
+    rtt = delta_time(tracer_data.time, tracer_data.pingStartTime ,TimerModalOperator.my_instance.m_timesteps)
     pingCount = len(m_pingTimes)
     
     if(pingCount > 4):
@@ -258,25 +250,25 @@ def process_sync_msg(msg: bytearray, start=0):
     sv_time = msg[1]
     runtime = int(pingRTT * 0.5)
     syncTime = sv_time + runtime
-    delta = delta_time(vpet.time, sv_time, TimerModalOperator.my_instance.m_timesteps)
+    delta = delta_time(tracer_data.time, sv_time, TimerModalOperator.my_instance.m_timesteps)
     if delta > 10 or delta>3 and runtime < 8:
-        vpet.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
+        tracer_data.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
     
 
 def send_parameter_update(parameter: Parameter):
-    vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                             # client ID
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.time))                            # sync time
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))    # message type
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                             #? scene ID?
-    vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object._id))          # scene object ID
-    vpet.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))         # parameter ID
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))          # parameter type
+    tracer_data.ParameterUpdateMSG = bytearray([])
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
     length = 10 + parameter.get_size()
-    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                               # message length
-    vpet.ParameterUpdateMSG.extend(parameter.serialize())
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
+    tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
 
-    vpet.socket_u.send(vpet.ParameterUpdateMSG)
+    tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def process_parameter_update(msg: bytearray, start=0) -> int:
     param: Parameter = None
@@ -292,8 +284,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
         msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
 
-        if 0 < obj_id <= len(vpet.SceneObjects) and 0 <= param_id < len(vpet.SceneObjects[obj_id - 1]._parameterList):
-            param = vpet.SceneObjects[obj_id - 1]._parameterList[param_id]
+        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1]._parameterList):
+            param = tracer_data.SceneObjects[obj_id - 1]._parameterList[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
             if param.get_size() < length-10:
@@ -313,19 +305,19 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 
 def send_RPC_msg(rpc_parameter: Parameter):
-    vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.cID))                          # client ID
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', vpet.time))                         # sync time
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))             # message type
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', 255))                               # scene ID (not assigned to a specific scene - for AnimHost)
-    vpet.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                 # object ID (not assigned to a specific object)
-    vpet.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))  # parameter/call ID
-    vpet.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))   # parameter type
+    tracer_data.ParameterUpdateMSG = bytearray([])
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))                 # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', 255))                                   # scene ID (not assigned to a specific scene - for AnimHost)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                     # object ID (not assigned to a specific object)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))      # parameter/call ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))       # parameter type
     length = 10 + rpc_parameter.get_data_size()
-    vpet.ParameterUpdateMSG.extend(struct.pack('<I', length))                            # message length
-    vpet.ParameterUpdateMSG.extend(rpc_parameter.serialize_data())
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
+    tracer_data.ParameterUpdateMSG.extend(rpc_parameter.serialize_data())
 
-    vpet.socket_u.send(vpet.ParameterUpdateMSG)
+    tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def process_RPC_msg(msg: bytearray, start=0):
     scene_id    = struct.unpack( 'B', msg[start   : start+1 ])[0]
@@ -338,71 +330,71 @@ def process_RPC_msg(msg: bytearray, start=0):
     return start
 
 def send_lock_msg(sceneObject, value: bool = True):
-    vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  # client ID
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))                 # sync time
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  #? scene ID?
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                # bool value (True)
-    vpet.socket_u.send(vpet.ParameterUpdateMSG)
+    tracer_data.ParameterUpdateMSG = bytearray([])
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                 # bool value (True)
+    tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def send_unlock_msg(sceneObject):
-    vpet.ParameterUpdateMSG = bytearray([])
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.cID))                  # client ID
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', vpet.time))                 # sync time
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
-    vpet.ParameterUpdateMSG.extend(struct.pack('B',vpet.cID))                   #? scene ID?
-    vpet.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
-    vpet.ParameterUpdateMSG.extend(struct.pack('B', 0))                         # bool value (False)
-    vpet.socket_u.send(vpet.ParameterUpdateMSG)
+    tracer_data.ParameterUpdateMSG = bytearray([])
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B',tracer_data.cID))             #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', 0))                          # bool value (False)
+    tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def process_lock_msg(msg: bytearray, start = 0):
     scene_id    = struct.unpack( 'B', msg[start   : start+1])[0]
     obj_id      = struct.unpack('<H', msg[start+1 : start+3])[0]
-    if 0 < obj_id <= len(vpet.SceneObjects):
+    if 0 < obj_id <= len(tracer_data.SceneObjects):
         lockstate = struct.unpack( 'B', msg[start+3 : start+4])[0]
-        vpet.SceneObjects[obj_id-1].LockUnlock(lockstate)
+        tracer_data.SceneObjects[obj_id-1].LockUnlock(lockstate)
 
     return len(msg)
     
 def close_socket_d():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, v_prop
+    tracer_data = bpy.context.window_manager.tracer_data
+    v_prop = bpy.context.scene.tracer_properties
     if bpy.app.timers.is_registered(read_thread):
         print("Stopping thread")
         bpy.app.timers.unregister(read_thread)
         bpy.utils.unregister_class(TimerModalOperator)
-    if vpet.socket_d:
-        vpet.socket_d.close()
+    if tracer_data.socket_d:
+        tracer_data.socket_d.close()
         
 def close_socket_s():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
     if bpy.app.timers.is_registered(listener):
         print("Stopping subscription")
         bpy.app.timers.unregister(listener)
-    if vpet.socket_s:
-        vpet.socket_s.close()
+    if tracer_data.socket_s:
+        tracer_data.socket_s.close()
 
 def close_socket_c():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
     if bpy.app.timers.is_registered(create_ping_msg):
         print("Stopping create_ping_msg")
         bpy.app.timers.unregister(create_ping_msg)
-    if vpet.socket_c:
-        vpet.socket_c.close()
+    if tracer_data.socket_c:
+        tracer_data.socket_c.close()
 
 def close_socket_u():
-    global vpet, v_prop
-    vpet = bpy.context.window_manager.vpet_data
-    v_prop = bpy.context.scene.vpet_properties
-    if vpet.socket_u:
-        vpet.socket_u.close()
+    global tracer_data, tracer_props
+    tracer_data = bpy.context.window_manager.tracer_data
+    tracer_props = bpy.context.scene.tracer_properties
+    if tracer_data.socket_u:
+        tracer_data.socket_u.close()
 
 
 def delta_time(startTime, endTime, length):

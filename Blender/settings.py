@@ -37,26 +37,24 @@ import bpy
 from .SceneObjects.SceneObject import SceneObject
 
 ## Class to keep editable parameters
-class VpetProperties(bpy.types.PropertyGroup):
+class TracerProperties(bpy.types.PropertyGroup):
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')
     dist_port: bpy.props.StringProperty(default = '5555')
     sync_port: bpy.props.StringProperty(default = '5556')
     update_sender_port: bpy.props.StringProperty(default = '5557')
     Command_Module_port: bpy.props.StringProperty(default = '5558')
     humanoid_rig: bpy.props.BoolProperty(name="Humanoid Rig for Unity",description="Check if using humanoid rig and you need to send the character to Unity",default=False)
-    vpet_collection: bpy.props.StringProperty(name = 'VPET Collection', default = 'VPET_Collection', maxlen=30)
+    tracer_collection: bpy.props.StringProperty(name = 'TRACER Collection', default = 'TRACER_Collection', maxlen=30)
     overwrite_animation: bpy.props.BoolProperty(name="Overwrite Animation", description="When true, baking an animation received from AnimHost will overwrite the previous one; otherwhise, it writes it on a new layer", default=False)
-    #edit_collection: bpy.props.StringProperty(name = 'Editable Collection', default = 'VPET_editable', maxlen=30)
 
 ## Class to keep data
 #
-class VpetData():
+class TracerData():
 
     scene_obj_map: dict[int, SceneObject] = {}
     sceneLight = {}
     sceneCamera = {}
     sceneMesh = {}
-    
 
     geoPackage = {}
     materialPackage = {}
@@ -99,13 +97,4 @@ class VpetData():
     pingByteMSG = bytearray([])
     ParameterUpdateMSG = bytearray([])
 
-    """
-    parameterTypes = ['POS', 'ROT', 'SCALE', 'LOCK', 'HIDDENLOCK', 'KINEMATIC', \
-                    'FOV', 'ASPECT', 'FOCUSDIST', 'FOCUSSIZE', 'APERTURE', \
-                    'COLOR', 'INTENSITY', 'EXPOSURE', 'RANGE', 'ANGLE', \
-                    'BONEANIM', \
-                    'VERTEXANIM', \
-                    'PING', 'RESENDUPDATE', \
-                    'CHARACTERTARGET']
-    """
     debugCounter = 0
