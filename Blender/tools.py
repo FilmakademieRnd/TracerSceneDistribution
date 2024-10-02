@@ -203,11 +203,17 @@ def add_path(path_name: str) -> tuple[set[str], str]:
     report_type = set('INFO')
     report_string = "New Control Path added to TRACER Scene"
 
+    if "TRACER_Collection" in bpy.data.collections or "TRACER Scene Root" in bpy.data.objects:
+        report_type = set('ERROR')
+        report_string = "Set up TRACER hierarchy before creating a new Control Path"
+        return (report_type, report_string)
+
     # Check whether an Animation Preview object is already present in the scene
     if path_name in bpy.data.objects:
         # If yes, save it
         print("Animation Preview object found")
         anim_path = bpy.data.objects[path_name]
+    else:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
         # Adding a sphere mesh to the data (but deleting the corresponding object in the blender scene)
@@ -218,9 +224,6 @@ def add_path(path_name: str) -> tuple[set[str], str]:
         anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["TRACER_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["TRACER Scene Root"]
-    else:
-        report_type = set('ERROR')
-        report_string = "Set up TRACER hierarchy before creating a new Control Path"
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
