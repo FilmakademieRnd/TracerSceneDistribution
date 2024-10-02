@@ -309,7 +309,7 @@ void AVPETModule::CreateParameterMessage()
 	char* parameterData = NULL;
 	int responseLength = 0;
 	
-	responseLength = 3 + VPET_modifiedParametersDataSize + 7 * VPET_ModifiedParameterList.Num();
+	responseLength = 3 + VPET_modifiedParametersDataSize + 10 * VPET_ModifiedParameterList.Num();
 	messageStart = responseMessageContent = (char*)malloc(responseLength);
 
 
@@ -332,7 +332,7 @@ void AVPETModule::CreateParameterMessage()
 	for (auto &parameter: VPET_ModifiedParameterList )
 	{
 		//the length of the parameter msg + parameter data!
-		int length = 7 + parameter->dataSize();
+		int length = 10 + parameter->dataSize();
 
 		//lock the parameter!
 		//std::lock_guard lock(parameter->mtx);
@@ -353,8 +353,8 @@ void AVPETModule::CreateParameterMessage()
 		memcpy(responseMessageContent, &intVal, sizeof(uint8_t)); responseMessageContent += sizeof(uint8_t);
 
 		// the length of 1 parameter msg without the header.
-		intVal = length;
-		memcpy(responseMessageContent, &intVal, sizeof(uint8_t)); responseMessageContent += sizeof(uint8_t);
+		uint32_t intValLen = length;
+		memcpy(responseMessageContent, &intValLen, sizeof(uint32_t)); responseMessageContent += sizeof(uint32_t);
 
 		// the serialization of the parameter DATA!
 
@@ -362,7 +362,7 @@ void AVPETModule::CreateParameterMessage()
 		parameter->Serialize(parameterData, parameter->GetName());
 		memcpy(responseMessageContent, parameterData, parameter->dataSize()); responseMessageContent += parameter->dataSize();
 		
-		char* startOfData = responseMessageContent - 13;
+		char* startOfData = responseMessageContent - 16;
 
 		// Log each float in data:
 		for (int i = 0; i < 3; i++)
@@ -473,7 +473,7 @@ void AVPETModule::ParseParameterUpdate(std::vector<uint8_t> kMsg)
 		{
 			// pass actual message to a parameter from an object
 			AbstractParameter* tempParam = (*tempArray)[paramID];
-			std::vector<uint8_t> subMsg = std::vector<uint8_t>(kMsg.begin()+i+7, kMsg.begin()+i+length);
+			std::vector<uint8_t> subMsg = std::vector<uint8_t>(kMsg.begin()+i+10, kMsg.begin()+i+length);
 			tempParam->ParseMessage(subMsg);
 		}
 		else

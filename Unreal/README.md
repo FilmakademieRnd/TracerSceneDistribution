@@ -1,6 +1,6 @@
 # TRACER Scene Distribution Plugin Unreal
 
-VPET plug-in for the Unreal Engine 4 & 5.
+TRACER plug-in for the Unreal Engine 4 & 5.
 
 <!--
 [![VPET Unreal Teaser](http://img.youtube.com/vi/ROlDiYnoEPc/0.jpg)](https://youtu.be/ROlDiYnoEPc?list=PLFSxFMrrXJM4PNNejIBy3ztEnA0xYLBwl "VPET Unreal Teaser")
@@ -12,7 +12,7 @@ VPET plug-in for the Unreal Engine 4 & 5.
 
 ## Description
 
-VPET allows for real-time manipulation and scene editing through a mobile client.
+TRACER allows for real-time manipulation and scene editing through a mobile client using the VPET [app](https://apps.apple.com/de/app/vpet/id1374394388).
 
 This plug-in allows using Unreal Engine as a host application.
 
@@ -44,7 +44,7 @@ Module additional libraries and include paths are described in `\Plugins\VPET\So
 
 #### Using it as an Engine plug-in
 
-If you do not want to associate the VPET plugin with a specific project, it can be installed as an engine plugin.  
+If you do not want to associate the TRACER plugin with a specific project, it can be installed as an engine plugin.  
 Follow the installation procedure above, but instead of placing the folders at your project directory, put them into your engine installation path, e.g.:
 
 `%ProgramFiles%\Epic Games\UE_4.26\Engine\Plugins\VirtualProduction`
