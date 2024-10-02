@@ -284,8 +284,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
         msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
 
-        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1]._parameterList):
-            param = tracer_data.SceneObjects[obj_id - 1]._parameterList[param_id]
+        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1].parameter_list):
+            param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
             if param.get_size() < length-10:
