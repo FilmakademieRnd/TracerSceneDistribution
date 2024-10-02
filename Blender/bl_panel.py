@@ -39,15 +39,16 @@ from .bl_op import  DoDistribute, StopDistribute, SetupScene, SetupCharacter, In
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, FKIKToggle, EvaluateSpline, AnimationRequest, AnimationSave
 
-## Interface
+## Initialising name and core properties of all panels of the Add-On
 # 
 class TRACER_Panel:
     bl_category = "TRACER Add-On"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
 
+# Define Layout of the main TRACER Add-On Panel, grouping TRACER communication functionalities
 class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
-    bl_idname = "VPET_PT_PANEL"
+    bl_idname = "TRACER_PT_PANEL"
     bl_label = "TRACER"
     
     def draw(self, context):
@@ -78,9 +79,10 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         row = layout.row()
         row.operator('object.rpc', text = "RPC CHANGE LATER")
 
+# Define Layout for the Animation Control Path Panel, grouping functionalities related to editing the Control Path for an animation 
 class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "TRACER_PT_ANIM_PATH_PANEL"
-    bl_label = "Animation Path"
+    bl_label = "Animation Control Path Panel"
 
     def draw(self, context):
         layout = self.layout
@@ -105,11 +107,13 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
             if AddPath.default_name in bpy.data.objects:
                 row = layout.row()
                 row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
+
+# Define Layout for the Control Points Panel, grouping functionalities related to editing the Points of the Control Path 
 class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "TRACER_PT_control_points_panel"
-    bl_label = "Control Points"
+    bl_label = "Control Points Panel"
 
-    # By setting VPET_PT_Anim_Path_Panel as parent of Control_Points_Panel, this panel will be nested into its parent in the UI 
+    # By setting TRACER_PT_Anim_Path_Panel as parent of Control_Points_Panel, this panel will be nested into its parent in the UI 
     bl_parent_id = TRACER_PT_Anim_Path_Panel.bl_idname
 
     def draw(self, context):
@@ -136,14 +140,15 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
             # Getting Control Points Properties
             cp_props = bpy.context.scene.control_point_settings
             anim_path = bpy.data.objects[AddPath.default_name]
-            grid = layout.grid_flow(row_major=True, columns=6, even_rows=True, even_columns=True, align=True)
+            grid = layout.grid_flow(row_major=True, columns=5, even_rows=True, even_columns=True, align=True)
 
             title1 = grid.box(); title1.alert = True; title1.label(text="NAME")
             title2 = grid.box(); title2.alert = True; title2.label(text="POSITION")
             title3 = grid.box(); title3.alert = True; title3.label(text="FRAME")
             title4 = grid.box(); title4.alert = True; title4.label(text="IN")
             title5 = grid.box(); title5.alert = True; title5.label(text="OUT")
-            title6 = grid.box(); title6.alert = True; title6.label(text="STYLE")
+            #! Style is not currently used by the framework
+            #title6 = grid.box(); title6.alert = True; title6.label(text="STYLE")
                 
             # Setting the owner of the data, if it exists
             cp_list_size = len(anim_path["Control Points"])
@@ -160,7 +165,8 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                     grid.prop(cp_props, property="frame", text="", slider=False)
                     grid.prop(cp_props, property="ease_in", text="", slider=True)
                     grid.prop(cp_props, property="ease_out", text="", slider=True)
-                    grid.prop_menu_enum(data=cp_props, property="style", text=cp["Style"])
+                    #! Style is not currently used by the framework
+                    # grid.prop_menu_enum(data=cp_props, property="style", text=cp["Style"])
                 else:
                     postn = grid.box(); postn.alignment = 'CENTER'; postn.label(text=str(i));           # alignment does nothing. Buggy Blender.
                     
@@ -176,7 +182,8 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                     
                     e__in = grid.box(); e__in.alignment = 'CENTER'; e__in.label(text=str(cp["Ease In"]));   # alignment does nothing. Buggy Blender.
                     e_out = grid.box(); e_out.alignment = 'CENTER'; e_out.label(text=str(cp["Ease Out"]));  # alignment does nothing. Buggy Blender.
-                    style = grid.box(); style.alignment = 'CENTER'; style.label(text=cp["Style"]);          # alignment does nothing. Buggy Blender.
+                    #! Style is not currently used by the framework
+                    # style = grid.box(); style.alignment = 'CENTER'; style.label(text=cp["Style"]);          # alignment does nothing. Buggy Blender.
             
             row = layout.row()
             row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
@@ -187,8 +194,10 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 
+# Define Layout for the Animation Control Path (sub)menu, to be added to the Add Menu in Blender
+# It groups together Operators to add new Control Paths and Points
 class TRACER_PT_Anim_Path_Menu(bpy.types.Menu):
-    bl_label = "Animation Path"	   
+    bl_label = "Animation Control Path"
     bl_idname = "OBJECT_MT_custom_spline_menu"
 
     def draw(self, context):

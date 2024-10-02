@@ -43,33 +43,16 @@ import subprocess  # use Python executable (for pip usage)
 from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
 from .SceneObjects import SceneCharacterObject
 
-# Handler for drawing text
-font_info = {
-    "font_id": 0,
-    "handler": None,
-}
-
-global auto_eval
-
-def initialize():
-    global tracer_data
-    tracer_data = bpy.context.window_manager.tracer_data
-    
-    auto_eval = True
-
-    # set the font drawing routine to run every frame
-    font_info["handler"] = bpy.types.SpaceView3D.draw_handler_add(
-        draw_pointer_numbers_callback, (None, None), 'WINDOW', 'POST_PIXEL')
-    
-
-def checkZMQ():
+# Checking for ZMQ package installation
+def check_ZMQ():
     try:
         import zmq
         return True
     except Exception as e:
         print(e)
         return False
-    
+
+#???  
 def get_rna_ui():
     rna_ui = bpy.context.object.get('_RNA_UI')
     if rna_ui is None:
@@ -77,8 +60,8 @@ def get_rna_ui():
         rna_ui = bpy.context.object['_RNA_UI']
     return rna_ui
     
-## Create Collections for VPET objects
-def setupCollections():
+## Create Collections that will contain every TRACER object
+def setup_tracer_collection():
     tracer_props = bpy.context.scene.tracer_properties
     
     # Check if the collection exists. If not, create it and link it to the scene.
@@ -87,7 +70,7 @@ def setupCollections():
         tracer_collection = bpy.data.collections.new(tracer_props.tracer_collection)
         bpy.context.scene.collection.children.link(tracer_collection)
 
-    # Check if the "TRACER SceneRoot" object exists. If not, create it and link it to the collection.
+    # Check if the "TRACER SceneRoot" object already exists. If not, create it and link it to the collection.
     root = bpy.context.scene.objects.get('TRACER Scene Root')
     if root is None:
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
@@ -97,13 +80,14 @@ def setupCollections():
             if root.name in coll.objects:
                 coll.objects.unlink(root)
         tracer_collection.objects.link(root)
-
     else:
-        # Check if the "TRACER Scene Root" object is already linked to the collection.
+        # Check if the "TRACER Scene Root" object is already linked to the collection. If not link it.
         if not root.name in tracer_collection.objects:
             tracer_collection.objects.link(root)
 
-def cleanUp(level):
+# Clearing all the data structures containg TRACER-Related data
+def clean_up_tracer_data(level):
+    tracer_data = bpy.context.window_manager.tracer_data
     if level > 0:
         tracer_data.objectsToTransfer = [] #list of all objects
         tracer_data.nodeList = [] #list of all nodes
@@ -123,8 +107,9 @@ def cleanUp(level):
 
         tracer_data.rootChildCount = 0
 
-def installZmq():
-    if checkZMQ():
+# Installing ZMQ package for python
+def install_ZMQ():
+    if check_ZMQ():
         return 'ZMQ is already installed'
     else:
         if bpy.app.version[0] == 2 and bpy.app.version[1] < 81:
@@ -159,7 +144,8 @@ def installZmq():
         except subprocess.CalledProcessError as e:
             print("ERROR: Couldn't install pyzmq.")
             return (e.output)
-        
+
+# Selecting the hierarchy of all the objects seen by TRACER  
 def select_hierarchy(obj):
     def select_children(obj):
         obj.select_set(True)
@@ -181,22 +167,22 @@ def select_hierarchy(obj):
     else:
         print("Invalid object type provided.")
 
-
-def get_current_collections(obj):
+# Getting the names of the collections to which the passed obj belongs
+def get_current_collections(obj: bpy.types.Object) -> list[str]:
     current_collections = []
     for coll in obj.users_collection:
         current_collections.append(coll.name)
     return current_collections
     
-
+# Makes the TRACER Scene Root object the parent of every currently selected object
 def parent_to_root():
     selected_objects =  bpy.context.selected_objects
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
-    if parent_object is None:
-        setupCollections()
-        parent_object = bpy.data.objects.get(parent_object_name)
 
+    if parent_object is None:
+        setup_tracer_collection()
+        parent_object = bpy.data.objects.get(parent_object_name)
 
     for obj in selected_objects:
         # Check if the object is not the parent object itself
@@ -210,7 +196,10 @@ def parent_to_root():
 '''
 ----------------------BEGIN FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------
 '''
-def add_path(path_name) -> tuple[set[str], str]:
+### Constructs and adds to the scene a new Control Path Object, parallely creating data structures that will be used to store information to be sent over TRACER
+#   @param      path_name   The name of the Path to be created
+#   @returns    report of the status of the execution to be displayed on screen. It is either an INFO when everything goes as planned or an ERROR when the operator cannot be executed as intented.
+def add_path(path_name: str) -> tuple[set[str], str]:
     report_type = set('INFO')
     report_string = "New Control Path added to TRACER Scene"
 
@@ -219,20 +208,19 @@ def add_path(path_name) -> tuple[set[str], str]:
         # If yes, save it
         print("Animation Preview object found")
         anim_path = bpy.data.objects[path_name]
-    elif "TRACER_Collection" in bpy.data.collections:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
         # Adding a sphere mesh to the data (but deleting the corresponding object in the blender scene)
         bpy.ops.mesh.primitive_uv_sphere_add(radius=1, enter_editmode=False, align='WORLD', location=(0, 0, 0), scale=(0.5, 0.5, 0.5))
         bpy.context.view_layer.objects.active = bpy.data.objects["Sphere"]
         bpy.ops.object.delete(use_global=False, confirm=False)
-        # Assigning the sphere mesh to AnimPath (for later interaction with VPET)
+        # Assigning the sphere mesh to AnimPath (for later interaction with the TRACER framework)
         anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["TRACER_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["TRACER Scene Root"]
     else:
         report_type = set('ERROR')
-        report_string = "Set up VPET before creating a new Control Path"
+        report_string = "Set up TRACER hierarchy before creating a new Control Path"
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
@@ -241,7 +229,8 @@ def add_path(path_name) -> tuple[set[str], str]:
         if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "TRACER_Collection":
             anim_path.users_collection[0].objects.link(point_zero)
         else:
-            ("AnimPath has to be ONLY part of TRACER_Collection")
+            report_type = set('ERROR')
+            report_string ="AnimPath has to be ONLY part of TRACER_Collection"
 
         anim_path["Control Points"] = [point_zero]                      # Add Control Points property and initialise it with the first "default" point. It will hold the list of all the Control Point Objects that make up the Animation Path
         anim_path["Auto Update"] = False                                # Add Auto Update property. It will hold the "mode status" for the Animation Path. It is used to enable/disable advanced editing features. 
@@ -301,7 +290,8 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
     ptr_obj["Frame"] = 0
     ptr_obj["Ease In"] = 0
     ptr_obj["Ease Out"] = 0
-    ptr_obj["Style"] = "Walking"
+    #! Style is not currently used by the framework
+    # ptr_obj["Style"] = "Walking"
     ptr_obj["Left Handle Type"]  = "AUTO"
     ptr_obj["Right Handle Type"] = "AUTO"
     ptr_obj["Left Handle"]  = mathutils.Vector()
@@ -483,7 +473,7 @@ def update_curve(anim_path):
             area.tag_redraw()
 
 ### Function for drawing number labels next to the control points
-def draw_pointer_numbers_callback(self, context):
+def draw_pointer_numbers_callback(font_id, font_handler):
     # BLF drawing routine
     anchor_3d_pos = mathutils.Vector((0,0,0))
     if "AnimPath" in bpy.context.scene.objects:
@@ -497,14 +487,12 @@ def draw_pointer_numbers_callback(self, context):
                 # Getting 3D position of the control point (taking in account a 3D offset, so that the label can follow the mesh orientation)
                 offset_3d = mathutils.Vector((-0.1, 0, 0.1))
                 offset_3d.rotate(cp.rotation_euler)
-                anchor_3d_pos = cp.location + offset_3d
+                anchor_3d_pos = cp.location + offset_3d + anim_path.location
                 # Getting the corresponding 2D viewport location of the 3D location of the control point
                 txt_x, txt_y = bpy_extras.view3d_utils.location_3d_to_region_2d(
                     bpy.context.region,
                     bpy.context.space_data.region_3d,
                     anchor_3d_pos)
-                font_id = font_info["font_id"]
-            
             
                 # Setting text position, size, colour (white)
                 blf.position(font_id,
@@ -524,7 +512,7 @@ def switch_collection():
     collection_name = "TRACER_Collection"  # Specify the collection name
     collection = bpy.data.collections.get(collection_name)
     if collection is None:
-        setupCollections
+        setup_tracer_collection
                     
     for obj in bpy.context.selected_objects:
         for coll in obj.users_collection:

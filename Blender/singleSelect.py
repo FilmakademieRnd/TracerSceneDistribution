@@ -34,6 +34,7 @@ individual license agreement.
 '''
 
 import bpy
+from .settings import TracerData
 from .serverAdapter import send_lock_msg, send_unlock_msg;
 
 
@@ -43,6 +44,7 @@ class OBJECT_OT_single_select(bpy.types.Operator):
     bl_options = {'REGISTER'}
 
     _timer = None
+    tracer_data: TracerData = None
     last_selected_objects = set()  # Variable to store the last selected object
 
     def modal(self, context, event):
@@ -69,16 +71,16 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 # Check for deselection
                 deselected_objects = self.last_selected_objects - current_selected_objects
                 for obj in deselected_objects:
-                    for scene_obj in tracer_data.SceneObjects:
-                        if obj == scene_obj.editableObject:
+                    for scene_obj in self.tracer_data.SceneObjects:
+                        if obj == scene_obj.editable_object:
                             send_unlock_msg(scene_obj)
                             print(f"Deselected object: {obj.name}")
 
                 # Check for new selection
                 newly_selected_objects = current_selected_objects - self.last_selected_objects
                 for obj in newly_selected_objects:
-                    for scene_obj in tracer_data.SceneObjects:
-                        if obj == scene_obj.editableObject:
+                    for scene_obj in self.tracer_data.SceneObjects:
+                        if obj == scene_obj.editable_object:
                             send_lock_msg(scene_obj)
                             print(f"Selected object: {obj.name}")
 
@@ -88,8 +90,7 @@ class OBJECT_OT_single_select(bpy.types.Operator):
         return {'PASS_THROUGH'}
 
     def execute(self, context):
-        global tracer_data
-        tracer_data = bpy.context.window_manager.tracer_data
+        self.tracer_data = bpy.context.window_manager.tracer_data
         self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
         return {'RUNNING_MODAL'}

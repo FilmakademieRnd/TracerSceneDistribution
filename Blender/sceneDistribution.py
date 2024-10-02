@@ -83,7 +83,7 @@ class characterPackage:
 class curvePackage:
     pass
 
-def initialize():
+def clear_tracer_data():
     global tracer_data, tracer_props
     tracer_data  = bpy.context.window_manager.tracer_data
     tracer_props = bpy.context.scene.tracer_properties
@@ -110,27 +110,27 @@ def initialize():
 
 ## General function to gather scene data
 #
-def gatherSceneData():
-    initialize()
+def gather_scene_data():
+    clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
     print(tracer_data.cID)
-    objectList = getObjectList()
+    object_list = get_object_list()
 
-    if len(objectList) > 0:
-        tracer_data.objectsToTransfer = objectList
+    if len(object_list) > 0:
+        tracer_data.objectsToTransfer = object_list
         #iterate over all objects in the scene
         for i, obj in enumerate(tracer_data.objectsToTransfer):
-            processSceneObject(obj, i)
+            process_scene_object(obj, i)
 
         for i, obj in enumerate(tracer_data.objectsToTransfer):
-            processEditableObjects(obj, i)
+            process_editable_objects(obj, i)
 
-        getHeaderByteArray()
-        getNodesByteArray()
-        getGeoBytesArray()
-        getMaterialsByteArray()
-        getTexturesByteArray()
-        getCharacterByteArray()
+        get_header_byte_array()
+        get_nodes_byte_array()
+        get_geo_bytes_array()
+        get_materials_byte_array()
+        get_textures_byte_array()
+        get_character_byte_array()
         #getCurvesByteArray()
         
         return len(tracer_data.objectsToTransfer)
@@ -139,7 +139,7 @@ def gatherSceneData():
         return 0
     
 
-def getObjectList():
+def get_object_list():
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
     return parent_object.children_recursive
@@ -148,7 +148,7 @@ def getObjectList():
 #
 # @param obj The scene object to process
 # @param index The objects index in the list of all objects
-def processSceneObject(obj: bpy.types.Object, index):
+def process_scene_object(obj: bpy.types.Object, index):
     global tracer_data, tracer_props
     node = sceneObject()
     node.tracer_type = NodeTypes.GROUP
@@ -188,18 +188,18 @@ def processSceneObject(obj: bpy.types.Object, index):
     elif obj.type == 'MESH':
         if obj.parent != None and obj.parent.type == 'ARMATURE':
             nodeSkinMesh = sceneSkinnedmesh()
-            node = processSkinnedMesh(obj, nodeSkinMesh)
+            node = process_skinned_mesh(obj, nodeSkinMesh)
         else:
             nodeMesh = sceneMesh()
-            node = processMesh(obj, nodeMesh)
+            node = process_mesh(obj, nodeMesh)
                 
     elif obj.type == 'ARMATURE':
         node.tracer_type = NodeTypes.CHARACTER
-        processCharacter(obj, tracer_data.objectsToTransfer)
+        process_character(obj, tracer_data.objectsToTransfer)
     
     # When finding an Animation Path to be distributed
-    if obj.name == "AnimPath":
-        processControlPath(obj)
+    #if obj.name == "AnimPath":
+    #    process_control_path(obj)
             
         
     # gather general node data    
@@ -235,7 +235,7 @@ def processSceneObject(obj: bpy.types.Object, index):
     if obj.name != 'TRACER Scene Root':
         tracer_data.nodeList.append(node)
     
-def processMesh(obj, nodeMesh): 
+def process_mesh(obj, nodeMesh): 
     nodeMesh.tracer_type = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
     nodeMesh.roughness = 0.5
@@ -259,7 +259,7 @@ def processMesh(obj, nodeMesh):
                     
     return(nodeMesh)
 
-def processSkinnedMesh(obj, nodeSkinMesh):
+def process_skinned_mesh(obj, nodeSkinMesh):
     nodeSkinMesh.tracer_type = NodeTypes.SKINNEDMESH
     nodeSkinMesh.color = (0,0,0,1)
     nodeSkinMesh.roughness = 0.5
@@ -318,7 +318,7 @@ def processSkinnedMesh(obj, nodeSkinMesh):
 
 
 #! The part that processes a "Humanoid Rig" character is probably no longer valid
-def processCharacter(armature_obj, object_list):
+def process_character(armature_obj, object_list):
     chr_pack = characterPackage()
     chr_pack.bonePosition = []
     chr_pack.boneRotation = []
@@ -407,25 +407,11 @@ def processCharacter(armature_obj, object_list):
     tracer_data.characterList.append(chr_pack)
     return chr_pack
 
-##TODO Process and store a Control Path for sending it to TRACER
-# def processControlPath(control_point_list):
-#     control_path_package = [] #??? This should be an Animation Parameter
-    
-#     #Initialise AnimationParameter for the Character Object 
-#     for cp in control_point_list:
-#         # Unpack positions (Vector3 - bezier with two handles) with tangents and frame
-#         #??? What about timing Ease-In/Ease-Out values (Vector2???) ?
-#         # Unpack timings Ease-In/Ease-Out (Vector2 - stepped) with frame
-#         # Unpack rotations (Vector3 - linear) with frame
-#         # Unpack styles (Int/String - stepped) with frame
-#
-#    return control_path_package #??? This should be an Animation Parameter
-
 ## Given a Control Path in the scene, it evaluates it, it fills a new Curve Package object with the sampled data, and adds it to the list of curves to be shared with the other TRACER clients
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to tracer_data.curveList (@see TracerData())
-def processControlPath(anim_path: bpy.types.Object) -> curvePackage:
+def process_control_path(anim_path: bpy.types.Object) -> curvePackage:
     tracer_data = bpy.context.window_manager.tracer_data
     curve_package = curvePackage()
     curve_package.points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
@@ -560,7 +546,7 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
 ## Create SceneObject for each object that will be sent over network
 #
 #@param obj the acual object from the scene
-def processEditableObjects(obj, index):
+def process_editable_objects(obj, index):
     is_editable = obj.get("TRACER-Editable", False)
     print(obj.name + " TRACER-Editable: " + str(is_editable))
     if is_editable:
@@ -841,8 +827,8 @@ def generate_mesh_identifier(obj):
     else:
         return f"{obj.type}_{obj.name}"
 
-## generate Byte Arrays out of collected node data
-def getHeaderByteArray():
+### Generate Byte Arrays out of collected node data
+def get_header_byte_array():
     global headerByteData
     headerBin = bytearray([])
     
@@ -855,7 +841,8 @@ def getHeaderByteArray():
 
     tracer_data.headerByteData.extend(headerBin)
 
-def getNodesByteArray():
+### Generate Byte Arrays out of generic Node Data
+def get_nodes_byte_array():
     for node in tracer_data.nodeList:
         nodeBinary = bytearray([])
         
@@ -901,8 +888,8 @@ def getNodesByteArray():
                     
         tracer_data.nodesByteData.extend(nodeBinary)
 
-## pack geo data into byte array
-def getGeoBytesArray():        
+### Pack geometric data into byte array
+def get_geo_bytes_array():        
     for geo in tracer_data.geoList:
         geoBinary = bytearray([])
         
@@ -922,8 +909,8 @@ def getGeoBytesArray():
         
         tracer_data.geoByteData.extend(geoBinary)
 
-## pack texture data into byte array        
-def getTexturesByteArray():
+### Pack texture data into byte array        
+def get_textures_byte_array():
     if len(tracer_data.textureList) > 0:
         for tex in tracer_data.textureList:
             texBinary = bytearray([])
@@ -936,8 +923,8 @@ def getTexturesByteArray():
             
             tracer_data.texturesByteData.extend(texBinary)
 
-## pack Material data into byte array        
-def getMaterialsByteArray():
+### Pack Material data into byte array        
+def get_materials_byte_array():
     if len(tracer_data.materialList) > 0:
         for mat in tracer_data.materialList:
             matBinary = bytearray([])
@@ -957,7 +944,8 @@ def getMaterialsByteArray():
 
             tracer_data.materialsByteData.extend(matBinary) 
 
-def getCharacterByteArray():
+### Pack Character data into singular byte array
+def get_character_byte_array():
     if len(tracer_data.characterList):
         for chr in tracer_data.characterList:
             charBinary = bytearray([]) 

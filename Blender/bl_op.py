@@ -43,10 +43,11 @@ from bpy.app.handlers import persistent
 
 from .settings import TracerData
 from .SceneObjects.SceneObject import SceneObject
+from .SceneObjects.SceneCharacterObject import SceneCharacterObject
 from .AbstractParameter import Parameter, AnimHostRPC
 from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
-from .tools import cleanUp, installZmq, checkZMQ, setupCollections, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
-from .sceneDistribution import gatherSceneData, processControlPath#, resendCurve
+from .tools import clean_up_tracer_data, install_ZMQ, check_ZMQ, setup_tracer_collection, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
+from .sceneDistribution import gather_scene_data, process_control_path#, resendCurve
 from .GenerateSkeletonObj import process_armature
 
 
@@ -59,7 +60,7 @@ class SetupScene(bpy.types.Operator):
 
     def execute(self, context):
         print('setup scene')
-        setupCollections()
+        setup_tracer_collection()
         return {'FINISHED'}
 
 class DoDistribute(bpy.types.Operator):
@@ -71,12 +72,12 @@ class DoDistribute(bpy.types.Operator):
         for obj in bpy.context.selected_objects:
             obj.select_set(False)
         print("do distribute")
-        if checkZMQ():
+        if check_ZMQ():
             reset()
-            objCount = gatherSceneData() # TODO: is it possible to move the scene initialization (gatherSceneData()) outside of the DoDistribute function? A good place could be in the SetupScene function
+            objCount = gather_scene_data() # TODO: is it possible to move the scene initialization (gather_scene_data()) outside of the DoDistribute function? A good place could be in the SetupScene function
             bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
             bpy.ops.object.single_select('INVOKE_DEFAULT')
-            cleanUp(level=1)
+            clean_up_tracer_data(level=1)
             if objCount > 0:
                 set_up_thread()
                 self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
@@ -106,7 +107,7 @@ class InstallZMQ(bpy.types.Operator):
 
     def execute(self, context):
         print('Installing ZMQ')
-        zmq_result = installZmq()
+        zmq_result = install_ZMQ()
         if zmq_result == 'admin error':
             self.report({'ERROR'}, f'You need to be Admin to install ZMQ')
             return {'FINISHED'}
@@ -184,7 +185,7 @@ class FKIKToggle(bpy.types.Operator):
 
     def execute(self, context):
         # If the toggling should happen only when the chartacter is selected
-        if context.active_object and context.active_object.type == 'ARMATURE' and context.active_object.animation_data.action != None:
+        if context.active_object and context.active_object.type == 'ARMATURE':
             selected_armature: bpy.types.Object = context.active_object
             if selected_armature.get("IK_FK_Switch", -1) >= 0:
                 selected_armature["IK_FK_Switch"] = abs(round(selected_armature["IK_FK_Switch"]) - 1)
@@ -197,17 +198,18 @@ class FKIKToggle(bpy.types.Operator):
                 selected_armature["IK_FK_Switch"] = 1
                 FKIKToggle.bl_label = "Switch to Forward Kinematics"
 
-            #! To be checked with Eddy
             # Updating Bone Constraints Values for the currently selected Armature
-            # for bone in selected_armature.pose.bones:
-            #     ik_prop_idx = bone.constraints.find("IK_constraint")
-            #     if ik_prop_idx >= 0:
-            #         bone.constraints[ik_prop_idx] = selected_armature["IK_FK_Switch"]
+            for bone in selected_armature.pose.bones:
+                for bone_constraint in bone.constraints:
+                    bone_constraint.enabled = bool(selected_armature["IK_FK_Switch"])
 
-            # for bone in bpy.data.objects["IK_Rig"].pose.bones:
-            #     ik_prop_idx = bone.constraints.find("IK_constraint")
-            #     if ik_prop_idx >= 0:
-            #         bone.constraints[ik_prop_idx] = 1 - selected_armature["IK_FK_Switch"]
+            control_rig: bpy.types.Object = selected_armature.get("Control Rig")
+            if control_rig != None:
+                for bone in control_rig.pose.bones:
+                    for bone_constraint in bone.constraints:
+                        bone_constraint.enabled = bool(1 - selected_armature["IK_FK_Switch"])
+            else:
+                self.report({'ERROR'}, 'Select a control rig for this character to use IK rigging')
 
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
@@ -484,7 +486,7 @@ class EvaluateSpline(bpy.types.Operator):
                 EvaluateSpline.bl_label = "Update Animation Preview"
                 anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
             
-            curve_path = processControlPath(anim_path)
+            curve_path = process_control_path(anim_path)
             context.scene.frame_start = 0
             context.scene.frame_end = curve_path.pointsLen - 1
             anim_prev.animation_data_clear()
@@ -529,22 +531,22 @@ class AnimationRequest(bpy.types.Operator):
             if control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
                 tracer_data: TracerData = bpy.context.window_manager.tracer_data
 
-                tracer_character_object: SceneObject = tracer_data.SceneObjects[context.active_object.tracer_id]
-                tracer_character_object.update_parameter(-1)
+                # Getting the Scene Character Object corresponding to the selected Blender Character in the Scene
+                tracer_character_object: SceneCharacterObject = tracer_data.SceneObjects[context.active_object.tracer_id]
+                # Ensure that the ID of the Control Path associated with the selected Character is up to date
+                tracer_character_object.update_control_path_id()
 
                 control_path_tracer_obj: SceneObject = tracer_data.SceneObjects[control_path_bl_obj.tracer_id]
-                #for tracer_obj in tracer_data.SceneObjects:
-                #    if tracer_obj.editableObject == control_path_bl_obj:
-                #        control_path_tracer_obj = tracer_obj
-                #if control_path_tracer_obj == None:
-                #    raise ValueError("The selected Control Path is invalid")
-                control_path_tracer_obj.update_parameter(-1)
-                spline_param = control_path_tracer_obj._parameterList[-1]
+                # Ensure that the values of the Control Points exposed to TRACER are up to date
+                control_path_tracer_obj.update_control_points()
+                
+                point_locations_param = control_path_tracer_obj.parameter_list[-2]
+                point_rotations_param = control_path_tracer_obj.parameter_list[-1]
 
-                send_parameter_update(spline_param)
-                send_parameter_update(control_path_tracer_obj._parameterList[-2])
+                send_parameter_update(point_locations_param)
+                send_parameter_update(point_rotations_param)
 
-                # [Deprecated - realying on the ParameterUpdate Message] resendCurve()
+                # [Deprecated - now realying on the ParameterUpdate Message] -> resendCurve()
                 # Request Animation from AnimHost through RPC call
                 match self.animation_request_mode:
                     case 'BLOCK':
@@ -749,4 +751,4 @@ def reset():
     close_socket_s()
     close_socket_c()
     close_socket_u()
-    cleanUp(level=2)
+    clean_up_tracer_data(level=2)

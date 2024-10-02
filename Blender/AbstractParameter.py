@@ -193,46 +193,36 @@ class KeyList:
 
 class AbstractParameter:
 
-    ## Class attributes ##
-    # Type of the Parameter according to Tracer' definition
-    __type: TRACERParamType
-    __id: int
-    # Parameter value - type of the value depends on the parameter that is being keyed
-    value: bool | int | float | Vector | Quaternion | Color | str | list #? type Action?
-    # Parameter name
-    name: str
-    # Parametrized TRACER Object (type SceneObject, not importable due to circular import)
-    parent_object = None # see SceneObject.py
-    # Flag that determines whether a Parameter is going to be distributed
-    distribute: bool
-    # Flag that determines whether a Parameter is locked from the network connection
-    #network_lock: bool = False
-    # Flag that determines whether a Parameter is a RPC parameter
-    __is_RPC: bool = False
-    # Flag that determines whether a Parameter is animated
-    is_animated: bool = False
-    # Flag that determines whether a Parameter has been recently changed
-    has_changed: bool = False
-    # List of handlers that broadcast parameters updates when a parameter is changed
-    parameter_handler: list = []
-
     def __init__ (self, value, name: str, parent_object = None, distribute = True, is_RPC = False, is_animated = False):
-        self.value = value
-        self.__type = self.get_tracer_type()
-        self.name = name
-        self.parent_object = parent_object
-        self.distribute = distribute
-        self.__is_RPC = is_RPC
-        self.is_animated = is_animated
-        self.initial_value = value
-        self.has_changed = False
-        self.parameter_handler = []
-
+        # Non-static class variables
+        
+        # Parameter value - type of the value depends on the parameter that is being keyed
+        self.value: bool | int | float | Vector | Quaternion | Color | str | list = value   #? type Action?
+        # Type of the Parameter according to Tracer' definition (private)
+        self.__type: TRACERParamType = self.get_tracer_type()
+        # Paramter ID (private)
+        self.__id: int = -1
         if(parent_object):
-            self.__id = len(parent_object._parameterList)
+            self.__id = len(parent_object.parameter_list)
             print(str(self.__id))
         else:
             self.__id = 0
+        # Parameter name
+        self.name: str = name
+        # Parametrized TRACER Object (type SceneObject, not importable due to circular import)
+        self.parent_object = parent_object # see SceneObject.py
+        # Flag that determines whether a Parameter is going to be distributed
+        self.distribute: bool = distribute
+        # Flag that determines whether a Parameter is a RPC Parameter (private)
+        self.__is_RPC: bool = is_RPC
+        # Flag that determines whether a Parameter is animated
+        self.is_animated: bool = is_animated
+        # The value of the parameter before it gets modified
+        self.initial_value: bool | int | float | Vector | Quaternion | Color | str | list = value
+        # Flag that determines whether a Parameter has been recently changed
+        self.has_changed: bool = False
+        # List of handlers that broadcast parameters updates when a parameter is changed
+        self.parameter_handler: list[function] = []
 
     def get_parameter_id(self):
         return self.__id
@@ -289,7 +279,7 @@ class Parameter(AbstractParameter):
     ## Class Attributes ##
     key_list: KeyList
 
-    def __init__(self, value, name, parent_object=None, distribute=True, is_RPC = False, is_animated = False):
+    def __init__(self, value, name, parent_object = None, distribute = True, is_RPC = False, is_animated = False):
         super().__init__(value, name, parent_object, distribute, is_RPC, is_animated)
         self.key_list = KeyList()
 
@@ -301,12 +291,6 @@ class Parameter(AbstractParameter):
         self.is_animated = True
         key_zero = Key(0, self.value)
         self.key_list.set_key(key_zero, 0)
-
-        # Pose Bone Object in the scene corresponding to the current Parameter 
-        #if self.name == "TRACER Position":
-        #    self.parent_object.armature_obj_pose_bones[self.parent_object.name].animation_data.driver_add("location")
-        #elif self.name == "TRACER Rotation":
-        #    self.parent_object.armature_obj_pose_bones[self.parent_object.name].animation_data.driver_add("rotation_quat")
 
     def clear_animation(self):
         self.is_animated = False
@@ -333,7 +317,7 @@ class Parameter(AbstractParameter):
             self.parent_object.network_lock = True
             if new_value != self.value:
                 self.has_changed = True
-                self.value = new_value
+                self.value = new_value.copy()
                 self.emit_has_changed()
             self.parent_object.network_lock = False
     

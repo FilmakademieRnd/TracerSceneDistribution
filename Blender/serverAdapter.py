@@ -261,7 +261,7 @@ def send_parameter_update(parameter: Parameter):
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object._id))           # scene object ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
     length = 10 + parameter.get_size()
@@ -306,15 +306,15 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 def send_RPC_msg(rpc_parameter: Parameter):
     tracer_data.ParameterUpdateMSG = bytearray([])
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                          # client ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                         # sync time
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))             # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', 255))                               # scene ID (not assigned to a specific scene - for AnimHost)
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                 # object ID (not assigned to a specific object)
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))  # parameter/call ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))   # parameter type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))                 # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', 255))                                   # scene ID (not assigned to a specific scene - for AnimHost)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                     # object ID (not assigned to a specific object)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))      # parameter/call ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))       # parameter type
     length = 10 + rpc_parameter.get_data_size()
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                            # message length
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
     tracer_data.ParameterUpdateMSG.extend(rpc_parameter.serialize_data())
 
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
@@ -331,22 +331,22 @@ def process_RPC_msg(msg: bytearray, start=0):
 
 def send_lock_msg(sceneObject, value: bool = True):
     tracer_data.ParameterUpdateMSG = bytearray([])
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))                  # client ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))                 # sync time
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))                  #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                # bool value (True)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', int(value)))                 # bool value (True)
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def send_unlock_msg(sceneObject):
     tracer_data.ParameterUpdateMSG = bytearray([])
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))                  # client ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))                 # sync time
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))    # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B',tracer_data.cID))                   #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))           # parameter ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', 0))                         # bool value (False)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.cID))            # client ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', tracer_data.time))           # sync time
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', MessageType.LOCK.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B',tracer_data.cID))             #? scene ID?
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('H', sceneObject._id))            # parameter ID
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('B', 0))                          # bool value (False)
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def process_lock_msg(msg: bytearray, start = 0):

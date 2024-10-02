@@ -55,7 +55,6 @@ class TracerData():
     sceneLight = {}
     sceneCamera = {}
     sceneMesh = {}
-    
 
     geoPackage = {}
     materialPackage = {}

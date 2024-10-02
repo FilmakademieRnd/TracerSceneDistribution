@@ -72,23 +72,30 @@ from .bl_panel import TRACER_PT_Panel
 from .bl_panel import TRACER_PT_Anim_Path_Panel
 from .bl_panel import TRACER_PT_Control_Points_Panel
 from .bl_panel import TRACER_PT_Anim_Path_Menu
-from .tools import initialize
+from .tools import draw_pointer_numbers_callback
 from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
 from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
-# imported classes to register
+# Imported classes to register
 classes = (DoDistribute, StopDistribute, SetupScene, TRACER_PT_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
            SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
            AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 
+# Container for font information (id and handler object) for drawing text
+font_info = {
+    "font_id": 0,
+    "handler": None,
+}
+
+# Function adding an operator entry to add a control path to the scene in a menu
 def add_menu_path(self, context):
     print("Registering Add Path Menu Entry")
     self.layout.menu(TRACER_PT_Anim_Path_Panel.bl_idname, icon='PLUGIN')
 
-## Register classes and VpetSettings
-#
+# Register classes and TRACER-related Data Settings
+# Adding Entries to Menus and enabling callback functions and listeners to "translate" user input in Blender UI into TRACER-oriented actions 
 def register():
     bpy.types.WindowManager.tracer_data = TracerData()
     bpy.types.Object.tracer_id = bpy.props.IntProperty(name="TRACER ID", default=-1, description="The ID of the corresponding TRACER Object in the Scene")
@@ -99,10 +106,9 @@ def register():
             print(f"Registering {cls.__name__}")
         except Exception as e:
             print(f"{cls.__name__} "+ str(e))
-    
+
     bpy.types.Scene.tracer_properties = bpy.props.PointerProperty(type=TracerProperties)
     bpy.types.Scene.control_point_settings = bpy.props.PointerProperty(type=ControlPointProps)
-    initialize()
 
     bpy.types.VIEW3D_MT_mesh_add.append(add_menu_path)      # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Mesh Menu
     bpy.types.VIEW3D_MT_curve_add.append(add_menu_path)     # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Curve Menu
@@ -112,6 +118,9 @@ def register():
     
     bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
     bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)
+
+    # set the font drawing routine to run every frame
+    font_info["handler"] = bpy.types.SpaceView3D.draw_handler_add(draw_pointer_numbers_callback, (font_info["font_id"], font_info["handler"]), 'WINDOW', 'POST_PIXEL')
 
     print("Registered TRACER Add-On")
 
