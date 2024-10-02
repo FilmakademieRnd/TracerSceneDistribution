@@ -200,14 +200,20 @@ def parent_to_root():
 #   @param      path_name   The name of the Path to be created
 #   @returns    report of the status of the execution to be displayed on screen. It is either an INFO when everything goes as planned or an ERROR when the operator cannot be executed as intented.
 def add_path(path_name: str) -> tuple[set[str], str]:
-    report_type = set('INFO')
+    report_type = {'INFO'}
     report_string = "New Control Path added to TRACER Scene"
+
+    if "TRACER_Collection" not in bpy.data.collections or "TRACER Scene Root" not in bpy.data.objects:
+        report_type = {'ERROR'}
+        report_string = "Set up TRACER hierarchy before creating a new Control Path"
+        return (report_type, report_string)
 
     # Check whether an Animation Preview object is already present in the scene
     if path_name in bpy.data.objects:
         # If yes, save it
         print("Animation Preview object found")
         anim_path = bpy.data.objects[path_name]
+    else:
         # If not, create it as an empty object 
         print("Creating new Animation Preview object")
         # Adding a sphere mesh to the data (but deleting the corresponding object in the blender scene)
@@ -218,9 +224,6 @@ def add_path(path_name: str) -> tuple[set[str], str]:
         anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["TRACER_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["TRACER Scene Root"]
-    else:
-        report_type = set('ERROR')
-        report_string = "Set up TRACER hierarchy before creating a new Control Path"
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
@@ -229,7 +232,7 @@ def add_path(path_name: str) -> tuple[set[str], str]:
         if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "TRACER_Collection":
             anim_path.users_collection[0].objects.link(point_zero)
         else:
-            report_type = set('ERROR')
+            report_type = {'ERROR'}
             report_string ="AnimPath has to be ONLY part of TRACER_Collection"
 
         anim_path["Control Points"] = [point_zero]                      # Add Control Points property and initialise it with the first "default" point. It will hold the list of all the Control Point Objects that make up the Animation Path
@@ -254,7 +257,7 @@ def add_path(path_name: str) -> tuple[set[str], str]:
     # Hiding AnimPath mesh since we don't want to see it in blender 
     anim_path.hide_set(True)
     
-    return tuple(report_type, report_string)
+    return (report_type, report_string)
 
 ### Function used to create a new Control Point. It creates the mesh geometry if it's not already present in the scene and adds and initialises the various properties
 #   @param  spawn_location  Position in World Space, where the new point will be displayed
@@ -310,7 +313,7 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
 #   @param  pos         Position in which to the new point should be inserted (default -1, i.e. at the endof the list) 
 #   @param  after       Whether the point is being added before or after the selected point (only important to compute the correct offset)
 def add_point(anim_path, pos=-1, after=True):
-    report_type = set('INFO')
+    report_type = {'INFO'}
     report_string = "New Control Point added to TRACER Scene"
     spawn_proportional_offset = mathutils.Vector((0, -1.5, 0))
 
@@ -326,7 +329,7 @@ def add_point(anim_path, pos=-1, after=True):
     if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "TRACER_Collection":
         anim_path.users_collection[0].objects.link(new_point)
     else:
-        report_type = set('ERROR')
+        report_type = {'ERROR'}
         report_string = "AnimPath has to ONLY be part of TRACER_Collection"
 
     print("Number of Control Points " + str(len(anim_path["Control Points"])))
@@ -356,15 +359,14 @@ def add_point(anim_path, pos=-1, after=True):
     # Checking list of Control Points
     print("Control Points:" + str(anim_path["Control Points"]))
 
-    # Trigger Path Updating (if the functionality is enabled)
-    if anim_path["Auto Update"]:
-        update_curve(anim_path)
+    # Trigger Path Updating
+    update_curve(anim_path)
 
     # Select and set as active the new point
     new_point.select_set(True)
     bpy.context.view_layer.objects.active = new_point
 
-    return tuple(report_type, report_string)
+    return (report_type, report_string)
 
 ### Function that builds the name of a Control Point object given the position that it should take up in the Control Path
 def get_pos_name(pos):

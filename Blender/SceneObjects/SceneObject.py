@@ -192,20 +192,24 @@ class SceneObject:
             print(self.editable_object.name)
             for i, cp in enumerate(cp_list):
                 print(cp.name)
-                for i, cp in enumerate(cp_list):
-                    locations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                    value               = cp_curve[i].co,
-                                                    type                = KeyType.BEZIER,
-                                                    right_tangent_time  = cp.get("Ease Out"),
-                                                    right_tangent_value = cp_curve[i].handle_right,
-                                                    left_tangent_time   = cp.get("Ease In"),
-                                                    left_tangent_value  = cp_curve[i].handle_left ),
-                                                i)
-                    
-                    rotations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                    value               = cp.rotation_quaternion,
-                                                    type                = KeyType.LINEAR ),
-                                                i)
+                locations.key_list.set_key(Key( time                = cp.get("Frame"),
+                                                value               = cp_curve[i].co,
+                                                type                = KeyType.BEZIER,
+                                                right_tangent_time  = cp.get("Ease Out"),
+                                                right_tangent_value = cp_curve[i].handle_right,
+                                                left_tangent_time   = cp.get("Ease In"),
+                                                left_tangent_value  = cp_curve[i].handle_left ),
+                                            i)
+                original_rot_mode = cp.rotation_mode
+                if original_rot_mode != 'QUATERNION':
+                    cp.rotation_mode = 'QUATERNION'
 
-                self.parameter_list[-2] = locations
-                self.parameter_list[-1] = rotations
+                rotations.key_list.set_key(Key( time                = cp.get("Frame"),
+                                                value               = cp.rotation_quaternion,
+                                                type                = KeyType.LINEAR ),
+                                            i)
+                
+                cp.rotation_mode = original_rot_mode
+
+            self.parameter_list[-2] = locations
+            self.parameter_list[-1] = rotations
