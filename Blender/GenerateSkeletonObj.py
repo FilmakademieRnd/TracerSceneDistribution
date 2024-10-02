@@ -34,6 +34,7 @@ individual license agreement.
 '''
 
 import bpy
+from .SceneObjects.SceneCharacterObject import SceneCharacterObject
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
@@ -47,24 +48,55 @@ def create_empty(name, location, rotation, scale, parent):
         empty.parent = parent
     return empty
 
+def was_already_processed(armature_root_bone: bpy.types.PoseBone) -> bool:
+    return armature_root_bone.name in bpy.data.objects
+
 ### Function to create an object for every bone present in the armature so that the character can be interfaced with TRACER
 def process_armature(armature):
     # Get the active armature object???
-    armature = armature
+    armature: bpy.types.Object = armature
 
-    # Check if the active object is an armature
-    if armature and armature.type == 'ARMATURE':
+    # Find the root bone (typically named "Hips")
+    root_bone = None
+    for bone in armature.pose.bones:
+        if not bone.parent:
+            root_bone = bone
+            break
+
+    # Check if the active object is an armature and whehter it has already been processed previously 
+    if armature and armature.type == 'ARMATURE' and not was_already_processed(root_bone):
+        
+        # Adding character-specific Properties to the Blender Armature Object to set up. This allows the character to be steered on the Control Path and its animation to be edited using the Control Rig 
+        if not armature.get("IK_FK_Switch"):
+            armature["IK_FK_Switch"] = 0
+        if not armature.get("Control Path"):
+            armature["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
+                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
+                                                                poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
+            armature["Control Path"] = bpy.data.objects["AnimPath"]     if "AnimPath"     in bpy.data.objects else None
+            armature.property_overridable_library_set('["Control Path"]', True)
+
+        if not armature.get("Control Rig"):
+            armature["Control Rig"]:  bpy.props.PointerProperty(type=bpy.types.Object, name='Control Rig',  description='The Control Rig used to control the character when designing/editing a new animation',\
+                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'})
+            armature["Control Rig"]  = bpy.data.objects["RIG-Armature"] if "RIG-Armature" in bpy.data.objects else None
+            armature.property_overridable_library_set('["Control Rig"]',  True)
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
+                area.tag_redraw()
+
+
+        ################################################
+        ###### CHARACTER SETUP FOR SCENE TRANSFER ######
+        ################################################
+
         bpy.ops.object.mode_set(mode='POSE')  # Switch to pose mode
         
         # List to store bone information
         bone_data_list = []
-        
-        # Find the root bone (typically named "Hips")
-        root_bone = None
-        for bone in armature.pose.bones:
-            if not bone.parent:
-                root_bone = bone
-                break
         
         if root_bone:
             # Create empty object for the root bone
@@ -135,5 +167,8 @@ def process_armature(armature):
 
 
     else:
-        print("Active object is not an armature or no armature is selected.")
+        if was_already_processed(root_bone):
+            print("The Character has already been processed")
+        else:
+            print("Active object is not an armature or no armature is selected.")
 

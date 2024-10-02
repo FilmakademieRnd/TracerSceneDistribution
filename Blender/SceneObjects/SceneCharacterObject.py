@@ -63,27 +63,6 @@ class SceneCharacterObject(SceneObject):
     def __init__(self, bl_obj: bpy.types.Object):
         super().__init__(bl_obj)
 
-        # Adding character-specific Properties to the Blender Object counterpart of the SceneCharacterObject
-        self.editable_object["IK_FK_Switch"] = 0
-        self.editable_object["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
-                                                                        options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
-                                                                        poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
-        self.editable_object["Control Rig"]:  bpy.props.PointerProperty(type=bpy.types.Object, name='Control Rig',  description='The Control Rig used to control the character when designing/editing a new animation',\
-                                                                        options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
-                                                                        poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
-
-        self.editable_object["Control Path"] = bpy.data.objects["AnimPath"]     if "AnimPath"     in bpy.data.objects else None
-        self.editable_object.property_overridable_library_set('["Control Path"]', True)
-
-        self.editable_object["Control Rig"]  = bpy.data.objects["RIG-Armature"] if "RIG-Armature" in bpy.data.objects else None
-        self.editable_object.property_overridable_library_set('["Control Rig"]',  True)
-
-        # Forcing update visualisation of Property Panel
-        for area in bpy.context.screen.areas:
-            if area.type == 'PROPERTIES':
-                area.tag_redraw()
-                area.tag_redraw()
-
         # Initializing non-static class variables
         self.armature_obj_name: str = bl_obj.name
         self.root_bone_name: str = ""
@@ -93,7 +72,7 @@ class SceneCharacterObject(SceneObject):
         self.bone_map = {}
         self.local_bone_rest_transform: dict[str, Matrix] = {}                                                  # Stores the local resting bone space transformations in a dictionary (bone name - rest transfrorm matrix)
         self.local_rotation_map:        dict[str, Matrix] = {}                                                  # Stores the rotation transforms updated by TRACER in local bone space in a dictionary (bone name - rotation matrix) (may cause issues with values updated in a TRACER non-compliant way)
-        self.local_translation_map:     dict[str, Matrix] = {}                                                  # Stores the positional transforms updated by TRACER in local bone space in a dictionary (bone name - translation matrix) 
+        self.local_translation_map:     dict[str, Matrix] = {}                                                  # Stores the positional transforms updated by TRACER in local bone space in a dictionary (bone name - translation matrix)
 
         # Saving initial/resting armature bone transforms in local **bone** space
         # Necessary for then applying animation displacements in the correct transform space
