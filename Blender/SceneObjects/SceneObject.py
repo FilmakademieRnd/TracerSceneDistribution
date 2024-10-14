@@ -32,30 +32,26 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-from bpy.types import Object
+
+from bpy.types import Object, Bone
 import bpy
 import functools
 import math
 import copy
 from mathutils import Vector, Quaternion
 
+from .SceneObjectBase import SceneObjectBase
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
 #   
-class SceneObject:
-
-    # PUBLIC STATIC variables
-    start_id = 1
-    scene_ID = 254
+class SceneObject(SceneObjectBase):
     
     def __init__(self, bl_obj: Object):
+        super().__init__()
         # PUBLIC NON-STATIC variables declaration
-        self.object_id = SceneObject.start_id
-        SceneObject.start_id += 1
-        self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
         self.editable_object: Object = bl_obj
 

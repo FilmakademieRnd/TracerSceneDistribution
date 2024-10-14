@@ -49,7 +49,7 @@ from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, c
 from .tools import clean_up_tracer_data, install_ZMQ, check_ZMQ, setup_tracer_collection, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
 from .sceneDistribution import gather_scene_data, process_control_path#, resendCurve
 from .GenerateSkeletonObj import process_armature
-
+from . import Core
 
 
 
@@ -71,6 +71,8 @@ class DoDistribute(bpy.types.Operator):
     bl_description = 'Distribute the scene to TRACER clients'
 
     def execute(self, context):
+        Core.g_SceneManager.initialize_manager()
+        Core.g_SceneManager.gather_scene_data()
         for obj in bpy.context.selected_objects:
             obj.select_set(False)
         print("do distribute")

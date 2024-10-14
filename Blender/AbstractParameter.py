@@ -205,7 +205,7 @@ class AbstractParameter:
         self.__id: int = -1
         if(parent_object):
             self.__id = len(parent_object.parameter_list)
-            print(str(self.__id))
+            
         else:
             self.__id = 0
         # Parameter name
@@ -224,6 +224,8 @@ class AbstractParameter:
         self.has_changed: bool = False
         # List of handlers that broadcast parameters updates when a parameter is changed
         self.parameter_handler: list[function] = []
+
+        print(f"Object {parent_object} new parameter {self.name} of type {self.__type} with id {str(self.__id)}")
 
     def get_parameter_id(self):
         return self.__id
@@ -314,13 +316,13 @@ class Parameter(AbstractParameter):
             return data_size
 
     def set_value(self, new_value):
-        if not self.parent_object.network_lock:
-            self.parent_object.network_lock = True
-            if new_value != self.value:
-                self.has_changed = True
-                self.value = new_value.copy()
-                self.emit_has_changed()
-            self.parent_object.network_lock = False
+        
+        #self.parent_object.network_lock = True
+        if new_value != self.value:
+            self.has_changed = True
+            self.value = new_value.copy()
+            self.emit_has_changed()
+        #self.parent_object.network_lock = False
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:

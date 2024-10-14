@@ -113,8 +113,9 @@ def clear_tracer_data():
 def gather_scene_data():
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
-    print(tracer_data.cID)
+    #print(tracer_data.cID)
     object_list = get_object_list()
+    print(object_list)
 
     if len(object_list) > 0:
         tracer_data.objectsToTransfer = object_list
@@ -196,6 +197,8 @@ def process_scene_object(obj: bpy.types.Object, index):
     elif obj.type == 'ARMATURE':
         node.tracer_type = NodeTypes.CHARACTER
         process_character(obj, tracer_data.objectsToTransfer)
+
+    
     
     # When finding an Animation Path to be distributed
     #if obj.name == "AnimPath":
@@ -307,6 +310,7 @@ def process_skinned_mesh(obj, nodeSkinMesh):
                 for idx, obj in enumerate(tracer_data.objectsToTransfer):
                     if obj.name == bone.name:
                         bone_index = idx
+                        print(f"SKINN {bone_index=} {bone.name=}")
                         break
             #for i, bone in enumerate(armature_data.bones):  
                 nodeSkinMesh.skinnedMeshBoneIDs[i] = bone_index
@@ -328,28 +332,32 @@ def process_character(armature_obj, object_list):
         
 
     if armature_obj.type == 'ARMATURE':
-        bones = armature_obj.data.bones
+        bones = armature_obj.pose.bones
         chr_pack.characterRootID = tracer_data.objectsToTransfer.index(armature_obj)
 
-        if(tracer_props.humanoid_rig):
-            raise RuntimeError("Update Humanoid Rig implementation")
-            for key, value in blender_to_unity_bone_mapping.items():
-                bone_index = -1
+
+        for idx, obj in enumerate(object_list):
+                        if obj.name == armature_obj.name:
+                            bone_index = idx
+        chr_pack.boneMapping.append(bone_index)
+
+        for mesh in armature_obj.children:
+            if mesh.type == 'MESH':
                 for idx, obj in enumerate(object_list):
-                    if key == obj.name:
+                    if obj.name == mesh.name:
                         bone_index = idx
-                        break
                 chr_pack.boneMapping.append(bone_index)
 
-        else:
-            for i, bone in enumerate(bones):
-                bone_index = -1
-                for idx, obj in enumerate(tracer_data.objectsToTransfer):
-                    if obj.name == bone.name:
-                        bone_index = idx
-                        break
 
-                chr_pack.boneMapping.append(bone_index)
+        for i, bone in enumerate(bones):
+            bone_index = -1
+            for idx, obj in enumerate(tracer_data.objectsToTransfer):
+                if obj.name == bone.name:
+                    bone_index = idx
+                    print(f"{bone_index=} {bone.name=}")
+                    break
+
+            chr_pack.boneMapping.append(bone_index)
         
         chr_pack.bMSize = len(chr_pack.boneMapping)
         
@@ -392,13 +400,18 @@ def process_character(armature_obj, object_list):
             chr_pack.skeletonMapping.append(bone_index)
 
             
-            bone_matrix = armature_obj.matrix_world @ bone.matrix 
+            bone_matrix = armature_obj.matrix_world @ bone.matrix
             position = bone_matrix.to_translation()
             rotation = bone_matrix.to_quaternion()
-            rotation.invert()
-            
+            #rotation.invert()
+
             
             scale =bone.scale
+
+            #print(position)
+            #print(rotation)
+            #print(scale)
+
             chr_pack.bonePosition.extend([position.x, position.z, position.y])
             chr_pack.boneRotation.extend([rotation[1], rotation[3], rotation[2], rotation[0]])
             chr_pack.boneScale.extend(scale)
@@ -548,7 +561,7 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
 #@param obj the acual object from the scene
 def process_editable_objects(obj, index):
     is_editable = obj.get("TRACER-Editable", False)
-    print(obj.name + " TRACER-Editable: " + str(is_editable))
+    #print(obj.name + " TRACER-Editable: " + str(is_editable))
     if is_editable:
         if obj.type == 'CAMERA':
             tracer_data.SceneObjects.append(SceneObjectCamera(obj))
@@ -698,6 +711,8 @@ def get_vertex_bone_weights_and_indices(vert):
         # Output the bone indices and weights for this vertex
         bone_indices = [g[0] for g in groups]
         bone_weights = [g[1] for g in groups]
+
+        #print(f"AAAAAAAAAAAAAAAAAAAAA { bone_indices=}" )
         
         return bone_weights, bone_indices
 

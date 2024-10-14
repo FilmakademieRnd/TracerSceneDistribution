@@ -34,6 +34,7 @@ individual license agreement.
 '''
 
 import bpy
+import logging
 from .SceneObjects.SceneObject import SceneObject
 
 ## Class to keep editable parameters
@@ -51,6 +52,7 @@ class TracerProperties(bpy.types.PropertyGroup):
 #
 class TracerData():
 
+    
     scene_obj_map: dict[int, SceneObject] = {}
     sceneLight = {}
     sceneCamera = {}
@@ -98,3 +100,26 @@ class TracerData():
     ParameterUpdateMSG = bytearray([])
 
     debugCounter = 0
+
+    def clear_tracer_data(self):
+    
+        self.scene_obj_map.clear()
+        self.objectsToTransfer.clear()
+        self.nodeList.clear()
+        self.geoList.clear()
+        self.materialList.clear()
+        self.textureList.clear()
+        self.editableList.clear()
+        self.characterList.clear()
+        self.curveList.clear()
+        self.editable_objects.clear()
+        self.SceneObjects.clear()
+        self.nodesByteData.clear()
+        self.geoByteData.clear()
+        self.texturesByteData.clear()
+        self.headerByteData.clear()
+        self.materialsByteData.clear()
+        self.charactersByteData.clear()
+        self.curvesByteData.clear()
+
+    
