@@ -122,4 +122,6 @@ class TracerData():
         self.charactersByteData.clear()
         self.curvesByteData.clear()
 
+    lightTypes = ['SPOT', 'SUN', 'POINT', 'AREA']
+
     

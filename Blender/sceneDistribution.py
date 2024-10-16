@@ -40,7 +40,7 @@ import bmesh
 import struct
 import re
 
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion, Matrix
 from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
@@ -207,9 +207,16 @@ def process_scene_object(obj: bpy.types.Object, index):
         
     # gather general node data    
     nodeMatrix = obj.matrix_local.copy()
+    
+    if obj.type == 'ARMATURE':
+        tarnsform_to_unity = Matrix([[1,0,0,0],
+                                    [0,0,-1,0],
+                                    [0,1,0,0],
+                                    [0,0,0,1]])
+        #nodeMatrix = tarnsform_to_unity @ nodeMatrix
 
-    node.position = (nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y)
-    node.scale = (nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y)
+    node.position = (nodeMatrix.to_translation().x, nodeMatrix.to_translation().y, nodeMatrix.to_translation().z)
+    node.scale = (nodeMatrix.to_scale().x, nodeMatrix.to_scale().y, nodeMatrix.to_scale().z)
     
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
@@ -217,8 +224,9 @@ def process_scene_object(obj: bpy.types.Object, index):
         nodeMatrix = nodeMatrix @ rotFix
     
     rot = nodeMatrix.to_quaternion()
-    rot.invert()
-    node.rotation = (rot[1], rot[3], rot[2], rot[0])
+    
+    #rot.invert()
+    node.rotation = (rot[1], rot[2], rot[3], rot[0])
     
     node.name = bytearray(64)
     
@@ -290,11 +298,16 @@ def process_skinned_mesh(obj, nodeSkinMesh):
 
         armature_obj = obj.parent
         if armature_obj:
-            armature_data = armature_obj.data
+            armature_data = armature_obj.pose
             bind_poses = []
+            root_to_u = armature_obj.matrix_world
             for bone in armature_data.bones:
-                bind_matrix = armature_obj.matrix_world @ bone.matrix_local
-                for row in bind_matrix:
+                #bind_matrix = armature_obj.matrix_world @ bone.bone.matrix_local
+                bind_matrix = bone.bone.matrix_local
+            
+                bp_matrix = bind_matrix.inverted()
+                bp_matrix = bp_matrix @ root_to_u
+                for row in bp_matrix:
                     bind_poses.extend(row)
             
             desired_length = 1584
@@ -695,26 +708,41 @@ def processTexture(tex):
     # return index of texture in texture list
     return (len(tracer_data.textureList)-1)
 
-def get_vertex_bone_weights_and_indices(vert):
-    #for vert_idx, vert in enumerate(obj.data.vertices):
-        # Retrieve the vertex groups and their weights for this vertex
-        groups = [(g.group, g.weight) for g in vert.groups]
-        
-        # Sort the groups by weight in descending order
-        groups.sort(key=lambda x: x[1], reverse=True)
-        
-        # Limit to at most 4 bone influences
-        groups = groups[:4]
-        while len(groups) < 4:
-            groups.append((0, 0.0))
-        
-        # Output the bone indices and weights for this vertex
-        bone_indices = [g[0] for g in groups]
-        bone_weights = [g[1] for g in groups]
+def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
+    # Retrieve the vertex groups and their weights for this vertex
+    groups = [(g.group, g.weight) for g in vert.groups]
 
-        #print(f"AAAAAAAAAAAAAAAAAAAAA { bone_indices=}" )
-        
-        return bone_weights, bone_indices
+    # Sort the groups by weight in descending order
+    groups.sort(key=lambda x: x[1], reverse=True)
+
+    # Limit to at most 4 bone influences
+    groups = groups[:4]
+
+    # Ensure there are 4 weights and indices
+    while len(groups) < 4:
+        groups.append((0, 0.0))
+
+    # Output the bone indices and weights for this vertex
+    bone_indices = []
+    bone_weights = [g[1] for g in groups]
+
+    for g in groups:
+        group_index = g[0]
+
+        # Access the vertex group by index from the vertex's mesh object data
+        bone_name = mesh_obj.vertex_groups[group_index].name  # Get the group name
+
+        for idx, obj in enumerate(armature.data.bones):
+            if obj.name == bone_name:
+                bone_index = idx
+                bone_indices.append(bone_index)
+
+    return bone_weights, bone_indices
+
+
+
+
+
 
 def processGeoNew(mesh):
     geoPack = sceneMesh()
@@ -734,20 +762,24 @@ def processGeoNew(mesh):
             armature = mesh.parent
             bone_names = {bone.name: idx for idx, bone in enumerate(armature.data.bones)}
             
-
+            maximum = 0
             for vert in mesh.data.vertices:
-                weights, indices = get_vertex_bone_weights_and_indices(vert)
+                weights, indices = get_vertex_bone_weights_and_indices(vert, mesh, armature)
                 vertex_bone_weights[vert.index] = weights
                 vertex_bone_indices[vert.index] = indices
+                for i in indices:
+                    maximum = max(i,maximum)
+
+            print(f"{maximum=}")
 
     #mesh.data.calc_normals_split()
     bm = bmesh.new()
     bm.from_mesh(mesh.data)
 
     # flipping faces because the following axis swap inverts them
-    for f in bm.faces:
-        bmesh.utils.face_flip(f)
-    bm.normal_update()
+    # for f in bm.faces:
+    #     bmesh.utils.face_flip(f)
+    #bm.normal_update()
 
     bm.verts.ensure_lookup_table()
     uv_layer = bm.loops.layers.uv.active
@@ -815,12 +847,12 @@ def processGeoNew(mesh):
 
     for i, vert in enumerate(interleaved_buffer):
         geoPack.vertices.append(vert[0][0])
-        geoPack.vertices.append(vert[0][2])
         geoPack.vertices.append(vert[0][1])
+        geoPack.vertices.append(vert[0][2])
 
-        geoPack.normals.append(-vert[1][0])
-        geoPack.normals.append(-vert[1][2])
-        geoPack.normals.append(-vert[1][1])
+        geoPack.normals.append(vert[1][0])
+        geoPack.normals.append(vert[1][1])
+        geoPack.normals.append(vert[1][2])
         
         geoPack.uvs.append(vert[2][0])
         geoPack.uvs.append(vert[2][1])
@@ -918,6 +950,7 @@ def get_geo_bytes_array():
         geoBinary.extend(struct.pack('%sf' % geo.uvSize*2, *geo.uvs))
         geoBinary.extend(struct.pack('i', geo.bWSize))
         if(geo.bWSize > 0):
+            print(f"AAAAAAAAAAAAAA {geo.bWSize}")
             geoBinary.extend(struct.pack('%sf' % geo.bWSize*4, *geo.boneWeights))
             geoBinary.extend(struct.pack('%si' % geo.bWSize*4, *geo.boneIndices))
 

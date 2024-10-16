@@ -35,6 +35,7 @@ individual license agreement.
 
 import bpy
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from mathutils import Vector, Matrix
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
@@ -61,6 +62,7 @@ def process_armature(armature):
     for bone in armature.pose.bones:
         if not bone.parent:
             root_bone = bone
+            print(root_bone)
             break
 
     # Check if the active object is an armature and whehter it has already been processed previously 
@@ -100,35 +102,46 @@ def process_armature(armature):
         
         if root_bone:
             # Create empty object for the root bone
-            empty_root = create_empty(root_bone.name, armature.matrix_world @ root_bone.head, root_bone.rotation_quaternion, root_bone.scale, None)
+            #root_bone_m4 = armature.matrix_local @ root_bone.bone.matrix_local
+
+            root_to_u = armature.matrix_world
+
+        
+    
+            root_bone_m4 = root_bone.bone.matrix_local
+
+
+            empty_root = create_empty(root_bone.name, root_bone_m4.to_translation() , root_bone_m4.to_quaternion(),  Vector((1.0,1.0,1.0)), None)
             empty_objects = {root_bone.name: empty_root}
             
-            # Parent the root empty to the armature
+            # Parent the root empty to the armaturess
             empty_root.parent = armature
             
             # Add root bone data to the list
             bone_data = {
                 'name': root_bone.name,
                 'parent': None,
-                'location': armature.matrix_world @ root_bone.head,
-                'rotation': root_bone.rotation_quaternion,
-                'scale': root_bone.scale
+                'location': root_bone_m4.to_translation(),
+                'rotation': root_bone_m4.to_quaternion(),
+                'scale': Vector((1.0,1.0,1.0))
             }
             bone_data_list.append(bone_data)
         
             # Iterate through each bone (excluding the root bone)
             for bone in armature.pose.bones:
                 if bone != root_bone:
-                    bone_matrix_global = armature.matrix_world @ bone.matrix
+                    bone_matrix_global = bone.bone.matrix_local
+                    #bone_matrix_global = bone.bone.matrix_local
                     bone_location_global = bone_matrix_global.to_translation()
                     bone_rotation_global = bone_matrix_global.to_quaternion()
+                    bone_scale_global = bone_matrix_global.to_scale()
 
                     bone_data = {
                         'name': bone.name,
                         'parent': bone.parent,
                         'location': bone_location_global,
                         'rotation': bone_rotation_global,
-                        'scale': bone.scale
+                        'scale': Vector((1.0,1.0,1.0))
                     }
                     bone_data_list.append(bone_data)
         
