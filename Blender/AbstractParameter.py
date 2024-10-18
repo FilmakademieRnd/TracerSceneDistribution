@@ -131,7 +131,7 @@ class Key:
     
 class KeyList:
     __data: list[Key]
-    #has_changed: bool
+    has_changed: bool
 
     def __init__(self) -> None:
         self.__data = []
@@ -421,9 +421,9 @@ class Parameter(AbstractParameter):
         value_bytes = msg_payload[0:data_size]
         self.set_value(self.deserialize_data(value_bytes))
 
-        #if self.is_animated:
-        #    # Reset has_changed flag bevore deserializing the keyframes
-        #    self.key_list.has_changed = False
+        if self.is_animated:
+            # Reset has_changed flag bevore deserializing the keyframes
+            self.key_list.has_changed = False
 
         if self.is_animated and msg_size > data_size:
             self.key_list.clear()

@@ -288,7 +288,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
             param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
-            if param.get_size() < length-10:
+            if not param.is_animated and param.get_size() < length-10:
                 param.init_animation()
 
             param.deserialize(msg_payload)

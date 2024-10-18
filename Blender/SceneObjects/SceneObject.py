@@ -110,7 +110,7 @@ class SceneObject:
         if self.network_lock:
             self.editable_object.rotation_mode = 'QUATERNION'
             self.editable_object.rotation_quaternion = new_value
-            self.editable_object.rotation_mode = 'EULER'
+            self.editable_object.rotation_mode = 'XYZ'
 
             if self.editable_object.type == 'LIGHT' or self.editable_object.type == 'CAMERA' or self.editable_object.type == 'ARMATURE':
                 self.editable_object.rotation_euler.rotate_axis("X", math.radians(90))
