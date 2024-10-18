@@ -67,20 +67,8 @@ def process_armature(armature):
     if armature and armature.type == 'ARMATURE' and not was_already_processed(root_bone):
         
         # Adding character-specific Properties to the Blender Armature Object to set up. This allows the character to be steered on the Control Path and its animation to be edited using the Control Rig 
-        if not armature.get("IK_FK_Switch"):
-            armature["IK_FK_Switch"] = 0
-        if not armature.get("Control Path"):
-            armature["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
-                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
-                                                                poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
-            armature["Control Path"] = bpy.data.objects["AnimPath"]     if "AnimPath"     in bpy.data.objects else None
-            armature.property_overridable_library_set('["Control Path"]', True)
-
-        if not armature.get("Control Rig"):
-            armature["Control Rig"]:  bpy.props.PointerProperty(type=bpy.types.Object, name='Control Rig',  description='The Control Rig used to control the character when designing/editing a new animation',\
-                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'})
-            armature["Control Rig"]  = bpy.data.objects["RIG-Armature"] if "RIG-Armature" in bpy.data.objects else None
-            armature.property_overridable_library_set('["Control Rig"]',  True)
+        if not armature.get("IK-Flag"):
+            armature["IK-Flag"] = False
 
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
@@ -165,6 +153,8 @@ def process_armature(armature):
             armature.select_set(True)
             parent_to_root()
 
+        for empty in empty_objects.values():
+            empty.hide_set(True)
 
     else:
         if was_already_processed(root_bone):

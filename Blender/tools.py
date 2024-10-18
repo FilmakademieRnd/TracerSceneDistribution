@@ -76,7 +76,9 @@ def setup_tracer_collection():
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
         bpy.context.active_object.name = 'TRACER Scene Root'
         root = bpy.context.active_object
-        for coll in bpy.context.scene.collection.children:
+        # Unlinking object from ALL collections
+        bpy.context.scene.collection.objects.unlink(root)
+        for coll in bpy.data.collections:
             if root.name in coll.objects:
                 coll.objects.unlink(root)
         tracer_collection.objects.link(root)
@@ -224,6 +226,7 @@ def add_path(path_name: str) -> tuple[set[str], str]:
         anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["TRACER_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["TRACER Scene Root"]
+        bpy.context.scene.tracer_properties.control_path_name = anim_path.name
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
@@ -491,20 +494,21 @@ def draw_pointer_numbers_callback(font_id, font_handler):
                 offset_3d.rotate(cp.rotation_euler)
                 anchor_3d_pos = cp.location + offset_3d + anim_path.location
                 # Getting the corresponding 2D viewport location of the 3D location of the control point
-                txt_x, txt_y = bpy_extras.view3d_utils.location_3d_to_region_2d(
+                txt_coords: mathutils.Vector = bpy_extras.view3d_utils.location_3d_to_region_2d(
                     bpy.context.region,
                     bpy.context.space_data.region_3d,
                     anchor_3d_pos)
-            
-                # Setting text position, size, colour (white)
-                blf.position(font_id,
-                             txt_x,
-                             txt_y,
-                             0)
-                blf.size(font_id, 30.0)
-                blf.color(font_id, 1, 1, 1, 1)
-                # Writing text (the number relative to the position of the pointer in the list of control points in the path)
-                blf.draw(font_id, str(i))
+
+                if txt_coords != None:
+                    # Setting text position, size, colour (white)
+                    blf.position(font_id,
+                                 txt_coords.x,
+                                 txt_coords.y,
+                                 0)
+                    blf.size(font_id, 30.0)
+                    blf.color(font_id, 1, 1, 1, 1)
+                    # Writing text (the number relative to the position of the pointer in the list of control points in the path)
+                    blf.draw(font_id, str(i))
 
 '''
 ----------------------END FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------

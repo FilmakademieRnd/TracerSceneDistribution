@@ -87,6 +87,9 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 # Update the last selected objects set
                 self.last_selected_objects = current_selected_objects
 
+            if bpy.context.scene.tracer_properties.close_connection:
+                return {'CANCELLED'}
+
         return {'PASS_THROUGH'}
 
     def execute(self, context):

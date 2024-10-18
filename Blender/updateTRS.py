@@ -50,6 +50,10 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     def modal(self, context, event):
         if event.type == 'TIMER':
             self.check_for_updates(context)
+        
+        if bpy.context.scene.tracer_properties.close_connection:
+            return {'CANCELLED'}
+        
         return {'PASS_THROUGH'}
 
     def execute(self, context):
