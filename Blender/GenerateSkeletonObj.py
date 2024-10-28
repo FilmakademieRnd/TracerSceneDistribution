@@ -147,7 +147,7 @@ def process_armature(armature):
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')
             select_hierarchy(empty_root)
-            switch_collection()
+            switch_collection(bpy.context.selected_objects)
         else:
             bpy.ops.object.select_all(action='DESELECT')
             armature.select_set(True)

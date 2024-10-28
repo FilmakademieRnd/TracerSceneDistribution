@@ -170,13 +170,27 @@ class MakeEditable(bpy.types.Operator):
         return{'FINISHED'}
     
 class ParentToRoot(bpy.types.Operator):
-    bl_idname = "object.parent_to_root"
-    bl_label = "Parent obj to root obj"
-    bl_description = 'Parent all the selectet object to the TRACER root obj'
+    bl_idname = "object.parent_selected_to_root"
+    bl_label = "Parent objects to TRACER Scene Root"
+    bl_description = 'Parent all the selected object to the TRACER Scene Root'
 
     def execute(self, context):
-        print('Parent obj')
-        parent_to_root()
+        print('Parent objects')
+        parent_to_root(bpy.context.selected_objects)
+        return {'FINISHED'}
+    
+class ParentCharacterToRoot(bpy.types.Operator):
+    bl_idname = "object.parent_character_to_root"
+    bl_label = "Parent Character to TRACER Scene Root"
+    bl_description = 'Parent the chosen Character to the TRACER Scene Root'
+
+    def execute(self, context):
+        print('Parent character')
+        if bpy.context.scene.tracer_properties.character_name in bpy.data.objects:
+            character = bpy.data.objects[bpy.context.scene.tracer_properties.character_name]
+            parent_to_root([character])
+        else:
+            self.report({'ERROR'}, 'Assign a valid value to the Character field.')
         return {'FINISHED'}
    
 ### Operator to add a new Animation Path

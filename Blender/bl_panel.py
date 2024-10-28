@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot,\
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
 
@@ -117,7 +117,7 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 col1.alert = not SetupCharacter.setup_done
                 col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
-                col2.operator(ParentToRoot.bl_idname, text = ParentToRoot.bl_label)
+                col2.operator(ParentCharacterToRoot.bl_idname, text = ParentCharacterToRoot.bl_label)
                 row = layout.row()
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)

@@ -148,23 +148,22 @@ def install_ZMQ():
 
 # Selecting the hierarchy of all the objects seen by TRACER  
 def select_hierarchy(obj):
-    def select_children(obj):
-        obj.select_set(True)
-        for child in obj.children:
-            select_children(child)
-
     # Deselect all objects first
     bpy.ops.object.select_all(action='DESELECT')
 
     # If obj is a single object
     if isinstance(obj, bpy.types.Object):
         bpy.context.view_layer.objects.active = obj
-        select_children(obj)
+        obj.select_set(True)
+        for child in obj.children_recursive:
+            child.select_set(True)
+            
     # If obj is a list of objects
-    elif isinstance(obj, list):
-        bpy.context.view_layer.objects.active = obj[0]  # Set the first object as the active object
+    elif isinstance(obj, list[bpy.types.Object]):
         for o in obj:
-            select_children(o)
+            o.select_set(True)
+            for child in o.children_recursive:
+                child.select_set(True)
     else:
         print("Invalid object type provided.")
 
@@ -176,23 +175,42 @@ def get_current_collections(obj: bpy.types.Object) -> list[str]:
     return current_collections
     
 # Makes the TRACER Scene Root object the parent of every currently selected object
-def parent_to_root():
-    selected_objects =  bpy.context.selected_objects
+def parent_to_root(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
+    collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
 
-    if parent_object is None:
-        setup_tracer_collection()
-        parent_object = bpy.data.objects.get(parent_object_name)
+    if parent_object is None or collection is None:
+        report_type = {'ERROR'}
+        report_string = "Set up the TRACER Scene components first"
+        return (report_type, report_string)
 
-    for obj in selected_objects:
+    for obj in objs:
         # Check if the object is not the parent object itself
         if obj != parent_object:
             # Set the parent of the selected object to the parent object
             obj.parent = parent_object
             obj.matrix_parent_inverse = parent_object.matrix_world.inverted()
-            select_hierarchy(selected_objects)
-            switch_collection()
+            for coll in obj.users_collection:
+                coll.objects.unlink(obj)
+            # Link the object to the new collection
+            collection.objects.link(obj)
+            switch_collection(obj.children_recursive)
+
+def switch_collection(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
+    collection_name = bpy.context.scene.tracer_properties.tracer_collection  # Specify the collection name
+    collection = bpy.data.collections.get(collection_name)
+    if collection is None:
+        report_type = {'ERROR'}
+        report_string = "Set up the TRACER Scene components first"
+        return (report_type, report_string)
+                    
+    for obj in objs:
+        for coll in obj.users_collection:
+            coll.objects.unlink(obj)
+
+        # Link the object to the new collection
+        collection.objects.link(obj)
 
 '''
 ----------------------BEGIN FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------
@@ -518,16 +536,3 @@ def draw_pointer_numbers_callback(font_id, font_handler):
 '''
 ----------------------END FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------
 '''
-
-def switch_collection():
-    collection_name = "TRACER_Collection"  # Specify the collection name
-    collection = bpy.data.collections.get(collection_name)
-    if collection is None:
-        setup_tracer_collection
-                    
-    for obj in bpy.context.selected_objects:
-        for coll in obj.users_collection:
-            coll.objects.unlink(obj)
-
-        # Link the object to the new collection
-        collection.objects.link(obj)
