@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from .bl_op import  DoDistribute, StopDistribute, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot,\
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
 
@@ -74,9 +74,11 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         row.prop(bpy.context.scene.tracer_properties, 'server_ip')
 
         row = layout.row()
-        row.alert = not DoDistribute.is_distributed
-        row.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
-        #row.operator(StopDistribute.bl_idname, text = StopDistribute.bl_label)
+        col1 = row.column()
+        col1.alert = not DoDistribute.is_distributed
+        col1.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
+        col2 = row.column()
+        col2.operator(UpdateScene.bl_idname, text = UpdateScene.bl_label)
 
 # Define Layout for the Character Panel, grouping functionalities related to the character to animate
 class TRACER_PT_Object_Panel(TRACER_Panel, bpy.types.Panel):
@@ -111,8 +113,11 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
                     row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
                 row = layout.row()
-                row.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
-                row.operator(ParentToRoot.bl_idname, text = ParentToRoot.bl_label)
+                col1 = row.column()
+                col1.alert = not SetupCharacter.setup_done
+                col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
+                col2 = row.column()
+                col2.operator(ParentToRoot.bl_idname, text = ParentToRoot.bl_label)
                 row = layout.row()
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)

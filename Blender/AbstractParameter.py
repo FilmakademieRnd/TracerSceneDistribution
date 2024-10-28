@@ -489,12 +489,12 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR3.value:
                 vec3_val = Vector((struct.unpack('<3f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzy
+                return vec3_val.xyz
 
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzyw
+                return vec3_val.wxyz
 
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW

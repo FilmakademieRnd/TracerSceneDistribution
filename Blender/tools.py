@@ -70,7 +70,7 @@ def setup_tracer_collection():
         tracer_collection = bpy.data.collections.new(tracer_props.tracer_collection)
         bpy.context.scene.collection.children.link(tracer_collection)
 
-    # Check if the "TRACER SceneRoot" object already exists. If not, create it and link it to the collection.
+    # Check if the "TRACER Scene Root" object already exists. If not, create it and link it to the collection.
     root = bpy.context.scene.objects.get('TRACER Scene Root')
     if root is None:
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
@@ -443,7 +443,7 @@ def path_points_check(anim_path):
     anim_path["Control Points"] = control_points
 
 ### Update Curve takes care of updating the AnimPath representation according to the modifications made by the user using the blender UI
-def update_curve(anim_path):
+def update_curve(anim_path: bpy.types.Object):
     # Deselect all selected objects
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
@@ -466,6 +466,12 @@ def update_curve(anim_path):
         bezier_point.handle_right_type = cp.get("Right Handle Type")
         if cp.get("Right Handle Type") != "AUTO":                                                           # do the same for both handles:)
             bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location
+
+    # Deleting old Curve completely form Blender
+    if anim_path.children[0].name == "Control Path":
+        old_path: bpy.types.Object = anim_path.children[0]
+        old_path.select_set(True)
+        bpy.ops.object.delete()
 
     control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)                                   # Create a new Control Path Object with the geometry data of the Bézier Curve
     if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "TRACER_Collection":

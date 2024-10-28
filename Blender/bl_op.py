@@ -102,16 +102,17 @@ class DoDistribute(bpy.types.Operator):
         
         return {'FINISHED'}
 
-class StopDistribute(bpy.types.Operator):
-    bl_idname = "object.zmq_stopdistribute"
-    bl_label = "Stop Distribution"
-    bl_description = 'Stop the distribution and free the sockets. Important!'
+class UpdateScene(bpy.types.Operator):
+    bl_idname = "object.update_scene"
+    bl_label = "Send Scene"
+    bl_description = 'Send the latest version of the scene to TRACER'
 
     def execute(self, context):
-        print('stop distribute')
-        print('stop subscription')
-        self.report({'INFO'}, f'STOP SENDING Objects to TRACER')
-        reset_tracer_connection()
+        print('Updating scene data...')
+        clean_up_tracer_data(level=1)
+        objCount = gather_scene_data()
+        if objCount > 0:
+            self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
         return {'FINISHED'}
 
 class InstallZMQ(bpy.types.Operator):
@@ -137,13 +138,17 @@ class SetupCharacter(bpy.types.Operator):
     bl_label = "TRACER Character Setup"
     bl_description = 'generate obj for each Character bone'
 
+    setup_done = False
+
     def execute(self, context):
         print('Setup Character')
         character_name: str = bpy.context.scene.tracer_properties.character_name
-        if character_name != '' and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE':
+        if  character_name != '' and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE' and\
+            not SetupCharacter.setup_done:
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.view_layer.objects.active = bpy.data.objects[character_name]
             process_armature(bpy.data.objects[character_name])
+            SetupCharacter.setup_done = True
         return {'FINISHED'}
     
 class MakeEditable(bpy.types.Operator):
@@ -473,7 +478,7 @@ class EditControlPointHandle(bpy.types.Operator):
 
     def execute(self, context):
         if bpy.context.scene.tracer_properties.control_path_name != '' and bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
-            anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.character_name]
+            anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
 
             update_curve(anim_path)
             if context.active_object in anim_path["Control Points"]:
@@ -677,7 +682,7 @@ class InteractionListener(bpy.types.Operator):
             
             # If one of the Bezier Points of the Control Path was being edited, select the corresponding Control Point Object
             if active_cp_idx >= 0:
-                bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]["Control Points"][active_cp_idx].select_set(True)
+                self.anim_path["Control Points"][active_cp_idx].select_set(True)
                 bpy.context.view_layer.objects.active = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]["Control Points"][active_cp_idx]
         
         # Update the current saved mode
@@ -687,8 +692,8 @@ class InteractionListener(bpy.types.Operator):
         if  (event.type == 'LEFTMOUSE' or event.type == 'RET' or event.type == 'NUMPAD_ENTER') and event.value == 'RELEASE' and \
             (not context.object == None and (context.object.name == bpy.context.scene.tracer_properties.control_path_name or ((not context.object.parent == None) and\
                  context.object.parent.name == bpy.context.scene.tracer_properties.control_path_name))) and \
-            (not self.anim_path == None) and self.anim_path["Auto Update"]:
-            update_curve(self.anim_path)
+            bpy.data.objects[self.tracer_props.control_path_name] != None and bpy.data.objects[self.tracer_props.control_path_name]["Auto Update"]:
+            update_curve(bpy.data.objects[self.tracer_props.control_path_name])
         
         # If the active object is one of the children of the Control Path, listen to 'Shift + =' or 'Ctrl + +' Release events,
         # this will trigger the addition of a new point to the animation path, right after the currently selected points
@@ -766,6 +771,7 @@ class InteractionListener(bpy.types.Operator):
         if not InteractionListener.is_running:
             # Add the modal listener to the list of called handlers and save the Animation Path object
             context.window_manager.modal_handler_add(self)
+            self.tracer_props = bpy.context.scene.tracer_properties
             self.anim_path = None
             self.new_cp_locations = []
             self.mode = 'OBJECT'

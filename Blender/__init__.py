@@ -47,7 +47,7 @@ bl_info = {
 from typing import Set
 import bpy
 import os
-from .bl_op import  DoDistribute, StopDistribute, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, InteractionListener, SendRpcCall,\
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, InteractionListener, SendRpcCall,\
                     AddPath, AddPointAfter, AddPointBefore, ToggleAutoUpdate, UpdateCurveViz, EvaluateSpline, ControlPointProps, ControlPointSelect, EditControlPointHandle,\
                     AnimationRequest, AnimationSave
 from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
@@ -59,7 +59,7 @@ from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
 # Imported classes to register
 classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
-            DoDistribute, StopDistribute, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
+            DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
             SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
             AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 

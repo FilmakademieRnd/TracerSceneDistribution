@@ -193,10 +193,10 @@ class SceneCharacterObject(SceneObject):
 
     ### Function that updates the Tracer ID of the Control Path associated with the current Character in the list of Tracer Parameters
     def update_control_path_id(self):
-        if self.editable_object.get("Control Path", None) != None:
+        if bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name] != None:
             path_ID = -1
             for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-                if obj == self.editable_object.get("Control Path"):
+                if obj == bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]:
                     path_ID = i
                     break
 
@@ -225,7 +225,7 @@ class SceneCharacterObject(SceneObject):
                     # Compute the positional offset of the current bone from the rest position as a matrix 
                     bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
                     rest_t, rest_r, rest_s = bone_rest_transform.decompose()
-                    offsets[key.time] = (Matrix.Translation(key.value.xzy - rest_t))
+                    offsets[key.time] = (Matrix.Translation(key.value - rest_t))
                 local_pos_offest_from_rest[bone_name] = offsets
 
         # Matrices encoding the rotational offsets form rest pose for every keyframe in every bone parameter
@@ -252,8 +252,8 @@ class SceneCharacterObject(SceneObject):
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
         last_frame = 0
         for parameter in self.parameter_list:
-            if parameter.is_animated:
-                bone_name, param_type = parameter.name.split("-")
+            bone_name, param_type = parameter.name.split("-")
+            if parameter.is_animated and (param_type == "location" or param_type == "rotation_quaternion"):
                 target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
 
                 for key in parameter.get_key_list():
