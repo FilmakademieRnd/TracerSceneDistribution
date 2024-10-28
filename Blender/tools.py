@@ -77,7 +77,6 @@ def setup_tracer_collection():
         bpy.context.active_object.name = 'TRACER Scene Root'
         root = bpy.context.active_object
         # Unlinking object from ALL collections
-        bpy.context.scene.collection.objects.unlink(root)
         for coll in bpy.data.collections:
             if root.name in coll.objects:
                 coll.objects.unlink(root)
