@@ -114,8 +114,10 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                     row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
                 row = layout.row()
                 col1 = row.column()
-                col1.alert = not SetupCharacter.setup_done
-                col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
+                # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
+                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
+                    col1.alert = not SetupCharacter.setup_done
+                    col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
                 col2.operator(ParentCharacterToRoot.bl_idname, text = ParentCharacterToRoot.bl_label)
                 row = layout.row()

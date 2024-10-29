@@ -34,9 +34,16 @@ individual license agreement.
 '''
 
 import functools
+from enum import Enum
 from ..AbstractParameter import Parameter
 from .SceneObject import SceneObject
 from ..serverAdapter import send_parameter_update;
+
+class LightTypes(Enum):
+    SPOT    = 1
+    SUN     = 2
+    POINT   = 3
+    AREA    = 4
 
 class SceneObjectLight(SceneObject):
     def __init__(self, obj):

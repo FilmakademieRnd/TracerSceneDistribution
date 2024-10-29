@@ -45,7 +45,7 @@ from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
-from .SceneObjects.SceneObjectLight import SceneObjectLight
+from .SceneObjects.SceneObjectLight import SceneObjectLight, LightTypes
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
 #from .Avatar_HumanDescription import blender_to_unity_bone_mapping
@@ -157,7 +157,7 @@ def process_scene_object(obj: bpy.types.Object, index):
     if obj.type == 'LIGHT':
         nodeLight = sceneLight()
         nodeLight.tracer_type = NodeTypes.LIGHT
-        nodeLight.lightType = tracer_data.lightTypes.index(obj.data.type)
+        nodeLight.light_type = LightTypes[obj.data.type]
         nodeLight.intensity = obj.data.energy/100
         nodeLight.color = (obj.data.color.r, obj.data.color.g, obj.data.color.b)
         nodeLight.type = obj.data.type
@@ -860,7 +860,7 @@ def get_nodes_byte_array():
             nodeBinary.extend(struct.pack('4f', *node.color))
             
         if (node.tracer_type == NodeTypes.LIGHT):
-            nodeBinary.extend(struct.pack('i', node.lightType))
+            nodeBinary.extend(struct.pack('i', node.light_type.value))
             nodeBinary.extend(struct.pack('f', node.intensity))
             nodeBinary.extend(struct.pack('f', node.angle))
             nodeBinary.extend(struct.pack('f', node.range))
