@@ -47,31 +47,10 @@ bl_info = {
 from typing import Set
 import bpy
 import os
-from .bl_op import DoDistribute
-from .bl_op import StopDistribute
-from .bl_op import SetupScene
-from .bl_op import InstallZMQ
-from .bl_op import SetupCharacter
-from .bl_op import MakeEditable
-from .bl_op import ParentToRoot
-from .bl_op import AddPath
-from .bl_op import AddPointAfter
-from .bl_op import AddPointBefore
-from .bl_op import FKIKToggle
-from .bl_op import ControlPointProps
-from .bl_op import ControlPointSelect
-from .bl_op import EditControlPointHandle
-from .bl_op import UpdateCurveViz
-from .bl_op import EvaluateSpline
-from .bl_op import AnimationRequest
-from .bl_op import AnimationSave
-from .bl_op import InteractionListener
-from .bl_op import ToggleAutoUpdate
-from .bl_op import SendRpcCall
-from .bl_panel import TRACER_PT_Panel
-from .bl_panel import TRACER_PT_Anim_Path_Panel
-from .bl_panel import TRACER_PT_Control_Points_Panel
-from .bl_panel import TRACER_PT_Anim_Path_Menu
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, InteractionListener, SendRpcCall,\
+                    AddPath, AddPointAfter, AddPointBefore, ToggleAutoUpdate, UpdateCurveViz, EvaluateSpline, ControlPointProps, ControlPointSelect, EditControlPointHandle,\
+                    AnimationRequest, AnimationSave
+from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
 from .tools import draw_pointer_numbers_callback
 from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
@@ -79,9 +58,10 @@ from .singleSelect import OBJECT_OT_single_select
 from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
 # Imported classes to register
-classes = (DoDistribute, StopDistribute, SetupScene, TRACER_PT_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
-           SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
-           AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
+classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
+            DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
+            SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, AddPath, AddPointAfter, AddPointBefore, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
+            AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 
 # Container for font information (id and handler object) for drawing text
 font_info = {

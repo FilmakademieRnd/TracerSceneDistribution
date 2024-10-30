@@ -38,6 +38,7 @@ import time
 
 from mathutils import Vector, Euler
 from .settings import TracerData
+from .bl_op import DoDistribute
 
 # Called at DoDistribute Operator in bl_op.py
 class RealTimeUpdaterOperator(bpy.types.Operator):
@@ -50,6 +51,10 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     def modal(self, context, event):
         if event.type == 'TIMER':
             self.check_for_updates(context)
+        
+        if not DoDistribute.is_distributed:
+            return {'CANCELLED'}
+        
         return {'PASS_THROUGH'}
 
     def execute(self, context):

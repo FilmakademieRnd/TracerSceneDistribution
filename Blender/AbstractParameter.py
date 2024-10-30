@@ -93,10 +93,11 @@ class Key:
 
     def __init__(self, time, value, type = KeyType.LINEAR, right_tangent_time = None, right_tangent_value = None, left_tangent_time = None, left_tangent_value = None):
         self.time = time
-        self.value = value
         self.key_type = type
         self.right_tangent_time = right_tangent_time if right_tangent_time != None else time
         self.left_tangent_time = left_tangent_time if left_tangent_time != None else time
+
+        self.value = value
         self.right_tangent_value = right_tangent_value if right_tangent_value != None else value
         self.left_tangent_value = left_tangent_value if left_tangent_value != None else value
 
@@ -130,7 +131,7 @@ class Key:
     
 class KeyList:
     __data: list[Key]
-    #has_changed: bool
+    has_changed: bool
 
     def __init__(self) -> None:
         self.__data = []
@@ -236,7 +237,7 @@ class AbstractParameter:
             return TRACERParamType.FLOAT.value
         elif isinstance(self.value, Vector) and len(self.value) == 2:
             return TRACERParamType.VECTOR2.value
-        elif isinstance(self.value, Vector) and len(self.value) == 3:    
+        elif isinstance(self.value, Vector) and len(self.value) == 3:
             return TRACERParamType.VECTOR3.value
         elif isinstance(self.value, Vector) and len(self.value) == 4:
             return TRACERParamType.VECTOR4.value
@@ -357,7 +358,7 @@ class Parameter(AbstractParameter):
             payload.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
                 key_payload = bytearray([])
-                key_payload.extend(struct.pack(' B', key.key_type.value))   # '<B' represents the format of an unsigned char (1 byte) encoded as little endian
+                key_payload.extend(struct.pack(' B', key.key_type.value))   #  'B' represents the format of an unsigned char (1 byte) encoded as little endian
                 key_payload.extend(struct.pack('<f', key.time))             # '<f' represents the format of a signed float (4 bytes) encoded as little endian
                 key_payload.extend(struct.pack('<f', key.left_tangent_time))
                 key_payload.extend(struct.pack('<f', key.right_tangent_time))
@@ -369,19 +370,19 @@ class Parameter(AbstractParameter):
 
     def serialize_data(self, value = None) -> bytearray:
         # If the attribute value is not initialised, the internal self.value instance attribute is going to be serialised
-        # Vectors are swizzled (Y-Z swap) in order to comply with the different handidness between blender and unity
-        # Quanternion rotation is taken from the object's rotation and swizzled (from XYZW to WXYZ) 
+        #? Vectors are swizzled (Y-Z swap) in order to comply with the different handidness between blender and unity
+        #? Quanternion rotation is taken from the object's rotation and swizzled (from XYZW to WXYZ)
         if value == None:
             match self.get_tracer_type():
                 case TRACERParamType.VECTOR3.value:
-                    value = self.value #.xzy
+                    value = self.value
                 case TRACERParamType.VECTOR4.value:
-                    value = self.value #.xzyw
+                    value = self.value
                 case TRACERParamType.QUATERNION.value:
-                    self.parent_object.editableObject.rotation_mode = 'QUATERNION'
+                    self.parent_object.editable_object.rotation_mode = 'QUATERNION'
                     quat: Quaternion = self.value
                     value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.editableObject.rotation_mode = 'XYZ'
+                    self.parent_object.editable_object.rotation_mode = 'XYZ'
                 case _:
                     value = self.value
 
@@ -393,15 +394,15 @@ class Parameter(AbstractParameter):
             case TRACERParamType.FLOAT.value:
                 return struct.pack('<f', value)
             case TRACERParamType.VECTOR2.value:
-                return struct.pack('<2f',  value.x, value.y)
+                return struct.pack('<2f', value.x, value.y)
             case TRACERParamType.VECTOR3.value:
                 unity_vec3 = value.xzy
-                return struct.pack('<3f', value.x, value.z, value.y)
+                return struct.pack('<3f', value.x, value.y, value.z)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
-                return struct.pack('<4f', value.x, value.z, value.y, value.w)
+                return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value.w, value.x, value.y, value.z)
+                return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.COLOR.value:
                 #! Color in mathutils is only RGB
                 return struct.pack('<4f', value.r, value.b, value.g, 1)
@@ -420,9 +421,9 @@ class Parameter(AbstractParameter):
         value_bytes = msg_payload[0:data_size]
         self.set_value(self.deserialize_data(value_bytes))
 
-        #if self.is_animated:
-        #    # Reset has_changed flag bevore deserializing the keyframes
-        #    self.key_list.has_changed = False
+        if self.is_animated:
+            # Reset has_changed flag bevore deserializing the keyframes
+            self.key_list.has_changed = False
 
         if self.is_animated and msg_size > data_size:
             self.key_list.clear()
@@ -488,12 +489,12 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR3.value:
                 vec3_val = Vector((struct.unpack('<3f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzy
+                return vec3_val.xyz
 
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzyw
+                return vec3_val.wxyz
 
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW

@@ -110,7 +110,7 @@ class SceneObject:
         if self.network_lock:
             self.editable_object.rotation_mode = 'QUATERNION'
             self.editable_object.rotation_quaternion = new_value
-            self.editable_object.rotation_mode = 'EULER'
+            self.editable_object.rotation_mode = 'XYZ'
 
             if self.editable_object.type == 'LIGHT' or self.editable_object.type == 'CAMERA' or self.editable_object.type == 'ARMATURE':
                 self.editable_object.rotation_euler.rotate_axis("X", math.radians(90))
@@ -137,49 +137,6 @@ class SceneObject:
     def lock_unlock(self, lock_val: int):
         self.network_lock = bool(lock_val)
         self.editable_object.hide_select = bool(lock_val)
-
-    ### 
-    #   @param  param_id    value of the network_lock to be set
-    # def update_parameter(self, param_id: int):
-    #     parameter = self.parameter_list[param_id]
-    #     obj_name, param_type = parameter.name.split("-")
-
-    #     if self.editableObject.get("Control Points", None) != None and param_type == "path_rotations":
-    #         rotations = parameter
-    #         locations = self.parameter_list[param_id - 1]
-
-    #         cp_list: list[Object] = self.editableObject.get("Control Points")
-    #         cp_curve: SplineBezierPoints = self.editableObject.children[0].data.splines[0].bezier_points
-    #         print(self.editableObject.name)
-    #         for i, cp in enumerate(cp_list):
-    #             print(cp.name)
-    #             for i, cp in enumerate(cp_list):
-    #                 locations.key_list.set_key(Key( time                = cp.get("Frame"),
-    #                                                 value               = cp_curve[i].co,
-    #                                                 type                = KeyType.BEZIER,
-    #                                                 right_tangent_time  = cp.get("Ease Out"),
-    #                                                 right_tangent_value = cp_curve[i].handle_right,
-    #                                                 left_tangent_time   = cp.get("Ease In"),
-    #                                                 left_tangent_value  = cp_curve[i].handle_left ),
-    #                                             i)
-                    
-    #                 rotations.key_list.set_key(Key( time                = cp.get("Frame"),
-    #                                                 value               = cp.rotation_quaternion,
-    #                                                 type                = KeyType.LINEAR ),
-    #                                             i)
-
-    #             self.parameter_list[param_id - 1]   = locations
-    #             self.parameter_list[param_id]       = rotations
-
-    #     elif self.editableObject.get("Control Path", None) != None and param_type == "control_path":
-    #         path_ID = -1
-    #         for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-    #             if obj == self.editableObject.get("Control Path"):
-    #                 path_ID = i
-    #                 break
-
-    #         if path_ID >= 0:
-    #             self.parameter_list[-1] = Parameter(value=path_ID, name=self.editableObject.name+"-control_path", parent_object=self)
 
     ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
     def update_control_points(self):

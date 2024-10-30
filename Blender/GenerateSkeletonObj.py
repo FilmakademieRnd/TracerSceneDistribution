@@ -34,6 +34,7 @@ individual license agreement.
 '''
 
 import bpy
+from .SceneObjects.SceneCharacterObject import SceneCharacterObject
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
@@ -47,24 +48,46 @@ def create_empty(name, location, rotation, scale, parent):
         empty.parent = parent
     return empty
 
+def was_already_processed(armature_root_bone: bpy.types.PoseBone) -> bool:
+    return armature_root_bone.name in bpy.data.objects
+
 ### Function to create an object for every bone present in the armature so that the character can be interfaced with TRACER
 def process_armature(armature):
     # Get the active armature object???
-    armature = armature
+    armature: bpy.types.Object = armature
 
-    # Check if the active object is an armature
-    if armature and armature.type == 'ARMATURE':
+    # Find the root bone (typically named "Hips")
+    root_bone = None
+    for bone in armature.pose.bones:
+        if not bone.parent:
+            root_bone = bone
+            break
+
+    # Check if the active object is an armature and whehter it has already been processed previously 
+    if armature and armature.type == 'ARMATURE' and not was_already_processed(root_bone):
+        
+        # Adding character-specific Properties to the Blender Armature Object to set up. This allows the character to be steered on the Control Path and its animation to be edited using the Control Rig 
+        if not armature.get("IK-Flag"):
+            armature["IK-Flag"] = False
+
+        if not armature.get("TRACER-Editable"):
+            armature["TRACER-Editable"] = bpy.context.scene.tracer_properties.character_editable_flag
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
+                area.tag_redraw()
+
+
+        ################################################
+        ###### CHARACTER SETUP FOR SCENE TRANSFER ######
+        ################################################
+
         bpy.ops.object.mode_set(mode='POSE')  # Switch to pose mode
         
         # List to store bone information
         bone_data_list = []
-        
-        # Find the root bone (typically named "Hips")
-        root_bone = None
-        for bone in armature.pose.bones:
-            if not bone.parent:
-                root_bone = bone
-                break
         
         if root_bone:
             # Create empty object for the root bone
@@ -127,13 +150,18 @@ def process_armature(armature):
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')
             select_hierarchy(empty_root)
-            switch_collection()
+            switch_collection(bpy.context.selected_objects)
         else:
             bpy.ops.object.select_all(action='DESELECT')
             armature.select_set(True)
-            parent_to_root()
+            parent_to_root([armature])
 
+        for empty in empty_objects.values():
+            empty.hide_set(True)
 
     else:
-        print("Active object is not an armature or no armature is selected.")
+        if was_already_processed(root_bone):
+            print("The Character has already been processed")
+        else:
+            print("Active object is not an armature or no armature is selected.")
 
