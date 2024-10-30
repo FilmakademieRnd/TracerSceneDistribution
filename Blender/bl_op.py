@@ -565,6 +565,7 @@ class AnimationRequest(bpy.types.Operator):
     bl_label = "Request Animation"
     bl_description = "Request new animation for the selected character from AnimHost"
 
+    valid_frames: bool = False 
     animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", None, distribute=False, is_RPC=True)
     animation_request.__id = 1
 
@@ -580,6 +581,14 @@ class AnimationRequest(bpy.types.Operator):
        return control_path_name != '' and bpy.data.objects[control_path_name] != None
 
     def execute(self, context: Context):
+        if not AnimationRequest.valid_frames:
+            self.report({'ERROR'}, "Invalid frame values for the Control Points")
+            return {'FINISHED'}
+        
+        if not DoDistribute.is_distributed:
+            self.report({'ERROR'}, "Connect to TRACER before requesting a new animation")
+            return {'FINISHED'}
+
         # TODO: check whether TRACER has been correctly being configured
         control_path_name: str = bpy.context.scene.tracer_properties.control_path_name
         character_name: str = bpy.context.scene.tracer_properties.character_name
