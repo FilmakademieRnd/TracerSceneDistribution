@@ -35,6 +35,7 @@ individual license agreement.
 
 import bpy
 
+from .settings import TracerProperties, TracerData
 from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
@@ -106,12 +107,8 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
             row.prop(bpy.context.scene.tracer_properties, 'character_name')
             row = layout.row()
             row.prop(bpy.context.scene.tracer_properties, 'control_path_name')
-            row = layout.row()
             if bpy.context.scene.tracer_properties.character_name != "" and bpy.context.scene.tracer_properties.character_name in bpy.data.objects:
                 # TODO: display error when character and/or control rig are not valid
-                row.prop(bpy.context.scene.tracer_properties, 'character_editable_flag')
-                if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
-                    row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
                 row = layout.row()
                 # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
                 if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent != None and bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
@@ -120,6 +117,15 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                     col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
                 col2.operator(ParentCharacterToRoot.bl_idname, text = ParentCharacterToRoot.bl_label)
+
+                row = layout.row()
+                if SetupCharacter.setup_done:
+                    #tracer_props: TracerProperties = bpy.context.scene.tracer_properties
+                    #tracer_props.character_editable_flag.set(bpy.data.objects[bpy.context.scene.tracer_properties.character_name].get("TRACER-Editable", False))
+                    row.prop(bpy.context.scene.tracer_properties, 'character_editable_flag')
+                if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
+                    row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
+
                 row = layout.row()
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)

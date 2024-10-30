@@ -70,6 +70,9 @@ def process_armature(armature):
         if not armature.get("IK-Flag"):
             armature["IK-Flag"] = False
 
+        if not armature.get("TRACER-Editable"):
+            armature["TRACER-Editable"] = bpy.context.scene.tracer_properties.character_editable_flag
+
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
             if area.type == 'PROPERTIES':

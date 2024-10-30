@@ -81,7 +81,7 @@ class DoDistribute(bpy.types.Operator):
             reset_tracer_connection()
             if DoDistribute.is_distributed:
                 clean_up_tracer_data(level=1)
-                bpy.context.scene.tracer_properties.close_connection = True
+                #bpy.context.scene.tracer_properties.close_connection = True
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}
@@ -171,7 +171,7 @@ class MakeEditable(bpy.types.Operator):
     
 class ParentToRoot(bpy.types.Operator):
     bl_idname = "object.parent_selected_to_root"
-    bl_label = "Parent objects to TRACER Scene Root"
+    bl_label = "Add Object to TRACER"
     bl_description = 'Parent all the selected object to the TRACER Scene Root'
 
     def execute(self, context):
@@ -181,7 +181,7 @@ class ParentToRoot(bpy.types.Operator):
     
 class ParentCharacterToRoot(bpy.types.Operator):
     bl_idname = "object.parent_character_to_root"
-    bl_label = "Parent Character to TRACER Scene Root"
+    bl_label = "Add Character to TRACER"
     bl_description = 'Parent the chosen Character to the TRACER Scene Root'
 
     def execute(self, context):

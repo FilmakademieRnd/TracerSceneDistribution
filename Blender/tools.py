@@ -81,6 +81,7 @@ def setup_tracer_collection():
             if root.name in coll.objects:
                 coll.objects.unlink(root)
         tracer_collection.objects.link(root)
+        bpy.context.scene.collection.objects.unlink(root)
     else:
         # Check if the "TRACER Scene Root" object is already linked to the collection. If not link it.
         if not root.name in tracer_collection.objects:
