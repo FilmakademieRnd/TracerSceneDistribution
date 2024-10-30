@@ -203,6 +203,7 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                 #! Style is not currently used by the framework
                 #title6 = grid.box(); title6.alert = True; title6.label(text="STYLE")
 
+                AnimationRequest.valid_frames = True    # Initialising value
                 # Setting the owner of the data, if it exists
                 cp_list_size = len(anim_path["Control Points"])
                 for i in range(cp_list_size):
@@ -226,11 +227,12 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                         frame = grid.box()
                         # If a frame value is not valid (smaller than the previous or bigger than the following,
                         # mark it as an alert
-                        if (  i > 0             and cp["Frame"] < anim_path["Control Points"][i-1]["Frame"])\
-                        or (i+1 < cp_list_size  and cp["Frame"] > anim_path["Control Points"][i+1]["Frame"]):
+                        if (  i > 0             and cp["Frame"] <= anim_path["Control Points"][i-1]["Frame"])\
+                        or (i+1 < cp_list_size  and cp["Frame"] >= anim_path["Control Points"][i+1]["Frame"]):
                             frame.alert = True
                         else:
                             frame.alert = False
+                        AnimationRequest.valid_frames = AnimationRequest.valid_frames and not frame.alert       # Checking that all frame values are valid
                         frame.alignment = 'CENTER'; frame.label(text=str(cp["Frame"]));                         # alignment does nothing. Buggy Blender.
 
                         e__in = grid.box(); e__in.alignment = 'CENTER'; e__in.label(text=str(cp["Ease In"]));   # alignment does nothing. Buggy Blender.
