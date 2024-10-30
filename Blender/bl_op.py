@@ -81,7 +81,6 @@ class DoDistribute(bpy.types.Operator):
             reset_tracer_connection()
             if DoDistribute.is_distributed:
                 clean_up_tracer_data(level=1)
-                #bpy.context.scene.tracer_properties.close_connection = True
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}

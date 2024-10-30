@@ -154,7 +154,7 @@ def process_armature(armature):
         else:
             bpy.ops.object.select_all(action='DESELECT')
             armature.select_set(True)
-            parent_to_root()
+            parent_to_root([armature])
 
         for empty in empty_objects.values():
             empty.hide_set(True)
