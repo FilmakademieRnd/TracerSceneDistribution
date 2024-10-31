@@ -40,10 +40,10 @@ from .SceneObject import SceneObject
 from ..serverAdapter import send_parameter_update;
 
 class LightTypes(Enum):
-    SPOT    = 1
-    SUN     = 2
-    POINT   = 3
-    AREA    = 4
+    SPOT    = 0
+    SUN     = 1
+    POINT   = 2
+    AREA    = 3
 
 class SceneObjectLight(SceneObject):
     def __init__(self, obj):

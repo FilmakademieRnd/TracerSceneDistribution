@@ -113,13 +113,13 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
                 if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent != None and bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
                     col1 = row.column()
-                    col1.alert = not SetupCharacter.setup_done
+                    col1.alert = not bpy.data.objects[bpy.context.scene.tracer_properties.character_name].get('TRACER Setup Done', False)
                     col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
                 col2.operator(ParentCharacterToRoot.bl_idname, text = ParentCharacterToRoot.bl_label)
 
                 row = layout.row()
-                if SetupCharacter.setup_done:
+                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].get('TRACER Setup Done', False):
                     #tracer_props: TracerProperties = bpy.context.scene.tracer_properties
                     #tracer_props.character_editable_flag.set(bpy.data.objects[bpy.context.scene.tracer_properties.character_name].get("TRACER-Editable", False))
                     row.prop(bpy.context.scene.tracer_properties, 'character_editable_flag')
@@ -141,11 +141,17 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
     def draw(self, context):
         if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
             layout = self.layout
-            row = layout.row()
-            row.operator(AddPath.bl_idname, text=AddPath.bl_label)
-            if bpy.context.scene.tracer_properties.control_path_name != '':
+            
+            if bpy.context.scene.tracer_properties.control_path_name == '':
                 row = layout.row()
+                row.operator(AddPath.bl_idname, text=AddPath.bl_label)
+            
+            if bpy.context.scene.tracer_properties.control_path_name != '' and not InteractionListener.is_running:
+                row = layout.row()
+                row.alert = True
                 row.operator(InteractionListener.bl_idname, text=InteractionListener.bl_label)   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
+            
+            if bpy.context.scene.tracer_properties.control_path_name != '' and InteractionListener.is_running:
                 if bpy.context.mode == 'EDIT_CURVE':
                     #if the user is edidting the points of the bezier spline, disable Control Point features and display message
                     row = layout.row()
@@ -153,13 +159,14 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
                     row.label(text="Feature not available in Edit Curve Mode")
                 else:
                     row = layout.row()
-                    row.operator(UpdateCurveViz.bl_idname, text=UpdateCurveViz.bl_label)
-                    row = layout.row()
                     row.operator(AddPointAfter.bl_idname, text=AddPointAfter.bl_label)
                     row.operator(AddPointBefore.bl_idname, text=AddPointBefore.bl_label)
                     if bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
                         row = layout.row()
                         row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
+                    if not bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]['Auto Update']:
+                        row = layout.row()
+                        row.operator(UpdateCurveViz.bl_idname, text=UpdateCurveViz.bl_label)
 
 # Define Layout for the Control Points Panel, grouping functionalities related to editing the Points of the Control Path 
 class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
@@ -170,7 +177,7 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
     bl_parent_id = TRACER_PT_Anim_Path_Panel.bl_idname
 
     def draw(self, context):
-        if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
+        if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects and InteractionListener.is_running:
             layout = self.layout
             # If the proportional editing is ENABLED, show warning message and disable control points property editing
             if bpy.context.mode == 'EDIT_CURVE':

@@ -137,17 +137,23 @@ class SetupCharacter(bpy.types.Operator):
     bl_label = "TRACER Character Setup"
     bl_description = 'generate obj for each Character bone'
 
-    setup_done = False
-
     def execute(self, context):
         print('Setup Character')
         character_name: str = bpy.context.scene.tracer_properties.character_name
-        if  character_name != '' and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE' and\
-            not SetupCharacter.setup_done:
+
+        if character_name == '' or bpy.data.objects[character_name] == None:
+            self.report({'ERROR'}, f'Invalid character to setup')
+            return {'FINISHED'}
+        
+        if bpy.data.objects[character_name].type != 'ARMATURE':
+            self.report({'ERROR'}, f'Invalid character to setup')
+            return {'FINISHED'}
+
+        if  not bpy.data.objects[character_name].get('TRACER Setup Done', False):
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.view_layer.objects.active = bpy.data.objects[character_name]
             process_armature(bpy.data.objects[character_name])
-            SetupCharacter.setup_done = True
+            bpy.data.objects[character_name]['TRACER Setup Done'] = True
         return {'FINISHED'}
     
 class MakeEditable(bpy.types.Operator):

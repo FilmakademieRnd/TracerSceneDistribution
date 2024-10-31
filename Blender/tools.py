@@ -178,8 +178,8 @@ def get_current_collections(obj: bpy.types.Object) -> list[str]:
 # Makes the TRACER Scene Root object the parent of every currently selected object
 def parent_to_root(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
     parent_object_name = "TRACER Scene Root"
-    parent_object = bpy.data.objects.get(parent_object_name)
-    collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
+    parent_object: bpy.types.Object = bpy.data.objects.get(parent_object_name)
+    collection: bpy.types.Collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
 
     if parent_object is None or collection is None:
         report_type = {'ERROR'}

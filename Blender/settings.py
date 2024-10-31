@@ -42,6 +42,12 @@ class TracerProperties(bpy.types.PropertyGroup):
     def update_character_editable(self, context):
         bpy.data.objects[self.character_name]["TRACER-Editable"] = self.character_editable_flag
 
+    def update_character_name(self, context):
+        if self.character_name in bpy.data.objects:
+            bpy.data.objects[self.character_name]["TRACER Setup Done"] = ('hip' in bpy.data.objects) and bpy.data.objects['hip'] in bpy.data.objects[self.character_name].children
+        else:
+            self.character_name = ''
+
     def update_IK_flag(self, context):
         character_obj: bpy.types.Object = bpy.data.objects[self.character_name] if len(self.character_name) > 0 else None
         control_rig: bpy.types.Object = bpy.data.objects[self.control_rig_name] if len(self.control_rig_name) > 0 else None
@@ -83,7 +89,7 @@ class TracerProperties(bpy.types.PropertyGroup):
     tracer_collection: bpy.props.StringProperty(name = 'TRACER Collection', default = 'TRACER_Collection', maxlen=30)                                                                                                                                                       # type: ignore
     overwrite_animation: bpy.props.BoolProperty(name="Overwrite Animation", description="When true, baking an animation received from AnimHost will overwrite the previous one; otherwhise, it writes it on a new layer", default=False)                                    # type: ignore                                                                                                  # type: ignore
     control_rig_name: bpy.props.StringProperty(name='Control Rig', default='', description='Name of the Control Rig used to edit the character in IK mode')                                                                                                                 # type: ignore
-    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework')                                                                                                                     # type: ignore
+    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework', update=update_character_name)                                                                                                                     # type: ignore
     control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation')                                                                                                        # type: ignore
     character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                         # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
