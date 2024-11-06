@@ -80,13 +80,13 @@ class DoDistribute(bpy.types.Operator):
         if check_ZMQ():
             reset_tracer_connection()
             if DoDistribute.is_distributed:
-                clean_up_tracer_data(level=1)
+                clean_up_tracer_data(level=2)
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}
             else:
                 bpy.context.scene.tracer_properties.close_connection = False
-                objCount = gather_scene_data() # TODO: is it possible to move the scene initialization (gather_scene_data()) outside of the DoDistribute function? A good place could be in the SetupScene function
+                objCount = gather_scene_data()
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
                 bpy.ops.object.single_select('INVOKE_DEFAULT')
                 if objCount > 0:
@@ -108,7 +108,7 @@ class UpdateScene(bpy.types.Operator):
 
     def execute(self, context):
         print('Updating scene data...')
-        clean_up_tracer_data(level=1)
+        clean_up_tracer_data(level=2)
         objCount = gather_scene_data()
         if objCount > 0:
             self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
