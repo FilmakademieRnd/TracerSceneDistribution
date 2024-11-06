@@ -111,6 +111,7 @@ def clear_tracer_data():
 ## General function to gather scene data
 #
 def gather_scene_data():
+    SceneObject.start_id = 1
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
     print(tracer_data.cID)

@@ -80,13 +80,13 @@ class DoDistribute(bpy.types.Operator):
         if check_ZMQ():
             reset_tracer_connection()
             if DoDistribute.is_distributed:
-                clean_up_tracer_data(level=1)
+                clean_up_tracer_data(level=2)
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}
             else:
                 bpy.context.scene.tracer_properties.close_connection = False
-                objCount = gather_scene_data() # TODO: is it possible to move the scene initialization (gather_scene_data()) outside of the DoDistribute function? A good place could be in the SetupScene function
+                objCount = gather_scene_data()
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
                 bpy.ops.object.single_select('INVOKE_DEFAULT')
                 if objCount > 0:
@@ -108,7 +108,7 @@ class UpdateScene(bpy.types.Operator):
 
     def execute(self, context):
         print('Updating scene data...')
-        clean_up_tracer_data(level=1)
+        clean_up_tracer_data(level=2)
         objCount = gather_scene_data()
         if objCount > 0:
             self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
@@ -137,17 +137,23 @@ class SetupCharacter(bpy.types.Operator):
     bl_label = "TRACER Character Setup"
     bl_description = 'generate obj for each Character bone'
 
-    setup_done = False
-
     def execute(self, context):
         print('Setup Character')
         character_name: str = bpy.context.scene.tracer_properties.character_name
-        if  character_name != '' and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE' and\
-            not SetupCharacter.setup_done:
+
+        if character_name == '' or bpy.data.objects[character_name] == None:
+            self.report({'ERROR'}, f'Invalid character to setup')
+            return {'FINISHED'}
+        
+        if bpy.data.objects[character_name].type != 'ARMATURE':
+            self.report({'ERROR'}, f'Invalid character to setup')
+            return {'FINISHED'}
+
+        if  not bpy.data.objects[character_name].get('TRACER Setup Done', False):
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.view_layer.objects.active = bpy.data.objects[character_name]
             process_armature(bpy.data.objects[character_name])
-            SetupCharacter.setup_done = True
+            bpy.data.objects[character_name]['TRACER Setup Done'] = True
         return {'FINISHED'}
     
 class MakeEditable(bpy.types.Operator):
