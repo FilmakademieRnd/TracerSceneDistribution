@@ -35,6 +35,7 @@ individual license agreement.
 
 from typing import Annotated, Set
 import bpy
+from bpy_extras import anim_utils
 import os
 import re
 import time
@@ -75,7 +76,6 @@ class DoDistribute(bpy.types.Operator):
     is_distributed: bool = False
 
     def execute(self, context):
-        bpy.ops.object.select_all(action='DESELECT')
         print("do distribute")
         if check_ZMQ():
             reset_tracer_connection()
@@ -86,6 +86,9 @@ class DoDistribute(bpy.types.Operator):
                 return {'FINISHED'}
             else:
                 bpy.context.scene.tracer_properties.close_connection = False
+                current_mode = bpy.context.mode
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+                bpy.ops.object.select_all(action='DESELECT')
                 objCount = gather_scene_data()
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
                 bpy.ops.object.single_select('INVOKE_DEFAULT')
@@ -96,6 +99,7 @@ class DoDistribute(bpy.types.Operator):
                     self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
                 else:
                     self.report({'ERROR'}, 'TRACER collections not found or empty')
+                bpy.ops.object.mode_set(mode = current_mode)
         else:
             self.report({'ERROR'}, 'Please Install Zero MQ before continuing')
         
@@ -217,51 +221,51 @@ class AddPath(bpy.types.Operator):
         return {'FINISHED'}
 
 #! DEPRECATED
-class FKIKToggle(bpy.types.Operator):
-    bl_idname = "scene.fk_ik_toggle"
-    bl_label = "Switch to Inverse Kinematics"
-    bl_description = 'Switch between Forward and Inverse Kinematic for animating the character over its Control Path'
+# class FKIKToggle(bpy.types.Operator):
+#     bl_idname = "scene.fk_ik_toggle"
+#     bl_label = "Switch to Inverse Kinematics"
+#     bl_description = 'Switch between Forward and Inverse Kinematic for animating the character over its Control Path'
 
-    def execute(self, context):
-        # If the toggling should happen only when the chartacter is selected
-        if context.active_object and context.active_object.type == 'ARMATURE':
-            selected_character: bpy.types.Object = context.active_object
-            if selected_character.get("IK-Flag", None) != None:
-                selected_character["IK-Flag"] = not selected_character["IK-Flag"]
+#     def execute(self, context):
+#         # If the toggling should happen only when the chartacter is selected
+#         if context.active_object and context.active_object.type == 'ARMATURE':
+#             selected_character: bpy.types.Object = context.active_object
+#             if selected_character.get("IK-Flag", None) != None:
+#                 selected_character["IK-Flag"] = not selected_character["IK-Flag"]
 
-                #if selected_character["IK-Flag"]:
-                #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
-                #else:
-                #    FKIKToggle.bl_label = "Switch to Inverse Kinematics"
-            #else:
-            #    selected_character["IK-Flag"] = 1
-            #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
+#                 #if selected_character["IK-Flag"]:
+#                 #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
+#                 #else:
+#                 #    FKIKToggle.bl_label = "Switch to Inverse Kinematics"
+#             #else:
+#             #    selected_character["IK-Flag"] = 1
+#             #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
 
-            # Updating Bone Constraints Values for the currently selected Armature
-            for bone in selected_character.pose.bones:
-                for bone_constraint in bone.constraints:
-                        bone_constraint.enabled = selected_character["IK-Flag"]
+#             # Updating Bone Constraints Values for the currently selected Armature
+#             for bone in selected_character.pose.bones:
+#                 for bone_constraint in bone.constraints:
+#                         bone_constraint.enabled = selected_character["IK-Flag"]
 
-            control_rig: bpy.types.Object = bpy.context.scene.tracer_properties.control_rig_name
-            if control_rig != None:
-                control_rig_armature: bpy.types.Armature = control_rig.data
-                for bone in control_rig.pose.bones:
-                    if  bone.name not in control_rig_armature.collections["ORG"].bones and\
-                        bone.name not in control_rig_armature.collections["MCH"].bones and\
-                        bone.name not in control_rig_armature.collections["DEF"].bones:
-                        for bone_constraint in bone.constraints:
-                            bone_constraint.enabled = not selected_character["IK-Flag"]
-                    else:
-                        print(bone.name)
-            else:
-                self.report({'ERROR'}, 'Select a control rig for this character to use IK rigging')
+#             control_rig: bpy.types.Object = bpy.context.scene.tracer_properties.control_rig_name
+#             if control_rig != None:
+#                 control_rig_armature: bpy.types.Armature = control_rig.data
+#                 for bone in control_rig.pose.bones:
+#                     if  bone.name not in control_rig_armature.collections["ORG"].bones and\
+#                         bone.name not in control_rig_armature.collections["MCH"].bones and\
+#                         bone.name not in control_rig_armature.collections["DEF"].bones:
+#                         for bone_constraint in bone.constraints:
+#                             bone_constraint.enabled = not selected_character["IK-Flag"]
+#                     else:
+#                         print(bone.name)
+#             else:
+#                 self.report({'ERROR'}, 'Select a control rig for this character to use IK rigging')
 
-        # Forcing update visualisation of Property Panel
-        for area in bpy.context.screen.areas:
-            if area.type == 'PROPERTIES':
-                area.tag_redraw()
+#         # Forcing update visualisation of Property Panel
+#         for area in bpy.context.screen.areas:
+#             if area.type == 'PROPERTIES':
+#                 area.tag_redraw()
 
-        return {'FINISHED'}
+#         return {'FINISHED'}
 
 ### Operator to add a new Animation Control Point
 #   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
@@ -433,8 +437,8 @@ class UpdateCurveViz(bpy.types.Operator):
 #   Inverts value of the Auto Update bool property for the Control Path object. Triggered by a button in the TRACER Add On Panel
 class ToggleAutoUpdate(bpy.types.Operator):
     bl_idname = "object.toggle_auto_eval"
-    bl_label = "Enable Path Auto Update"
-    bl_description = 'Enable/Disable the automatic re-calculation of the path'
+    bl_label = "Enable Advanced Functionalities"
+    bl_description = 'Enable/Disable advanced functionalities on the Control Path'
 
     def execute(self, context):
         # If the toggling should happen only when the path is selected, add also the following condition -> and bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name].select_get()
@@ -449,9 +453,9 @@ class ToggleAutoUpdate(bpy.types.Operator):
                     area.tag_redraw()
 
             if (not anim_path["Auto Update"]) or bpy.context.tool_settings.use_proportional_edit_objects:
-                ToggleAutoUpdate.bl_label = "Enable Path Auto Update"
+                ToggleAutoUpdate.bl_label = "Enable Advanced Functionalities"
             else:
-                ToggleAutoUpdate.bl_label = "Disable Path Auto Update"
+                ToggleAutoUpdate.bl_label = "Disable Advanced Functionalities"
                 ControlPointProps.update_property_ui(context.scene)
         else:
             self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
@@ -539,7 +543,7 @@ class EvaluateSpline(bpy.types.Operator):
             anim_path = bpy.data.objects[control_path_name]
             if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
                 anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
-                bpy.data.collections["Collection"].objects.link(anim_prev)
+                bpy.context.scene.collection.objects.link(anim_prev)
             else:
                 EvaluateSpline.bl_label = "Update Animation Preview"
                 anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
@@ -652,13 +656,30 @@ class AnimationSave(bpy.types.Operator):
 
     def execute(self, context: Context):
         character_name: str = bpy.context.scene.tracer_properties.character_name
-        if len(character_name) > 0 and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE' and bpy.data.objects[character_name].animation_data.action != None:
+        if len(character_name) > 0 and character_name in bpy.data.objects and bpy.data.objects[character_name].type == 'ARMATURE' and bpy.data.objects[character_name].animation_data.action != None:
             print("Animation Data Found!")
+            # Save Animation on the Character Armature
             bpy.data.objects[character_name].animation_data.use_nla = True
             new_track = bpy.data.objects[character_name].animation_data.nla_tracks.new()
             new_track.select = True
             new_track.name = "AnimHost Output"
             new_track.strips.new(name="AnimHost Output", start=0, action=bpy.data.objects[character_name].animation_data.action)
+
+        control_rig_name: str = bpy.context.scene.tracer_properties.control_rig_name
+        if len(control_rig_name) > 0 and control_rig_name in bpy.data.objects and bpy.data.objects[control_rig_name].type == 'ARMATURE':# and bpy.data.objects[control_rig_name].animation_data.action != None:
+            # Save Animation on the Control Rig Armature
+            bpy.data.objects[control_rig_name].animation_data.use_nla = True
+            new_track = bpy.data.objects[control_rig_name].animation_data.nla_tracks.new()
+            new_track.select = True
+            new_track.name = "AnimHost Output"
+            new_track.strips.new(name="AnimHost Output", start=0, action=bpy.data.objects[character_name].animation_data.action)
+            bpy.data.objects[control_rig_name].animation_data.action = new_track.strips[-1].action
+            bpy.context.view_layer.objects.active = bpy.data.objects[control_rig_name]
+            bpy.ops.object.mode_set(mode='POSE')
+            bpy.ops.pose.select_all(action='SELECT')
+            bpy.ops.nla.bake(frame_start=bpy.context.scene.frame_start, frame_end=bpy.context.scene.frame_end, visual_keying=True, use_current_action=True, only_selected=True, clear_constraints=False, bake_types={'POSE'}, channel_types={"ROTATION", "LOCATION"})
+            #action_frames = new_track.strips[-1].action.frame_end - new_track.strips[-1].action.frame_start
+            #anim_utils.bake_action(bpy.data.objects[control_rig_name], action=new_track.strips[-1].action, frames=int(action_frames), bake_options=anim_utils.BakeOptions(True, False, True, False, False, False, False, False, False, False, False, False))
 
         return {'FINISHED'}
 
