@@ -35,6 +35,7 @@ individual license agreement.
 
 import bpy
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from mathutils import Vector, Matrix
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
@@ -61,17 +62,27 @@ def process_armature(armature):
     for bone in armature.pose.bones:
         if not bone.parent:
             root_bone = bone
+            print(root_bone)
             break
 
     # Check if the active object is an armature and whehter it has already been processed previously 
     if armature and armature.type == 'ARMATURE' and not was_already_processed(root_bone):
         
         # Adding character-specific Properties to the Blender Armature Object to set up. This allows the character to be steered on the Control Path and its animation to be edited using the Control Rig 
-        if not armature.get("IK-Flag"):
-            armature["IK-Flag"] = False
+        if not armature.get("IK_FK_Switch"):
+            armature["IK_FK_Switch"] = 0
+        if not armature.get("Control Path"):
+            armature["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
+                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
+                                                                poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
+            armature["Control Path"] = bpy.data.objects["AnimPath"]     if "AnimPath"     in bpy.data.objects else None
+            armature.property_overridable_library_set('["Control Path"]', True)
 
-        if not armature.get("TRACER-Editable"):
-            armature["TRACER-Editable"] = bpy.context.scene.tracer_properties.character_editable_flag
+        if not armature.get("Control Rig"):
+            armature["Control Rig"]:  bpy.props.PointerProperty(type=bpy.types.Object, name='Control Rig',  description='The Control Rig used to control the character when designing/editing a new animation',\
+                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'})
+            armature["Control Rig"]  = bpy.data.objects["RIG-Armature"] if "RIG-Armature" in bpy.data.objects else None
+            armature.property_overridable_library_set('["Control Rig"]',  True)
 
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
@@ -142,10 +153,8 @@ def process_armature(armature):
                     bpy.context.view_layer.objects.active = armature
                     bpy.ops.object.parent_set(type='BONE', keep_transform=True)
 
-        collection_name = "TRACER_Collection"  # Specify the collection name
+        collection_name = "VPET_Collection"  # Specify the collection name
         collection = bpy.data.collections.get(collection_name)
-        if collection is None:
-            setup_tracer_collection()
 
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')
@@ -156,12 +165,9 @@ def process_armature(armature):
             armature.select_set(True)
             parent_to_root([armature])
 
-        for empty in empty_objects.values():
-            empty.hide_set(True)
 
     else:
         if was_already_processed(root_bone):
             print("The Character has already been processed")
         else:
             print("Active object is not an armature or no armature is selected.")
-

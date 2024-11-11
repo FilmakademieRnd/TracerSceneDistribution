@@ -34,87 +34,13 @@ individual license agreement.
 '''
 
 import bpy
-import json
 from .SceneObjects.SceneObject import SceneObject
 
 ## Class to keep editable parameters
 class TracerProperties(bpy.types.PropertyGroup):
 
-    def update_control_rig_name(self, context):
-        if self.control_rig_name == '':
-            return
-        elif self.control_rig_name in bpy.data.objects and bpy.data.objects[self.control_rig_name].type == 'ARMATURE':
-            control_rig: bpy.types.Object = bpy.data.objects[self.control_rig_name]
-            control_rig_armature: bpy.types.Armature = control_rig.data
-            control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str, bool, bool, bool]]] = {}
-            # Save constraints in dictionary
-            for bone in control_rig.pose.bones:
-                if  bone.name not in control_rig_armature.collections["ORG"].bones and\
-                    bone.name not in control_rig_armature.collections["MCH"].bones and\
-                    bone.name not in control_rig_armature.collections["DEF"].bones:
-                    
-                    control_rig_constraints[bone.name] = []
-                    if "Copy Location" in bone.constraints:
-                        clc: bpy.types.CopyLocationConstraint = bone.constraints.get("Copy Location")
-                        print(clc.name + ' - head_tail ' + str(clc.head_tail) + ' - target ' + clc.target.name)
-                        copy_loc_constr = (str(clc.type), clc.target.name, clc.subtarget, clc.head_tail, clc.target_space, clc.owner_space, clc.use_x, clc.use_y, clc.use_z)
-                        control_rig_constraints[bone.name].append(copy_loc_constr)
-                    if "Copy Rotation" in bone.constraints:
-                        crc: bpy.types.CopyRotationConstraint = bone.constraints.get("Copy Rotation")
-                        print(crc.name + ' - target ' + crc.target.name)
-                        copy_rot_constr = (str(crc.type), crc.target.name, crc.subtarget, 0.0, crc.target_space, crc.owner_space, crc.use_x, crc.use_y, crc.use_z)
-                        control_rig_constraints[bone.name].append(copy_rot_constr)
-                    if "Copy Transforms" in bone.constraints:
-                        ctc: bpy.types.CopyTransformsConstraint = bone.constraints.get("Copy Transforms")
-                        print(ctc.name + ' - head_tail ' + str(ctc.head_tail) + ' - target ' + ctc.target.name)
-                        copy_trans_constr = (str(ctc.type), ctc.target.name, ctc.subtarget, ctc.head_tail, ctc.target_space, ctc.owner_space, False, False, False)
-                        control_rig_constraints[bone.name].append(copy_trans_constr)
-            control_rig_constraints_string = json.dumps(control_rig_constraints, separators=(',', ':'))
-            control_rig["Constraint Dictionary"] = control_rig_constraints_string
-
-            if self.character_name != '':
-                self.update_IK_flag(context)
-        else:
-            self.control_rig_name = ''
-
     def update_character_editable(self, context):
         bpy.data.objects[self.character_name]["TRACER-Editable"] = self.character_editable_flag
-
-    def update_character_name(self, context):
-        if self.character_name == '':
-            return
-        elif self.character_name in bpy.data.objects and bpy.data.objects[self.character_name].type == 'ARMATURE':
-            character = bpy.data.objects[self.character_name]
-            character["TRACER Setup Done"] = ('hip' in bpy.data.objects) and bpy.data.objects['hip'] in bpy.data.objects[self.character_name].children
-            
-            
-            character_constraints: dict[str, list[tuple[str, str, str, float, str, str, bool, bool, bool]]] = {}
-            # Save constraints in dictionary
-            for bone in character.pose.bones:
-                character_constraints[bone.name] = []
-                if "Copy Location" in bone.constraints:
-                    clc: bpy.types.CopyLocationConstraint = bone.constraints.get("Copy Location")
-                    print(clc.name + ' - head_tail ' + str(clc.head_tail) + ' - target ' + clc.target.name)
-                    copy_loc_constr = (str(clc.type), clc.target.name, clc.subtarget, clc.head_tail, clc.target_space, clc.owner_space, clc.use_x, clc.use_y, clc.use_z)
-                    character_constraints[bone.name].append(copy_loc_constr)
-                if "Copy Rotation" in bone.constraints:
-                    crc: bpy.types.CopyRotationConstraint = bone.constraints.get("Copy Rotation")
-                    print(crc.name + ' - target ' + crc.target.name)
-                    copy_rot_constr = (str(crc.type), crc.target.name, crc.subtarget, 0.0, crc.target_space, crc.owner_space, crc.use_x, crc.use_y, crc.use_z)
-                    character_constraints[bone.name].append(copy_rot_constr)
-                if "Copy Transforms" in bone.constraints:
-                    ctc: bpy.types.CopyTransformsConstraint = bone.constraints.get("Copy Transforms")
-                    print(ctc.name + ' - head_tail ' + str(ctc.head_tail) + ' - target ' + ctc.target.name)
-                    copy_trans_constr = (str(ctc.type), ctc.target.name, ctc.subtarget, ctc.head_tail, ctc.target_space, ctc.owner_space, False, False, False)
-                    character_constraints[bone.name].append(copy_trans_constr)
-            character_constraints_string = json.dumps(character_constraints, separators=(',', ':'))
-            character["Constraint Dictionary"] = character_constraints_string
-
-            if self.control_rig_name != '':
-                self.update_IK_flag(context)
-            
-        else:
-            self.character_name = ''
 
     def update_IK_flag(self, context):
         character_obj: bpy.types.Object = bpy.data.objects[self.character_name] if len(self.character_name) > 0 else None
@@ -122,65 +48,23 @@ class TracerProperties(bpy.types.PropertyGroup):
 
         if character_obj != None:
             character_obj["IK-Flag"] = self.character_IK_flag
-
-            character_constraints: dict[str, list[tuple[str, str, str, float, str, str]]] = json.loads(character_obj["Constraint Dictionary"])
             for bone in character_obj.pose.bones:
-                bone_constraints = character_constraints[bone.name]
-                if character_obj["IK-Flag"]:
-                    # Add back constraints to armature if IK-Flag is true
-                    for constraint_description in bone_constraints:
-                        bone.constraints.new(type=constraint_description[0])
-                        constraint_name = constraint_description[0].replace("_", " ").lower().title()   # Converting the constraint type enum string to the actual constraint name (e.g. "COPY_ROTATION" -> "Copy Rotation")
-                        bone.constraints[constraint_name].target = bpy.data.objects[constraint_description[1]]
-                        bone.constraints[constraint_name].subtarget = constraint_description[2]
-                        if constraint_name != "Copy Rotation":
-                            bone.constraints[constraint_name].head_tail = constraint_description[3]
-                        bone.constraints[constraint_name].target_space = constraint_description[4]
-                        bone.constraints[constraint_name].owner_space = constraint_description[5]
-                        if constraint_name != "Copy Transforms":
-                            bone.constraints[constraint_name].use_x = constraint_description[6]
-                            bone.constraints[constraint_name].use_y = constraint_description[7]
-                            bone.constraints[constraint_name].use_z = constraint_description[8]
-                else:
-                    # Remove constraints from armature if IK-Flag is false
-                    for constraint in bone.constraints:
-                        bone.constraints.remove(constraint)
-            
+                for bone_constraint in bone.constraints:
+                    bone_constraint.enabled = bpy.data.objects[self.character_name]["IK-Flag"]
         else:
             bpy.ops.wm.ik_toggle_report_handler('EXEC_DEFAULT')
             #bpy.types.Operator.report({'ERROR'}, 'Assign a value to the TRACER Character field')
 
         if control_rig != None:
-            control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str]]] = json.loads(control_rig["Constraint Dictionary"])
             control_rig_armature: bpy.types.Armature = control_rig.data
             for bone in control_rig.pose.bones:
                 if  bone.name not in control_rig_armature.collections["ORG"].bones and\
                     bone.name not in control_rig_armature.collections["MCH"].bones and\
                     bone.name not in control_rig_armature.collections["DEF"].bones:
-                    
-                    bone_constraints = control_rig_constraints[bone.name]
-                    if not character_obj["IK-Flag"]:
-                        # Add back constraints to control rig if IK-Flag is false
-                        for constraint_description in bone_constraints:
-                            bone.constraints.new(type=constraint_description[0])
-                            constraint_name = constraint_description[0].replace("_", " ").lower().title()
-                            bone.constraints[constraint_name].target = bpy.data.objects[constraint_description[1]]
-                            bone.constraints[constraint_name].subtarget = constraint_description[2]
-                            if constraint_name != "Copy Rotation":
-                                bone.constraints[constraint_name].head_tail = constraint_description[3]
-                            bone.constraints[constraint_name].target_space = constraint_description[4]
-                            bone.constraints[constraint_name].owner_space = constraint_description[5]
-                            if constraint_name != "Copy Transforms":
-                                bone.constraints[constraint_name].use_x = constraint_description[6]
-                                bone.constraints[constraint_name].use_y = constraint_description[7]
-                                bone.constraints[constraint_name].use_z = constraint_description[8]
-                    else:
-                        # Remove constraints from control rig if IK-Flag is true
-                        for constraint in bone.constraints:
-                            bone.constraints.remove(constraint)
-                        #bone_constraint.enabled = not character_obj["IK-Flag"]
-            #    else:
-            #        print(bone.name)
+                    for bone_constraint in bone.constraints:
+                        bone_constraint.enabled = not character_obj["IK-Flag"]
+                else:
+                    print(bone.name)
         else:
             bpy.ops.wm.ik_toggle_report_handler('EXEC_DEFAULT')
             #bpy.types.Operator.report({'ERROR'}, 'Assign a value to the TRACER Control Rig field')
@@ -189,35 +73,8 @@ class TracerProperties(bpy.types.PropertyGroup):
         for area in bpy.context.screen.areas:
             if area.type == 'PROPERTIES':
                 area.tag_redraw()
-    
-    def get_all_armatures(self, context, edit_text):
-        list_of_armatures: list[str] = []
-        # Search names of all Characters in the TRACER Scene
-        for obj in bpy.data.objects:
-            if obj.type == 'ARMATURE':
-                list_of_armatures.append(obj.name)
-        return list_of_armatures
-    
-    def get_all_armatures_in_tracer(self, context, edit_text):
-        list_of_armatures: list[str] = []
-        # Search names of all Characters in the TRACER Scene
-        for obj in bpy.data.collections[self.tracer_collection].objects:
-            if obj.type == 'ARMATURE':
-                list_of_armatures.append(obj.name)
-        
-        if len(list_of_armatures) == 0:
-            list_of_armatures = self.get_all_armatures(context, edit_text)
 
-        return list_of_armatures
-    
-    def get_all_paths(self, context, edit_text):
-        list_of_paths: list[str] = []
-        # Search names of all Control Paths in the TRACER Scene
-        for obj in bpy.data.objects:
-            if obj.get("Control Points", None) != None:
-                list_of_paths.append(obj.name)
-        return list_of_paths
-
+    close_connection: bool = False
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')                                                                          # type: ignore
     dist_port: bpy.props.StringProperty(default = '5555')                                                                                                                                                                                                                   # type: ignore
     sync_port: bpy.props.StringProperty(default = '5556')                                                                                                                                                                                                                   # type: ignore
@@ -226,10 +83,10 @@ class TracerProperties(bpy.types.PropertyGroup):
     humanoid_rig: bpy.props.BoolProperty(name="Humanoid Rig for Unity",description="Check if using humanoid rig and you need to send the character to Unity",default=False)                                                                                                 # type: ignore
     tracer_collection: bpy.props.StringProperty(name = 'TRACER Collection', default = 'TRACER_Collection', maxlen=30)                                                                                                                                                       # type: ignore
     overwrite_animation: bpy.props.BoolProperty(name="Overwrite Animation", description="When true, baking an animation received from AnimHost will overwrite the previous one; otherwhise, it writes it on a new layer", default=False)                                    # type: ignore                                                                                                  # type: ignore
-    control_rig_name: bpy.props.StringProperty(name='Control Rig', default='', description='Name of the Control Rig used to edit the character in IK mode', update=update_control_rig_name, search=get_all_armatures)                                                                                                                 # type: ignore
-    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework', update=update_character_name, search=get_all_armatures_in_tracer)                                                                                       # type: ignore
-    control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation', search=get_all_paths)                                                                                                        # type: ignore
-    character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                          # type: ignore
+    control_rig_name: bpy.props.StringProperty(name='Control Rig', default='', description='Name of the Control Rig used to edit the character in IK mode')                                                                                                                 # type: ignore
+    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework')                                                                                                                     # type: ignore
+    control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation')                                                                                                           # type: ignore
+    character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=False, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                         # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
 
 ## Class to keep data

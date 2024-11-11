@@ -40,7 +40,7 @@ import bmesh
 import struct
 import re
 
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion, Matrix
 from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
@@ -111,7 +111,6 @@ def clear_tracer_data():
 ## General function to gather scene data
 #
 def gather_scene_data():
-    SceneObject.start_id = 1
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
     print(tracer_data.cID)
@@ -227,7 +226,7 @@ def process_scene_object(obj: bpy.types.Object, index):
     # Assign the child count of the root object
     if obj.name == 'TRACER Scene Root':
         node.childCount = tracer_data.rootChildCount
-        
+    
     node.tracer_id = index
 
     node.editable = int(obj.get("TRACER-Editable", False))
@@ -288,11 +287,27 @@ def process_skinned_mesh(obj, nodeSkinMesh):
 
         armature_obj = obj.parent
         if armature_obj:
-            armature_data = armature_obj.data
+            armature_data = armature_obj.data  # Accessing the armature data for static bone information
             bind_poses = []
+            root_to_u = armature_obj.matrix_world
+
+            # Conversion matrix to adjust Blender's coordinate system to Unity's
+            blender_to_unity = Matrix([
+                [1,  0,  0,  0],
+                [0,  0,  1,  0],
+                [0,  1,  0,  0],
+                [0,  0,  0,  1]
+            ])
+
             for bone in armature_data.bones:
-                bind_matrix = armature_obj.matrix_world @ bone.matrix_local
-                for row in bind_matrix:
+                bind_matrix = bone.matrix_local  # Local bone matrix
+                bp_matrix = bind_matrix.inverted()
+
+                # Transform the matrix to world space and convert to Unity's coordinate system
+                bp_matrix = blender_to_unity @ (bp_matrix @ root_to_u)
+
+                # Flatten and append each row of the matrix
+                for row in bp_matrix:
                     bind_poses.extend(row)
             
             desired_length = 1584
@@ -683,7 +698,7 @@ def processTexture(tex):
     # return index of texture in texture list
     return (len(tracer_data.textureList)-1)
 
-def get_vertex_bone_weights_and_indices(vert):
+def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
     #for vert_idx, vert in enumerate(obj.data.vertices):
         # Retrieve the vertex groups and their weights for this vertex
         groups = [(g.group, g.weight) for g in vert.groups]
@@ -693,12 +708,22 @@ def get_vertex_bone_weights_and_indices(vert):
         
         # Limit to at most 4 bone influences
         groups = groups[:4]
+        # Ensure there are 4 weights and indices
         while len(groups) < 4:
             groups.append((0, 0.0))
         
         # Output the bone indices and weights for this vertex
-        bone_indices = [g[0] for g in groups]
+        bone_indices = []
         bone_weights = [g[1] for g in groups]
+
+        for g in groups:
+            group_index = g[0]
+            # Access the vertex group by index from the vertex's mesh object data
+            bone_name = mesh_obj.vertex_groups[group_index].name  # Get the group name
+            for idx, obj in enumerate(armature.data.bones):
+                if obj.name == bone_name:
+                    bone_index = idx
+                    bone_indices.append(bone_index)
         
         return bone_weights, bone_indices
 
@@ -722,7 +747,7 @@ def processGeoNew(mesh):
             
 
             for vert in mesh.data.vertices:
-                weights, indices = get_vertex_bone_weights_and_indices(vert)
+                weights, indices = get_vertex_bone_weights_and_indices(vert, mesh, armature)
                 vertex_bone_weights[vert.index] = weights
                 vertex_bone_indices[vert.index] = indices
 
@@ -801,12 +826,12 @@ def processGeoNew(mesh):
 
     for i, vert in enumerate(interleaved_buffer):
         geoPack.vertices.append(vert[0][0])
-        geoPack.vertices.append(vert[0][2])
         geoPack.vertices.append(vert[0][1])
+        geoPack.vertices.append(vert[0][2])
 
-        geoPack.normals.append(-vert[1][0])
-        geoPack.normals.append(-vert[1][2])
-        geoPack.normals.append(-vert[1][1])
+        geoPack.normals.append(vert[1][0])
+        geoPack.normals.append(vert[1][2])
+        geoPack.normals.append(vert[1][1])
         
         geoPack.uvs.append(vert[2][0])
         geoPack.uvs.append(vert[2][1])

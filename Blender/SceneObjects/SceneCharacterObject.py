@@ -121,6 +121,21 @@ class SceneCharacterObject(SceneObject):
         if path_ID >= 0:
             self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
 
+    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
+    def is_control_path(self, context: bpy.types.Context) -> bool:
+        return self.get("Control Points", False)
+
+    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
+    def refresh_control_path(self, context: bpy.types.Context) -> None:
+        path_ID = -1
+        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
+            if obj == context.active_object.get("Control Path"):
+                path_ID = i
+        if path_ID >= 0:
+            self.parameter_list[-1] = path_ID
+
+        print("Updated Control Path Parameter")
+
     ### Function that uses the partial transformation matrices to set the bone position and rotations in pose coordinates (as Blender needs)
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
         pose_bone: bpy.types.Bone
@@ -148,18 +163,21 @@ class SceneCharacterObject(SceneObject):
     ### Function that takes the new rotaional offset -w.r.t. the rest transform- as a quaternion and translates it into a 4x4 matrix
     #   that expresses the bone rotation relative to the parent and own rest bone -to be used as the new matrix_basis-
     def update_bone_rotation(self, tracer_rot: Parameter, new_quat: Quaternion):
-        bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: spine_1-rotation_quat -> hip-
-        target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
-        local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
-        
-        # Initialize the local parent rotation matrix -4x4 identity matrix, if the target bone has no parent bone-
-        parent_rotation = self.local_rotation_map[target_bone.parent.name] if target_bone.parent else Matrix.Identity(4)
-        new_rotation_matrix =   parent_rotation @\
-                                Matrix.Translation(local_rest_transform.to_translation()) @\
-                                new_quat.to_matrix().to_4x4()
-        # Set the new transform, given by the new quaternion value, as the local rotation for the current target_bone
-        self.local_rotation_map[bone_name] = new_rotation_matrix
-        self.set_pose_matrices(target_bone)
+        if self.network_lock:
+            bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: spine_1-rotation_quat -> hip-
+            target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
+            local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
+            
+            # Initialize the local parent rotation matrix -4x4 identity matrix, if the target bone has no parent bone-
+            parent_rotation = self.local_rotation_map[target_bone.parent.name] if target_bone.parent else Matrix.Identity(4)
+            new_rotation_matrix =   parent_rotation @\
+                                    Matrix.Translation(local_rest_transform.to_translation()) @\
+                                    new_quat.to_matrix().to_4x4()
+            # Set the new transform, given by the new quaternion value, as the local rotation for the current target_bone
+            self.local_rotation_map[bone_name] = new_rotation_matrix
+            self.set_pose_matrices(target_bone)
+        else:
+            send_parameter_update(tracer_rot)
     
     ### Function that takes the new positional offset -w.r.t. the rest transform- as a 3D vector and translates it into a 4x4 matrix
     #   that expresses the bone position of the bone in world space
