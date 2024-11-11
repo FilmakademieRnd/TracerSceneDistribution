@@ -84,6 +84,10 @@ class SceneObject:
             path_rotations.init_animation()
             self.parameter_list.append(path_rotations)
 
+    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
+    def is_control_path(self, context: bpy.types.Context) -> bool:
+        return self.editable_object.get("Control Points", False)
+
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_pos  the instance of the parameter to update

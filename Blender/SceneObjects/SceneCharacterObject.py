@@ -121,21 +121,6 @@ class SceneCharacterObject(SceneObject):
         if path_ID >= 0:
             self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
 
-    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def is_control_path(self, context: bpy.types.Context) -> bool:
-        return self.get("Control Points", False)
-
-    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def refresh_control_path(self, context: bpy.types.Context) -> None:
-        path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-            if obj == context.active_object.get("Control Path"):
-                path_ID = i
-        if path_ID >= 0:
-            self.parameter_list[-1] = path_ID
-
-        print("Updated Control Path Parameter")
-
     ### Function that uses the partial transformation matrices to set the bone position and rotations in pose coordinates (as Blender needs)
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
         pose_bone: bpy.types.Bone

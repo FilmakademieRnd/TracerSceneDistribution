@@ -189,6 +189,34 @@ class TracerProperties(bpy.types.PropertyGroup):
         for area in bpy.context.screen.areas:
             if area.type == 'PROPERTIES':
                 area.tag_redraw()
+    
+    def get_all_armatures(self, context, edit_text):
+        list_of_armatures: list[str] = []
+        # Search names of all Characters in the TRACER Scene
+        for obj in bpy.data.objects:
+            if obj.type == 'ARMATURE':
+                list_of_armatures.append(obj.name)
+        return list_of_armatures
+    
+    def get_all_armatures_in_tracer(self, context, edit_text):
+        list_of_armatures: list[str] = []
+        # Search names of all Characters in the TRACER Scene
+        for obj in bpy.data.collections[self.tracer_collection].objects:
+            if obj.type == 'ARMATURE':
+                list_of_armatures.append(obj.name)
+        
+        if len(list_of_armatures) == 0:
+            list_of_armatures = self.get_all_armatures(context, edit_text)
+
+        return list_of_armatures
+    
+    def get_all_paths(self, context, edit_text):
+        list_of_paths: list[str] = []
+        # Search names of all Control Paths in the TRACER Scene
+        for obj in bpy.data.objects:
+            if obj.get("Control Points", None) != None:
+                list_of_paths.append(obj.name)
+        return list_of_paths
 
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')                                                                          # type: ignore
     dist_port: bpy.props.StringProperty(default = '5555')                                                                                                                                                                                                                   # type: ignore
@@ -198,9 +226,9 @@ class TracerProperties(bpy.types.PropertyGroup):
     humanoid_rig: bpy.props.BoolProperty(name="Humanoid Rig for Unity",description="Check if using humanoid rig and you need to send the character to Unity",default=False)                                                                                                 # type: ignore
     tracer_collection: bpy.props.StringProperty(name = 'TRACER Collection', default = 'TRACER_Collection', maxlen=30)                                                                                                                                                       # type: ignore
     overwrite_animation: bpy.props.BoolProperty(name="Overwrite Animation", description="When true, baking an animation received from AnimHost will overwrite the previous one; otherwhise, it writes it on a new layer", default=False)                                    # type: ignore                                                                                                  # type: ignore
-    control_rig_name: bpy.props.StringProperty(name='Control Rig', default='', description='Name of the Control Rig used to edit the character in IK mode', update=update_control_rig_name)                                                                                                                 # type: ignore
-    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework', update=update_character_name)                                                                                       # type: ignore
-    control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation')                                                                                                        # type: ignore
+    control_rig_name: bpy.props.StringProperty(name='Control Rig', default='', description='Name of the Control Rig used to edit the character in IK mode', update=update_control_rig_name, search=get_all_armatures)                                                                                                                 # type: ignore
+    character_name: bpy.props.StringProperty(name='Character', default='', description='Name of the Character to animate through the TRACER framework', update=update_character_name, search=get_all_armatures_in_tracer)                                                                                       # type: ignore
+    control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation', search=get_all_paths)                                                                                                        # type: ignore
     character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                          # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
 
