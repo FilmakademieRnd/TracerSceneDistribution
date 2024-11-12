@@ -85,9 +85,22 @@ class DoDistribute(bpy.types.Operator):
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}
             else:
-                bpy.context.scene.tracer_properties.close_connection = False
-                current_mode = bpy.context.mode
-                bpy.ops.object.mode_set(mode = 'OBJECT')
+                context.scene.tracer_properties.close_connection = False
+                # In order to change the mode, an active object MUST be there
+                if not context.active_object and len(context.view_layer.objects) > 0:
+                    # If the context has no active object, set any non-hidden object as active object
+                    a_valid_object = None
+                    i = 0
+                    while i < len(context.view_layer.objects) and a_valid_object == None:
+                        if not context.view_layer.objects[i].hide_get():
+                            a_valid_object = context.view_layer.objects[i]
+                    a_valid_object.select_set(True)
+                    context.view_layer.objects.active = a_valid_object
+
+                # Get current mode
+                current_mode = context.active_object.mode
+                if current_mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode = 'OBJECT')    # Force OBJECT mode
                 bpy.ops.object.select_all(action='DESELECT')
                 objCount = gather_scene_data()
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
@@ -99,7 +112,8 @@ class DoDistribute(bpy.types.Operator):
                     self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
                 else:
                     self.report({'ERROR'}, 'TRACER collections not found or empty')
-                bpy.ops.object.mode_set(mode = current_mode)
+                if current_mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode = current_mode)    # Revert mode to previous one
         else:
             self.report({'ERROR'}, 'Please Install Zero MQ before continuing')
         
@@ -538,6 +552,10 @@ class EvaluateSpline(bpy.types.Operator):
     fwd_vector = Vector((0, -1))
 
     def execute(self, context):
+        if not AnimationRequest.valid_frames:
+            self.report({'ERROR'}, "Invalid frame values for the Control Points")
+            return {'FINISHED'}
+
         control_path_name: str = bpy.context.scene.tracer_properties.control_path_name
         if control_path_name != '' and bpy.data.objects[control_path_name] != None:           
             anim_path = bpy.data.objects[control_path_name]

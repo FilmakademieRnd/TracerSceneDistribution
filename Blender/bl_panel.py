@@ -108,7 +108,6 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
             row = layout.row()
             row.prop(bpy.context.scene.tracer_properties, 'control_path_name')
             if bpy.context.scene.tracer_properties.character_name != "" and bpy.context.scene.tracer_properties.character_name in bpy.data.objects:
-                # TODO: display error when character and/or control rig are not valid
                 row = layout.row()
                 # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
                 if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent != None and bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
