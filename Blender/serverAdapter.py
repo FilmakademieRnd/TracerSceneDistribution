@@ -91,7 +91,11 @@ def set_up_thread():
 
     bpy.app.timers.register(read_thread)
     
-    bpy.utils.register_class(TimerModalOperator)
+    if hasattr(bpy.types, 'WM_OT_timer_modal_operator'):
+        print("Timer Modal Operator already registered")
+    else:
+        bpy.utils.register_class(TimerModalOperator)
+    
     bpy.ops.wm.timer_modal_operator()
 
     tracer_data.socket_u = tracer_data.ctx.socket(zmq.PUB)
