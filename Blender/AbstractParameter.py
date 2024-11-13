@@ -123,11 +123,13 @@ class Key:
         return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
     
     def is_equal(self, other):
-        return (self.key_type               == other.key_type       and\
-                self.time                   == other.time           and\
-                self.value                  == other.value          and\
-                self.right_tangent_time     == other.right_tangent_time   and\
-                self.right_tangent_value    == other.right_tangent_value     )
+        return (self.key_type               == other.key_type               and\
+                self.time                   == other.time                   and\
+                self.value                  == other.value                  and\
+                self.right_tangent_time     == other.right_tangent_time     and\
+                self.left_tangent_time      == other.left_tangent_time      and\
+                self.right_tangent_value    == other.right_tangent_value    and\
+                self.left_tangent_value     == other.left_tangent_value     )
     
 class KeyList:
     __data: list[Key]

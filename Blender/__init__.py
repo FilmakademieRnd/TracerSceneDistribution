@@ -50,7 +50,7 @@ import os
 from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, InteractionListener, SendRpcCall,\
                     AddPath, AddPointAfter, AddPointBefore, ToggleAutoUpdate, UpdateCurveViz, EvaluateSpline, ControlPointProps, ControlPointSelect, EditControlPointHandle,\
                     AnimationRequest, AnimationSave
-from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
+from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_NN_Params_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
 from .tools import draw_pointer_numbers_callback
 from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
@@ -58,7 +58,7 @@ from .singleSelect import OBJECT_OT_single_select
 from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
 
 # Imported classes to register
-classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
+classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_NN_Params_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
             DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
             SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, AddPath, AddPointAfter, AddPointBefore, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
             AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 

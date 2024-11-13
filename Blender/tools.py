@@ -63,6 +63,11 @@ def get_rna_ui():
 ## Create Collections that will contain every TRACER object
 def setup_tracer_collection():
     tracer_props = bpy.context.scene.tracer_properties
+
+    # Get current mode
+    current_mode = str(bpy.context.active_object.mode)
+    if current_mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Force OBJECT mode
     
     # Check if the collection exists. If not, create it and link it to the scene.
     tracer_collection = bpy.data.collections.get(tracer_props.tracer_collection)
@@ -76,6 +81,8 @@ def setup_tracer_collection():
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
         bpy.context.active_object.name = 'TRACER Scene Root'
         root = bpy.context.active_object
+        if root.name not in bpy.context.scene.collection.objects:
+            bpy.context.scene.collection.objects.link(root)
         # Unlinking object from ALL collections
         for coll in bpy.data.collections:
             if root.name in coll.objects:
@@ -88,6 +95,9 @@ def setup_tracer_collection():
         # Check if the "TRACER Scene Root" object is already linked to the collection. If not link it.
         if not root.name in tracer_collection.objects:
             tracer_collection.objects.link(root)
+    
+    if current_mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Revert mode to previous one
 
 # Clearing all the data structures containg TRACER-Related data
 def clean_up_tracer_data(level):

@@ -100,7 +100,7 @@ class DoDistribute(bpy.types.Operator):
                 # Get current mode
                 current_mode = context.active_object.mode
                 if current_mode != 'OBJECT':
-                    bpy.ops.object.mode_set(mode = 'OBJECT')    # Force OBJECT mode
+                    bpy.ops.object.mode_set(mode = 'OBJECT', toggle= True)    # Force OBJECT mode
                 bpy.ops.object.select_all(action='DESELECT')
                 objCount = gather_scene_data()
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
