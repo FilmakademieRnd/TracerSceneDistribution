@@ -107,8 +107,6 @@ class SceneCharacterObject(SceneObject):
             local_bone_position_parameter = Parameter(bone_location, bone.name+"-location", self)
             self.parameter_list.append(local_bone_position_parameter)
             local_bone_position_parameter.parameter_handler.append(functools.partial(self.update_bone_position, local_bone_position_parameter))
-            #? Sending a Parameter Update when the animation data of a paramter changes
-            # print(str(localBonePositionParameter.get_parameter_id()) + "   " + str(localBonePositionParameter.name) + "   " + str(localBonePositionParameter.value))
 
         # Add Control Path Parameter (as Scene Object ID)
         # Look for the object assigned to the blender property in the scene
@@ -129,7 +127,6 @@ class SceneCharacterObject(SceneObject):
             if pose_bone_obj.name in self.local_translation_map:
                 translation_matrix = self.local_translation_map[pose_bone_obj.name]
             else:
-                print("Base Transation Matrix not found for bone " + pose_bone_obj.name + ". Using Identity.")
                 translation_matrix = Matrix.Identity(4)
             pose_bone = pose_bone_obj.bone
 
@@ -169,7 +166,6 @@ class SceneCharacterObject(SceneObject):
         target_bone: bpy.types.Bone = self.armature_obj_pose_bones[bone_name]
 
         if bone_name == "hip":
-            #print(targetBone.name + " Position =  " + str(targetBone.location) + " - New Value = " + str(new_value))
             bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
             rest_t, rest_r, rest_s = bone_rest_transform.decompose()
             self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
@@ -202,7 +198,6 @@ class SceneCharacterObject(SceneObject):
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone -the other bones won't get displaced-
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
         for parameter in self.parameter_list:
-            print(parameter.name)
             bone_name, param_type = parameter.name.split("-")
             if parameter.is_animated and bone_name == "hip" and param_type == "location":
                 offsets = {}

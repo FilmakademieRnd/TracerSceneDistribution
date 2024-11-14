@@ -123,11 +123,13 @@ class Key:
         return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
     
     def is_equal(self, other):
-        return (self.key_type               == other.key_type       and\
-                self.time                   == other.time           and\
-                self.value                  == other.value          and\
-                self.right_tangent_time     == other.right_tangent_time   and\
-                self.right_tangent_value    == other.right_tangent_value     )
+        return (self.key_type               == other.key_type               and\
+                self.time                   == other.time                   and\
+                self.value                  == other.value                  and\
+                self.right_tangent_time     == other.right_tangent_time     and\
+                self.left_tangent_time      == other.left_tangent_time      and\
+                self.right_tangent_value    == other.right_tangent_value    and\
+                self.left_tangent_value     == other.left_tangent_value     )
     
 class KeyList:
     __data: list[Key]
@@ -205,7 +207,6 @@ class AbstractParameter:
         self.__id: int = -1
         if(parent_object):
             self.__id = len(parent_object.parameter_list)
-            print(str(self.__id))
         else:
             self.__id = 0
         # Parameter name
@@ -422,7 +423,7 @@ class Parameter(AbstractParameter):
         self.set_value(self.deserialize_data(value_bytes))
 
         if self.is_animated:
-            # Reset has_changed flag bevore deserializing the keyframes
+            # Reset has_changed flag before deserializing the keyframes
             self.key_list.has_changed = False
 
         if self.is_animated and msg_size > data_size:
@@ -460,6 +461,8 @@ class Parameter(AbstractParameter):
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
+            
+            bpy.context.window.modal_operators[-1].report({'INFO'}, "New Animation Received!")
         
         # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
         if self.has_changed and not self.parent_object.network_lock:

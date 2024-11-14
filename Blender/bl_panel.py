@@ -78,8 +78,9 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         col1 = row.column()
         col1.alert = not DoDistribute.is_distributed
         col1.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
-        col2 = row.column()
-        col2.operator(UpdateScene.bl_idname, text = UpdateScene.bl_label)
+        if DoDistribute.is_distributed:
+            col2 = row.column()
+            col2.operator(UpdateScene.bl_idname, text = UpdateScene.bl_label)
 
 # Define Layout for the Character Panel, grouping functionalities related to the character to animate
 class TRACER_PT_Object_Panel(TRACER_Panel, bpy.types.Panel):
@@ -128,6 +129,22 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 row = layout.row()
                 row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
+
+class TRACER_PT_NN_Params_Panel(TRACER_Panel, bpy.types.Panel):
+    bl_idname = "TRACER_PT_NN_PARAMS_PANEL"
+    bl_label = "Neural Network Parameters"
+    bl_options = {'DEFAULT_CLOSED'}
+
+    # By setting TRACER_PT_Anim_Path_Panel as parent of Control_Points_Panel, this panel will be nested into its parent in the UI 
+    bl_parent_id = TRACER_PT_Character_Panel.bl_idname
+
+    def draw(self, context):
+        layout = self.layout
+        row = layout.row()
+        tracer_props: TracerProperties = bpy.context.scene.tracer_properties
+        row.prop(tracer_props, 'mix_root_translation', slider=True)
+        row.prop(tracer_props, 'mix_root_rotation', slider=True)
+        row.prop(tracer_props, 'mix_control_path', slider=True)
 
 # Define Layout for the Animation Control Path Panel, grouping functionalities related to editing the Control Path for an animation 
 class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):

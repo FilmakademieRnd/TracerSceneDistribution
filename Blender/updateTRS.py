@@ -93,7 +93,6 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
     ### Function called at a regular interval to check for updates in the Scene w.r.t. the values in TRACER
     def check_for_updates(self, context):
-        #print("Update!")
         tracer_collection: bpy.types.Collection = bpy.data.collections.get("TRACER_Collection")
         tracer_objects = tracer_collection.objects
         for obj in tracer_objects:

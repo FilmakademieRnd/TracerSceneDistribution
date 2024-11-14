@@ -127,7 +127,6 @@ def read_thread():
         if tracer_data.socket_d in sockets:
             # Receive message
             msg = tracer_data.socket_d.recv_string()
-            #print(msg) # debug
             # Classify message
             if msg == "header":
                 print("Header request! Sending...")
@@ -150,10 +149,10 @@ def read_thread():
                 print("Materials request! Sending...")
                 if(tracer_data.materialsByteData != None):
                     tracer_data.socket_d.send(tracer_data.materialsByteData)
-            elif msg == "curve":
-                print("curve request! Sending...")
-                if(tracer_data.curvesByteData != None):
-                    tracer_data.socket_d.send(tracer_data.curvesByteData)
+            #elif msg == "curve":
+            #    print("curve request! Sending...")
+            #    if(tracer_data.curvesByteData != None):
+            #        tracer_data.socket_d.send(tracer_data.curvesByteData)
             else: # sent empty
                 tracer_data.socket_d.send_string("")
     return 0.1 # repeat every .1 second
@@ -183,7 +182,6 @@ def listener():
         client_ID   = msg[0]
         msg_time    = msg[1]
         msg_type    = msg[2]
-        #print(type)
         
         if msg_type == MessageType.SYNC.value:
             process_sync_msg(msg)
@@ -192,8 +190,6 @@ def listener():
             start = 3
 
             while start < len(msg):
-                # for i in range(3,13):
-                #     print(struct.unpack('B', msg[i:i+1])[0])
                 if msg_type == MessageType.LOCK.value:
                     last_index = process_lock_msg(msg, start)
                     start = last_index

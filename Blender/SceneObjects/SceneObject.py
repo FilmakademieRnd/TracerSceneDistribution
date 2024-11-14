@@ -93,9 +93,6 @@ class SceneObject:
     #   @param  tracer_pos  the instance of the parameter to update
     #   @param  new_value   the 3D vector describing the new position of this Scene Object  
     def update_position(self, tracer_pos: Parameter, new_value: Vector):
-        # Debug Log
-        # print("Updating Position of " + self.editableObject.name + " (locked: " + str(self.network_lock) + ") to " + str(new_value))
-        
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
@@ -150,9 +147,7 @@ class SceneObject:
 
             cp_list: list[bpy.types.Object] = self.editable_object.get("Control Points")
             cp_curve: bpy.types.SplineBezierPoints = self.editable_object.children[0].data.splines[0].bezier_points
-            print(self.editable_object.name)
             for i, cp in enumerate(cp_list):
-                print(cp.name)
                 locations.key_list.set_key(Key( time                = cp.get("Frame"),
                                                 value               = cp_curve[i].co,
                                                 type                = KeyType.BEZIER,

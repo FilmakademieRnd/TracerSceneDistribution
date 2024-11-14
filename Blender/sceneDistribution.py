@@ -114,7 +114,6 @@ def gather_scene_data():
     SceneObject.start_id = 1
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
-    print(tracer_data.cID)
     object_list = get_object_list()
 
     if len(object_list) > 0:
@@ -549,7 +548,6 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
 #@param obj the acual object from the scene
 def process_editable_objects(obj, index):
     is_editable = obj.get("TRACER-Editable", False)
-    print(obj.name + " TRACER-Editable: " + str(is_editable))
     if is_editable:
         if obj.type == 'CAMERA':
             tracer_data.SceneObjects.append(SceneObjectCamera(obj))
@@ -653,7 +651,7 @@ def processTexture(tex):
     try:
         texFile = open(tex.filepath_from_user(), 'rb')
     except FileNotFoundError:
-        print(f"Error: Texture file not found at {tex.filepath_from_user()}")
+        bpy.context.window.modal_operators[-1].report({'ERROR'}, f"Error: Texture file not found at {tex.filepath_from_user()}")
         return -1
     
     texBytes = texFile.read()

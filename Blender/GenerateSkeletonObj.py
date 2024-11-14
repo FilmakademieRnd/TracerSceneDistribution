@@ -161,7 +161,7 @@ def process_armature(armature):
 
     else:
         if was_already_processed(root_bone):
-            print("The Character has already been processed")
+            bpy.context.window.modal_operators[-1].report({'WARNING'}, "The Character has already been processed")
         else:
-            print("Active object is not an armature or no armature is selected.")
+            bpy.context.window.modal_operators[-1].report({'WARNING'}, "Active object is not an armature or no armature is selected.")
 
