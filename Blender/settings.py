@@ -56,17 +56,14 @@ class TracerProperties(bpy.types.PropertyGroup):
                     control_rig_constraints[bone.name] = []
                     if "Copy Location" in bone.constraints:
                         clc: bpy.types.CopyLocationConstraint = bone.constraints.get("Copy Location")
-                        print(clc.name + ' - head_tail ' + str(clc.head_tail) + ' - target ' + clc.target.name)
                         copy_loc_constr = (str(clc.type), clc.target.name, clc.subtarget, clc.head_tail, clc.target_space, clc.owner_space, clc.use_x, clc.use_y, clc.use_z)
                         control_rig_constraints[bone.name].append(copy_loc_constr)
                     if "Copy Rotation" in bone.constraints:
                         crc: bpy.types.CopyRotationConstraint = bone.constraints.get("Copy Rotation")
-                        print(crc.name + ' - target ' + crc.target.name)
                         copy_rot_constr = (str(crc.type), crc.target.name, crc.subtarget, 0.0, crc.target_space, crc.owner_space, crc.use_x, crc.use_y, crc.use_z)
                         control_rig_constraints[bone.name].append(copy_rot_constr)
                     if "Copy Transforms" in bone.constraints:
                         ctc: bpy.types.CopyTransformsConstraint = bone.constraints.get("Copy Transforms")
-                        print(ctc.name + ' - head_tail ' + str(ctc.head_tail) + ' - target ' + ctc.target.name)
                         copy_trans_constr = (str(ctc.type), ctc.target.name, ctc.subtarget, ctc.head_tail, ctc.target_space, ctc.owner_space, False, False, False)
                         control_rig_constraints[bone.name].append(copy_trans_constr)
             control_rig_constraints_string = json.dumps(control_rig_constraints, separators=(',', ':'))
@@ -94,17 +91,14 @@ class TracerProperties(bpy.types.PropertyGroup):
                 character_constraints[bone.name] = []
                 if "Copy Location" in bone.constraints:
                     clc: bpy.types.CopyLocationConstraint = bone.constraints.get("Copy Location")
-                    print(clc.name + ' - head_tail ' + str(clc.head_tail) + ' - target ' + clc.target.name)
                     copy_loc_constr = (str(clc.type), clc.target.name, clc.subtarget, clc.head_tail, clc.target_space, clc.owner_space, clc.use_x, clc.use_y, clc.use_z)
                     character_constraints[bone.name].append(copy_loc_constr)
                 if "Copy Rotation" in bone.constraints:
                     crc: bpy.types.CopyRotationConstraint = bone.constraints.get("Copy Rotation")
-                    print(crc.name + ' - target ' + crc.target.name)
                     copy_rot_constr = (str(crc.type), crc.target.name, crc.subtarget, 0.0, crc.target_space, crc.owner_space, crc.use_x, crc.use_y, crc.use_z)
                     character_constraints[bone.name].append(copy_rot_constr)
                 if "Copy Transforms" in bone.constraints:
                     ctc: bpy.types.CopyTransformsConstraint = bone.constraints.get("Copy Transforms")
-                    print(ctc.name + ' - head_tail ' + str(ctc.head_tail) + ' - target ' + ctc.target.name)
                     copy_trans_constr = (str(ctc.type), ctc.target.name, ctc.subtarget, ctc.head_tail, ctc.target_space, ctc.owner_space, False, False, False)
                     character_constraints[bone.name].append(copy_trans_constr)
             character_constraints_string = json.dumps(character_constraints, separators=(',', ':'))
@@ -148,7 +142,6 @@ class TracerProperties(bpy.types.PropertyGroup):
             
         else:
             bpy.ops.wm.ik_toggle_report_handler('EXEC_DEFAULT')
-            #bpy.types.Operator.report({'ERROR'}, 'Assign a value to the TRACER Character field')
 
         if control_rig != None:
             control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str]]] = json.loads(control_rig["Constraint Dictionary"])
@@ -179,8 +172,6 @@ class TracerProperties(bpy.types.PropertyGroup):
                         for constraint in bone.constraints:
                             bone.constraints.remove(constraint)
                         #bone_constraint.enabled = not character_obj["IK-Flag"]
-            #    else:
-            #        print(bone.name)
         else:
             bpy.ops.wm.ik_toggle_report_handler('EXEC_DEFAULT')
             #bpy.types.Operator.report({'ERROR'}, 'Assign a value to the TRACER Control Rig field')

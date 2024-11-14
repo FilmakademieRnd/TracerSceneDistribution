@@ -64,10 +64,12 @@ def get_rna_ui():
 def setup_tracer_collection():
     tracer_props = bpy.context.scene.tracer_properties
 
-    # Get current mode
-    current_mode = str(bpy.context.active_object.mode)
-    if current_mode != 'OBJECT':
-        bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Force OBJECT mode
+    current_mode = ''
+    if bpy.context.active_object:
+        # Get current mode
+        current_mode = str(bpy.context.active_object.mode)
+        if current_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Force OBJECT mode
     
     # Check if the collection exists. If not, create it and link it to the scene.
     tracer_collection = bpy.data.collections.get(tracer_props.tracer_collection)
@@ -96,7 +98,7 @@ def setup_tracer_collection():
         if not root.name in tracer_collection.objects:
             tracer_collection.objects.link(root)
     
-    if current_mode != 'OBJECT':
+    if current_mode != '' and current_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Revert mode to previous one
 
 # Clearing all the data structures containg TRACER-Related data
@@ -304,7 +306,6 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
     # Check whether a mesh called "Pointer" is already present in the blender data
     if "Pointer" in bpy.data.meshes:
         # If yes, retrieve such mesh and modify its vertices to create an isosceles triangle
-        print("Pointer mesh found")
         ptr_mesh = bpy.data.meshes["Pointer"]
     else:
         # If not, create a new mesh with the geometry data defined above
@@ -365,7 +366,6 @@ def add_point(anim_path, pos=-1, after=True):
         report_type = {'ERROR'}
         report_string = "AnimPath has to ONLY be part of TRACER_Collection"
 
-    print("Number of Control Points " + str(len(anim_path["Control Points"])))
     if len(anim_path["Control Points"]) > 0:
         # If Control Path is already populated
         # Append it to the list of Control Points of that path
@@ -389,9 +389,6 @@ def add_point(anim_path, pos=-1, after=True):
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
 
-    # Checking list of Control Points
-    print("Control Points:" + str(anim_path["Control Points"]))
-
     # Trigger Path Updating
     update_curve(anim_path)
 
@@ -405,7 +402,6 @@ def add_point(anim_path, pos=-1, after=True):
 def get_pos_name(pos):
     suffix = ""
     if pos < 0:
-        print("move_point doesn't take negative positions")
         return
     elif pos == 0:
         suffix = ""
@@ -419,7 +415,6 @@ def get_pos_name(pos):
 
 ### Function to move a Control Point in the Control Path, given the point to move and the position it should take up
 def move_point(point, new_pos):
-    print("Moving " + point.name + " to position " + str(new_pos))
     # Get the current position of the active object
     point_pos = point.parent["Control Points"].index(point)
     if new_pos == point_pos:
@@ -428,31 +423,17 @@ def move_point(point, new_pos):
             point.parent["Control Points"][i].name = get_pos_name(i)
     if new_pos <  point_pos:
         # Move the elements after the new position forward by one and insert the active object at new_pos
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
         for i in range(new_pos, point_pos+1):
-            print("Control Point " + point.parent["Control Points"][i].name + " to position " + str(i+1))
             if (i+1) < len(point.parent["Control Points"]):
                 point.parent["Control Points"][i+1].name = "tmp"
             point.parent["Control Points"][i].name = get_pos_name(i+1)
-            for i in range(len(point.parent["Control Points"])):
-                print(point.parent["Control Points"][i].name)
         point.name = get_pos_name(new_pos)
-        for i in range(len(point.parent["Control Points"])):
-            print(point.parent["Control Points"][i].name)
     if new_pos  > point_pos:
         # Move the elements before the new position backward by one and insert the active object at new_pos
         point.name = "tmp"
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
         for i in range(point_pos+1, new_pos+1):
-            #print("Control Point " + point.parent["Control Points"][i].name + " to position " + str(i-1))  #! Debug print
             point.parent["Control Points"][i].name = get_pos_name(i-1)
-            #for i in range(len(point.parent["Control Points"])):   #! Debug print
-            #    print(point.parent["Control Points"][i].name)
         point.name = get_pos_name(new_pos)
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
     # Evaluate the curve, given the new ordrering of the Control Points
     update_curve(point.parent)
 
@@ -478,7 +459,6 @@ def update_curve(anim_path: bpy.types.Object):
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
 
-    #print("Number of Control Points for the spline " + str(len(control_points)))
     path_points_check(anim_path)
 
     # Create Control Path from control_points elements

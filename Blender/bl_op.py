@@ -53,9 +53,6 @@ from .tools import clean_up_tracer_data, install_ZMQ, check_ZMQ, setup_tracer_co
 from .sceneDistribution import gather_scene_data, process_control_path#, resendCurve
 from .GenerateSkeletonObj import process_armature
 
-
-
-
 ## operator classes
 #
 class SetupScene(bpy.types.Operator):
@@ -234,53 +231,6 @@ class AddPath(bpy.types.Operator):
         bpy.ops.path.interaction_listener("INVOKE_DEFAULT")             # Initialising and starting Interaction Listener modal operator, which handles user interactions on the Control Path
         return {'FINISHED'}
 
-#! DEPRECATED
-# class FKIKToggle(bpy.types.Operator):
-#     bl_idname = "scene.fk_ik_toggle"
-#     bl_label = "Switch to Inverse Kinematics"
-#     bl_description = 'Switch between Forward and Inverse Kinematic for animating the character over its Control Path'
-
-#     def execute(self, context):
-#         # If the toggling should happen only when the chartacter is selected
-#         if context.active_object and context.active_object.type == 'ARMATURE':
-#             selected_character: bpy.types.Object = context.active_object
-#             if selected_character.get("IK-Flag", None) != None:
-#                 selected_character["IK-Flag"] = not selected_character["IK-Flag"]
-
-#                 #if selected_character["IK-Flag"]:
-#                 #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
-#                 #else:
-#                 #    FKIKToggle.bl_label = "Switch to Inverse Kinematics"
-#             #else:
-#             #    selected_character["IK-Flag"] = 1
-#             #    FKIKToggle.bl_label = "Switch to Forward Kinematics"
-
-#             # Updating Bone Constraints Values for the currently selected Armature
-#             for bone in selected_character.pose.bones:
-#                 for bone_constraint in bone.constraints:
-#                         bone_constraint.enabled = selected_character["IK-Flag"]
-
-#             control_rig: bpy.types.Object = bpy.context.scene.tracer_properties.control_rig_name
-#             if control_rig != None:
-#                 control_rig_armature: bpy.types.Armature = control_rig.data
-#                 for bone in control_rig.pose.bones:
-#                     if  bone.name not in control_rig_armature.collections["ORG"].bones and\
-#                         bone.name not in control_rig_armature.collections["MCH"].bones and\
-#                         bone.name not in control_rig_armature.collections["DEF"].bones:
-#                         for bone_constraint in bone.constraints:
-#                             bone_constraint.enabled = not selected_character["IK-Flag"]
-#                     else:
-#                         print(bone.name)
-#             else:
-#                 self.report({'ERROR'}, 'Select a control rig for this character to use IK rigging')
-
-#         # Forcing update visualisation of Property Panel
-#         for area in bpy.context.screen.areas:
-#             if area.type == 'PROPERTIES':
-#                 area.tag_redraw()
-
-#         return {'FINISHED'}
-
 ### Operator to add a new Animation Control Point
 #   The execution is triggered by a button in the TRACER Panel or by an entry in the Add Menu
 class AddPointAfter(bpy.types.Operator):
@@ -293,8 +243,8 @@ class AddPointAfter(bpy.types.Operator):
         print('Add Point START')
         if bpy.context.scene.tracer_properties.control_path_name != '' and bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
             anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
-            new_point_index = anim_path["Control Points"].index(context.active_object)  if (context.active_object in anim_path["Control Points"] \
-                                                                                            and anim_path["Control Points"].index(context.active_object) < len(anim_path["Control Points"])-1) \
+            new_point_index = anim_path.get("Control Points").index(context.active_object)  if (context.active_object in anim_path.get("Control Points") \
+                                                                                            and anim_path.get("Control Points").index(context.active_object) < len(anim_path.get("Control Points"))-1) \
                         else  -1
 
             report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=True)
@@ -315,8 +265,8 @@ class AddPointBefore(bpy.types.Operator):
         print('Add Point START')
         if bpy.context.scene.tracer_properties.control_path_name != '' and bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
             anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
-            new_point_index = anim_path["Control Points"].index(context.active_object) if (context.active_object in anim_path["Control Points"] \
-                                                                                       and anim_path["Control Points"].index(context.active_object) < len(anim_path["Control Points"])) \
+            new_point_index = anim_path.get("Control Points").index(context.active_object) if (context.active_object in anim_path.get("Control Points") \
+                                                                                       and anim_path.get("Control Points").index(context.active_object) < len(anim_path.get("Control Points"))) \
                         else  0
 
             report: tuple[set[str], str] = add_point(anim_path, pos=new_point_index, after=False)
@@ -361,32 +311,30 @@ class ControlPointProps(bpy.types.PropertyGroup):
         else:
             return
 
-    def update_position(self, context):
+    def update_position(self, context: bpy.types.Context):
         if bpy.context.tool_settings.use_proportional_edit_objects:
+            return
+        if self.position >= len(context.active_object.parent.get('Control Points')):
+            bpy.context.window.modal_operators[-1].report({'ERROR'}, "Position Value Out of Bounds")
             return
         context.active_object["Position"] = self.position
         move_point(context.active_object, self.position)
-        print("Update! " + str(self.position))
 
     def update_frame(self, context):
         # Set the property of the active control point to the new UI value
         # TODO: update also following points keeping a constant delta to the previous ones ???
         context.active_object["Frame"] = self.frame
-        print("Update! " + str(self.frame))
 
     def update_in(self, context):
         # Set the property of the active control point to the new UI value
         context.active_object["Ease In"] = self.ease_in
-        print("Update! " + str(self.ease_in))
 
     def update_out(self, context):
         # Set the property of the active control point to the new UI value
         context.active_object["Ease Out"] = self.ease_out
-        print("Update! " + str(self.ease_out))
 
     def update_style(self, context):
         context.active_object["Style"] = self.style
-        print("Update! " + self.style)
 
     position: bpy.props.IntProperty(name="Position", min=0, update=update_position)                                                                                                                                                                                         # type: ignore
     frame: bpy.props.IntProperty(name="Frame", min=0, max=6000, update=update_frame)                                                                                                                                                                                        # type: ignore
@@ -409,7 +357,7 @@ class UpdateCurveViz(bpy.types.Operator):
             # Check for deleted control points and evtl. do some cleanup before updating the curve 
             for child in anim_path.children:
                 if not bpy.context.scene in child.users_scene:
-                    print(child.name + " IS NOT in the scene")
+                    bpy.context.window.modal_operators[-1].report({'ERROR'}, child.name + " IS NOT in the scene")
                     bpy.data.objects.remove(child, do_unlink=True)
             update_curve(anim_path)
             for area in bpy.context.screen.areas:
@@ -432,7 +380,7 @@ class UpdateCurveViz(bpy.types.Operator):
             # Check for deleted control points and evtl. do some cleanup before updating the curve  
             for i, child in enumerate(anim_path.children):
                 if not bpy.context.scene in child.users_scene:
-                    print(child.name + " IS NOT in the scene")
+                    bpy.context.window.modal_operators[-1].report({'ERROR'}, child.name + " IS NOT in the scene")
                     bpy.data.objects.remove(child, do_unlink=True)
                     update_curve(anim_path)
                     if i < len(anim_path["Control Points"]) - 1:
@@ -532,7 +480,6 @@ class EditControlPointHandle(bpy.types.Operator):
 
                 bpy.context.scene.tool_settings.workspace_tool_type = 'DEFAULT'
 
-                print(control_path_curve.name + " " + control_path_curve.id_type)
                 control_path_curve.data.splines[0].bezier_points[ptr_idx].select_control_point = True
         else:
             self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
@@ -622,7 +569,6 @@ class AnimationRequest(bpy.types.Operator):
         character_name: str = bpy.context.scene.tracer_properties.character_name
         if  control_path_name != '' and bpy.data.objects[control_path_name] != None and\
             character_name != '' and bpy.data.objects[character_name] != None:
-            print("Sending updated Animation Path, this triggers the sending of a new Animation Sequence")
             control_path_bl_obj: bpy.types.Object = bpy.data.objects[control_path_name]
             if control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
                 tracer_data: TracerData = bpy.context.window_manager.tracer_data
@@ -859,7 +805,6 @@ class SendRpcCall(bpy.types.Operator):
     bl_description = 'send the call to generate and stream animation to animhost'
     
     def execute(self, context):
-        print('rpc bep bop bep bop')
         #TODO add functionality 
         return {'FINISHED'}
        

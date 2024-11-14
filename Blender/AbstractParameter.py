@@ -207,7 +207,6 @@ class AbstractParameter:
         self.__id: int = -1
         if(parent_object):
             self.__id = len(parent_object.parameter_list)
-            print(str(self.__id))
         else:
             self.__id = 0
         # Parameter name
@@ -424,7 +423,7 @@ class Parameter(AbstractParameter):
         self.set_value(self.deserialize_data(value_bytes))
 
         if self.is_animated:
-            # Reset has_changed flag bevore deserializing the keyframes
+            # Reset has_changed flag before deserializing the keyframes
             self.key_list.has_changed = False
 
         if self.is_animated and msg_size > data_size:
@@ -462,6 +461,8 @@ class Parameter(AbstractParameter):
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
+            
+            bpy.context.window.modal_operators[-1].report({'INFO'}, "New Animation Received!")
         
         # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
         if self.has_changed and not self.parent_object.network_lock:

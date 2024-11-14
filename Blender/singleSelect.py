@@ -57,10 +57,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
             if len(current_selected_objects) > 1:
                 # Check if there was a previously selected object before multiple selection attempt
                 previously_selected = self.last_selected_objects
-                if previously_selected:
-                    # Print the deselected object(s) only if they were previously selected
-                    for obj in previously_selected:
-                        print(f"Deselected object: {obj.name}")
 
                 # Deselect all objects
                 for obj in current_selected_objects:
@@ -76,7 +72,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                     for scene_obj in self.tracer_data.SceneObjects:
                         if obj == scene_obj.editable_object:
                             send_unlock_msg(scene_obj)
-                            print(f"Deselected object: {obj.name}")
 
                 # Check for new selection
                 newly_selected_objects = current_selected_objects - self.last_selected_objects
@@ -84,7 +79,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                     for scene_obj in self.tracer_data.SceneObjects:
                         if obj == scene_obj.editable_object:
                             send_lock_msg(scene_obj)
-                            print(f"Selected object: {obj.name}")
 
                 # Update the last selected objects set
                 self.last_selected_objects = current_selected_objects
