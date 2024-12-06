@@ -196,6 +196,9 @@ class KeyList:
 
 class AbstractParameter:
 
+    # PUBLIC STATIC variables
+    start_animhost_rpc_id = 0
+
     def __init__ (self, value, name: str, parent_object = None, distribute = True, is_RPC = False, is_animated = False):
         # Non-static class variables
         
@@ -205,8 +208,11 @@ class AbstractParameter:
         self.__type: TRACERParamType = self.get_tracer_type()
         # Paramter ID (private)
         self.__id: int = -1
-        if(parent_object):
+        if parent_object:
             self.__id = len(parent_object.parameter_list)
+        elif is_RPC and parent_object == None:
+            self.__id = AbstractParameter.start_animhost_rpc_id
+            AbstractParameter.start_animhost_rpc_id += 1
         else:
             self.__id = 0
         # Parameter name
@@ -225,6 +231,9 @@ class AbstractParameter:
         self.has_changed: bool = False
         # List of handlers that broadcast parameters updates when a parameter is changed
         self.parameter_handler: list[function] = []
+
+    def get_object_id(self):
+        return self.parent_object.object_id
 
     def get_parameter_id(self):
         return self.__id

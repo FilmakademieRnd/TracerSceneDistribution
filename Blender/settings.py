@@ -36,6 +36,7 @@ individual license agreement.
 import bpy
 import json
 from .SceneObjects.SceneObject import SceneObject
+from .AbstractParameter import AnimHostRPC
 
 ## Class to keep editable parameters
 class TracerProperties(bpy.types.PropertyGroup):
@@ -208,6 +209,11 @@ class TracerProperties(bpy.types.PropertyGroup):
             if obj.get("Control Points", None) != None:
                 list_of_paths.append(obj.name)
         return list_of_paths
+    
+    animation_request_modes_items = [   ('BLOCK',  'As a Block',       'Set to request the animation from AnimHost to be sent as one block',           AnimHostRPC.BLOCK.value),
+                                        ('STREAM', 'Stream',           'Set to request the animation from AnimHost to be sent as a stream',            AnimHostRPC.STREAM.value),
+                                        ('LOOP',   'Looping Stream',   'Set to request the animation from AnimHost to be sent as looping stream',      AnimHostRPC.STREAM_LOOP.value),
+                                        ('STOP',   'Stop Stream',      'Set to request the animation from AnimHost to stop the current pose stream',   AnimHostRPC.STOP.value)]
 
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')                                                                          # type: ignore
     dist_port: bpy.props.StringProperty(default = '5555')                                                                                                                                                                                                                   # type: ignore
@@ -222,10 +228,14 @@ class TracerProperties(bpy.types.PropertyGroup):
     control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation', search=get_all_paths)                                                                                  # type: ignore
     character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                          # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
+    animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Animation Request Modes', default='BLOCK')                                                                                                                                   # type: ignore
     # Future feature: Neural Network Parameters
     mix_root_translation: bpy.props.FloatProperty(name='Mix Root Translation', description='?', default=0.5, min=0, max=1)                                                                                                                                                         # type: ignore
     mix_root_rotation: bpy.props.FloatProperty(name='Mix Root Rotation', description='?', default=0.5, min=0, max=1)                                                                                                                                                               # type: ignore
     mix_control_path: bpy.props.FloatProperty(name='Mix Control Path', description='?', default=1, min=0.000001, max=5)                                                                                                                                                            # type: ignore
+
+    new_control_point_pos_offset: bpy.props.FloatProperty(name='Distance Offset', description='Distance of the newly created control point and the currently selected one', default=0.5, min=0.25, max=100)                                                                     # type: ignore
+    new_control_point_frame_offset: bpy.props.IntProperty(name='Frame Offset', description='Frame offset of the newly created control point and the currently selected one', default=10, min=0, max=500)                                                                   # type: ignore
 
 ## Class to keep data
 #

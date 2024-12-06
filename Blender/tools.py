@@ -349,11 +349,10 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
 def add_point(anim_path, pos=-1, after=True):
     report_type = {'INFO'}
     report_string = "New Control Point added to TRACER Scene"
-    spawn_proportional_offset = mathutils.Vector((0, -1.5, 0))
+    spawn_offset = mathutils.Vector((0, -bpy.context.scene.tracer_properties.new_control_point_pos_offset, 0))
 
     # Calculate offset proportionally to the dimensions of the mesh of the pointer (Control Point) object and in relation to the rotation of the PREVIOUS control point
     base_rotation = anim_path["Control Points"][pos].rotation_euler
-    spawn_offset = anim_path["Control Points"][pos].dimensions * spawn_proportional_offset
     spawn_offset = spawn_offset if after else spawn_offset * -1  # flipping the offset so that the point gets spawned behind the selected one (if after == False)
     spawn_offset.rotate(base_rotation)
     # Create new point, place it next to the CURRENTLY SELECTED point, and select it
@@ -376,6 +375,11 @@ def add_point(anim_path, pos=-1, after=True):
         if pos >= 0:
             # If inserting AFTER the current point, move to the next position (pos+1), otherwise inserting at the position of the current point, which will be moved forward as a result  
             move_point(new_point, pos+1) if after else move_point(new_point, pos)
+        #if pos != 0:
+            frame_offset = bpy.context.scene.tracer_properties.new_control_point_frame_offset
+            new_point['Frame'] = anim_path["Control Points"][pos]['Frame'] + frame_offset if after else anim_path["Control Points"][pos+1]['Frame'] - frame_offset
+        else:
+            new_point['Frame'] = 0
     else:
         # If Control Points has no elements, delete the property and create it ex-novo
         del anim_path["Control Points"]

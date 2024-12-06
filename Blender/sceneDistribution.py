@@ -205,8 +205,8 @@ def process_scene_object(obj: bpy.types.Object, index):
     # gather general node data    
     nodeMatrix = obj.matrix_local.copy()
 
-    node.position = (nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y)
-    node.scale = (nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y)
+    node.position = Vector((nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y))
+    node.scale = Vector((nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y))
     
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
@@ -215,7 +215,7 @@ def process_scene_object(obj: bpy.types.Object, index):
     
     rot = nodeMatrix.to_quaternion()
     rot.invert()
-    node.rotation = (rot[1], rot[3], rot[2], rot[0])
+    node.rotation = Quaternion((rot[1], rot[3], rot[2], rot[0]))
     
     node.name = bytearray(64)
     
@@ -235,12 +235,16 @@ def process_scene_object(obj: bpy.types.Object, index):
     if obj.name != 'TRACER Scene Root':
         tracer_data.nodeList.append(node)
     
-def process_mesh(obj, nodeMesh): 
+def process_mesh(obj, nodeMesh) -> sceneMesh: 
     nodeMesh.tracer_type = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
     nodeMesh.roughness = 0.5
     nodeMesh.materialId = -1
-               
+    
+    nodeMesh.position = Vector((0,0,0))
+    nodeMesh.scale = Vector((1,1,1))
+    nodeMesh.rotation = Quaternion()
+
     # get geo data of mesh
     nodeMesh.geoId = processGeoNew(obj)
                 
@@ -257,7 +261,7 @@ def process_mesh(obj, nodeMesh):
         nodeMesh.roughness = nodeMaterial.roughness
         nodeMesh.specular = nodeMaterial.specular
                     
-    return(nodeMesh)
+    return nodeMesh
 
 def process_skinned_mesh(obj, nodeSkinMesh):
     nodeSkinMesh.tracer_type = NodeTypes.SKINNEDMESH
@@ -411,6 +415,7 @@ def process_character(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to tracer_data.curveList (@see TracerData())
+#TODO: Move this function into tools because curvePackages are not used anymore. However, the function has a use to update the Animation Preview Object
 def process_control_path(anim_path: bpy.types.Object) -> curvePackage:
     tracer_data = bpy.context.window_manager.tracer_data
     curve_package = curvePackage()

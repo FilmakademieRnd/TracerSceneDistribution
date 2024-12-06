@@ -305,12 +305,16 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 
 def send_RPC_msg(rpc_parameter: Parameter):
+    #TODO: use new scene and object to hold AnimHost RPC Parameters (which will trigger RPC calls)
+    scene_id    = 255   if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+    object_id   = 1     if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+
     tracer_data.ParameterUpdateMSG = bytearray([])
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))                 # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', 255))                                   # scene ID (not assigned to a specific scene - for AnimHost)
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                     # object ID (not assigned to a specific object)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', scene_id))                              # scene ID (not assigned to a specific scene - for AnimHost)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', object_id))                             # object ID (not assigned to a specific object)
     tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))      # parameter/call ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))       # parameter type
     length = 10 + rpc_parameter.get_data_size()
@@ -326,6 +330,8 @@ def process_RPC_msg(msg: bytearray, start=0):
     param_type  = struct.unpack( 'B', msg[start+5 : start+6 ])[0]
     length      = struct.unpack('<I', msg[start+6 : start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
     start =+ length
+
+    # Do something with the information:)
 
     return start
 
