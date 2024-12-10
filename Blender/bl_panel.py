@@ -127,9 +127,18 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
                     row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
 
+                tracer_props: TracerProperties = bpy.context.scene.tracer_properties
                 row = layout.row()
-                row.prop_menu_enum(data=bpy.context.scene.tracer_properties, property="animation_request_modes")
-                row.operator(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
+                prop_col = row.column()
+                prop_col.ui_units_x = 7.0
+                prop_col.prop_menu_enum(data=bpy.context.scene.tracer_properties, property="animation_request_modes")
+                viz_col = row.column()
+                viz_box = viz_col.box()
+                viz_box.scale_y = 0.55
+                animation_request_mode_name = tracer_props.get_animation_request_mode_name()
+                viz_box.label(text=animation_request_mode_name)
+                op_col = row.column()
+                op_col.operator(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
                 row = layout.row()
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 

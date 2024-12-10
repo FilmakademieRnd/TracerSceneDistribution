@@ -214,6 +214,11 @@ class TracerProperties(bpy.types.PropertyGroup):
                                         ('STREAM', 'Stream',           'Set to request the animation from AnimHost to be sent as a stream',            AnimHostRPC.STREAM.value),
                                         ('LOOP',   'Looping Stream',   'Set to request the animation from AnimHost to be sent as looping stream',      AnimHostRPC.STREAM_LOOP.value),
                                         ('STOP',   'Stop Stream',      'Set to request the animation from AnimHost to stop the current pose stream',   AnimHostRPC.STOP.value)]
+    
+    def get_animation_request_mode_name(self):
+        for item in TracerProperties.animation_request_modes_items:
+            if self.animation_request_modes == item[0]:
+                return item[1]
 
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')                                                                          # type: ignore
     dist_port: bpy.props.StringProperty(default = '5555')                                                                                                                                                                                                                   # type: ignore
@@ -228,8 +233,8 @@ class TracerProperties(bpy.types.PropertyGroup):
     control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation', search=get_all_paths)                                                                                  # type: ignore
     character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                          # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
-    animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Animation Request Modes', default='BLOCK')                                                                                                                                   # type: ignore
-    slide_frames: bpy.props.BoolProperty(name='Slide Next Frames Forward', default=False)                                                                                                                                                                                   # type: ignore
+    animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Request Mode', default='BLOCK')                                                                                                                                   # type: ignore
+    slide_frames: bpy.props.BoolProperty(name='Slide Frames from Following Control Points', default=False)                                                                                                                                                                                   # type: ignore
     # Future feature: Neural Network Parameters
     mix_root_translation: bpy.props.FloatProperty(name='Mix Root Translation', description='?', default=0.5, min=0, max=1)                                                                                                                                                         # type: ignore
     mix_root_rotation: bpy.props.FloatProperty(name='Mix Root Rotation', description='?', default=0.5, min=0, max=1)                                                                                                                                                               # type: ignore
