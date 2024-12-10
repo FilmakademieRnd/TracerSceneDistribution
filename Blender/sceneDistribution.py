@@ -42,8 +42,8 @@ import re
 
 from mathutils import Vector, Quaternion
 from.settings import TracerData, TracerProperties
-from .AbstractParameter import Parameter, NodeTypes
-from .SceneObjects.SceneObject import SceneObject
+from .AbstractParameter import Parameter
+from .SceneObjects.SceneObject import SceneObject, NodeTypes
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight, LightTypes
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
@@ -150,7 +150,7 @@ def get_object_list():
 # @param index The objects index in the list of all objects
 def process_scene_object(obj: bpy.types.Object, index):
     global tracer_data, tracer_props
-    node = sceneObject()
+    node: sceneObject = sceneObject()
     node.tracer_type = NodeTypes.GROUP
     
     # gather light data

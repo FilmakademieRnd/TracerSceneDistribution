@@ -59,14 +59,6 @@ class KeyType(Enum):
     LINEAR  = 2
     BEZIER  = 3
 
-class NodeTypes(Enum):
-    GROUP       = 0
-    GEO         = 1
-    LIGHT       = 2
-    CAMERA      = 3
-    SKINNEDMESH = 4
-    CHARACTER   = 5
-
 class AnimHostRPC(Enum):
     STOP        = 0
     STREAM      = 1

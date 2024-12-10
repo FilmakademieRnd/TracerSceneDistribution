@@ -32,15 +32,24 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-from bpy.types import Object
 import bpy
+from bpy.types import Object
 import functools
 import math
+from enum import Enum
 import copy
 from mathutils import Vector, Quaternion
 
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
+
+class NodeTypes(Enum):
+    GROUP       = 0
+    GEO         = 1
+    LIGHT       = 2
+    CAMERA      = 3
+    SKINNEDMESH = 4
+    CHARACTER   = 5
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
@@ -48,13 +57,14 @@ from ..serverAdapter import send_parameter_update
 class SceneObject:
 
     # PUBLIC STATIC variables
-    start_id = 1
-    scene_ID = 254
+    start_id: int = 1
+    scene_ID: int = 254
     
     def __init__(self, bl_obj: Object):
         # PUBLIC NON-STATIC variables declaration
         self.object_id = SceneObject.start_id
         SceneObject.start_id += 1
+        self.tracer_type: NodeTypes = NodeTypes.GROUP
         self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
         self.editable_object: Object = bl_obj

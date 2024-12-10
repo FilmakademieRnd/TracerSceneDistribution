@@ -270,6 +270,8 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                         # style = grid.box(); style.alignment = 'CENTER'; style.label(text=cp["Style"]);          # alignment does nothing. Buggy Blender.
 
                 row = layout.row()
+                row.prop(data=bpy.context.scene.tracer_properties, property='slide_frames')
+                row = layout.row()
                 row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
                 row = layout.row()
                 row.operator(EvaluateSpline.bl_idname, text=EvaluateSpline.bl_label)

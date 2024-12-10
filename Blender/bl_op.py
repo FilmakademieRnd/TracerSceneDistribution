@@ -322,8 +322,13 @@ class ControlPointProps(bpy.types.PropertyGroup):
 
     def update_frame(self, context):
         # Set the property of the active control point to the new UI value
-        # TODO: update also following points keeping a constant delta to the previous ones ???
+        delta_frame = self.frame - context.active_object["Frame"]
         context.active_object["Frame"] = self.frame
+        if bpy.context.scene.tracer_properties.slide_frames:
+            control_points: list[bpy.types.Object] = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]["Control Points"]
+            for cp in control_points:
+                if control_points.index(cp) > self.position:
+                    cp["Frame"] = cp["Frame"] + delta_frame     
 
     def update_in(self, context):
         # Set the property of the active control point to the new UI value
@@ -337,7 +342,7 @@ class ControlPointProps(bpy.types.PropertyGroup):
         context.active_object["Style"] = self.style
 
     position: bpy.props.IntProperty(name="Position", min=0, update=update_position)                                                                                                                                                                                         # type: ignore
-    frame: bpy.props.IntProperty(name="Frame", min=0, max=6000, update=update_frame)                                                                                                                                                                                        # type: ignore
+    frame: bpy.props.IntProperty(name="Frame", min=0, max=6000, update=update_frame) #set=set_new_frame                                                                                                                                                                                        # type: ignore
     ease_in: bpy.props.IntProperty(name="Ease In", min=0, max=100, update=update_in)                                                                                                                                                                                        # type: ignore
     ease_out: bpy.props.IntProperty(name="Ease Out", min=0, max=100, update=update_out)                                                                                                                                                                                     # type: ignore
     style: bpy.props.EnumProperty(items=get_items(), name="Style", description="Choose a Locomotion Style", default="Running", update=update_style)                                                                                                                         # type: ignore

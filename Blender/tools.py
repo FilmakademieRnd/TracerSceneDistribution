@@ -367,19 +367,30 @@ def add_point(anim_path, pos=-1, after=True):
 
     if len(anim_path["Control Points"]) > 0:
         # If Control Path is already populated
+        # Set Frame Value
+        frame_offset = bpy.context.scene.tracer_properties.new_control_point_frame_offset
+        if pos >= 0 and after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        elif pos >= 0 and not after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] - frame_offset
+            new_point['Frame'] = new_frame_value if new_frame_value >= 0 else 0
+        elif pos == -1 and after:
+            cp = anim_path["Control Points"][-1]
+            new_frame_value = anim_path["Control Points"][-1]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        else:
+            new_point['Frame'] = 0
+
         # Append it to the list of Control Points of that path
         control_points = anim_path["Control Points"]
         control_points.append(new_point)
         anim_path["Control Points"] = control_points
+            
         # If the position is not -1 (i.e. end of list), move the point to the correct position
         if pos >= 0:
             # If inserting AFTER the current point, move to the next position (pos+1), otherwise inserting at the position of the current point, which will be moved forward as a result  
             move_point(new_point, pos+1) if after else move_point(new_point, pos)
-        #if pos != 0:
-            frame_offset = bpy.context.scene.tracer_properties.new_control_point_frame_offset
-            new_point['Frame'] = anim_path["Control Points"][pos]['Frame'] + frame_offset if after else anim_path["Control Points"][pos+1]['Frame'] - frame_offset
-        else:
-            new_point['Frame'] = 0
     else:
         # If Control Points has no elements, delete the property and create it ex-novo
         del anim_path["Control Points"]
