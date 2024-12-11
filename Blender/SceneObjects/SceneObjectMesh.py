@@ -41,40 +41,39 @@ from .SceneObject import SceneObject, NodeTypes
 from ..serverAdapter import send_parameter_update;
 
 
-class SceneObjectCamera(SceneObject):
+class SceneObjectMesh(SceneObject):
    def __init__(self, obj):
       super().__init__(obj)
-      self.tracer_type = NodeTypes.CAMERA
+      self.tracer_type = NodeTypes.GEO
 
       if self.blender_object.get("TRACER-Editable", False):
-         fov = Parameter(obj.data.angle, "Fov", self)
-         self.parameter_list.append(fov)
-         aspect = Parameter(obj.data.sensor_width/obj.data.sensor_height, "Aspect", self)
-         self.parameter_list.append(aspect)
-         near = Parameter(obj.data.clip_start, "Near", self)
-         self.parameter_list.append(near)
-         far = Parameter(obj.data.clip_end, "Far", self)
-         self.parameter_list.append(far)
+         color = Parameter(obj.color, "Color", self)
+         self.parameter_list.append(color)
+         roughness = Parameter(0.5, "Roughness", self)
+         self.parameter_list.append(roughness)
+         material_id = Parameter(-1, "Material ID", self)
+         self.parameter_list.append(material_id)
          
-         fov.parameter_handler.append(functools.partial(self.update_fov, fov))
-         near.parameter_handler.append(functools.partial(self.update_near, near))
-         far.parameter_handler.append(functools.partial(self.update_far, far))
+         color.parameter_handler.append(functools.partial(self.update_color, color))
+         roughness.parameter_handler.append(functools.partial(self.update_roughness, roughness))
+         material_id.parameter_handler.append(functools.partial(self.update_material_id, material_id))
    
-   def update_fov(self, parameter, new_value):
+   def update_color(self, parameter, new_value):
       if self.network_lock == True:
-         self.blender_object.data.angle = new_value
+         self.blender_object.color = new_value
       else:
          send_parameter_update(parameter)
    
-   def update_near(self, parameter, new_value):
+   def update_roughness(self, parameter, new_value):
       if self.network_lock == True:
-         self.blender_object.data.clip_start = new_value
+         self.blender_object.active_material.roughness = new_value
       else:
          send_parameter_update(parameter)
    
-   def update_far(self, parameter, new_value):
+   def update_material_id(self, parameter, new_value):
       if self.network_lock == True:
-         self.blender_object.data.clip_end = new_value
+         # TODO: Investigate also active_material_index
+         self.blender_object.active_material = bpy.context.window_manager.tracer_data.materialList[new_value]
       else:
          send_parameter_update(parameter)
 

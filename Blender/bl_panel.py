@@ -99,6 +99,7 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "TRACER_PT_CHARACTER_PANEL"
     bl_label = "Character"
 
+
     def draw(self, context):
         if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
             layout = self.layout
@@ -126,8 +127,19 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
                     row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
 
+                tracer_props: TracerProperties = bpy.context.scene.tracer_properties
                 row = layout.row()
-                row.operator_menu_enum(AnimationRequest.bl_idname, property="animation_request_mode", text=AnimationRequest.bl_label)  #(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
+                prop_col = row.column()
+                prop_col.ui_units_x = 7.0
+                prop_col.prop_menu_enum(data=bpy.context.scene.tracer_properties, property="animation_request_modes")
+                viz_col = row.column()
+                viz_box = viz_col.box()
+                viz_box.scale_y = 0.55
+                animation_request_mode_name = tracer_props.get_animation_request_mode_name()
+                viz_box.label(text=animation_request_mode_name)
+                op_col = row.column()
+                op_col.operator(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
+                row = layout.row()
                 row.operator(AnimationSave.bl_idname, text=AnimationSave.bl_label)
 
 class TRACER_PT_NN_Params_Panel(TRACER_Panel, bpy.types.Panel):
@@ -174,6 +186,9 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
                     row.alert = True
                     row.label(text="Feature not available in Edit Curve Mode")
                 else:
+                    row = layout.row()
+                    row.prop(bpy.context.scene.tracer_properties, property='new_control_point_pos_offset', slider=True)
+                    row.prop(bpy.context.scene.tracer_properties, property='new_control_point_frame_offset', slider=True)
                     row = layout.row()
                     row.operator(AddPointAfter.bl_idname, text=AddPointAfter.bl_label)
                     row.operator(AddPointBefore.bl_idname, text=AddPointBefore.bl_label)
@@ -263,6 +278,8 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                         #! Style is not currently used by the framework
                         # style = grid.box(); style.alignment = 'CENTER'; style.label(text=cp["Style"]);          # alignment does nothing. Buggy Blender.
 
+                row = layout.row()
+                row.prop(data=bpy.context.scene.tracer_properties, property='slide_frames')
                 row = layout.row()
                 row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
                 row = layout.row()

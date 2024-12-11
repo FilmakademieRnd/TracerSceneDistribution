@@ -41,7 +41,7 @@ import bpy
 
 from ..settings import TracerProperties
 from ..AbstractParameter import Parameter, KeyList, Key, KeyType
-from .SceneObject import SceneObject
+from .SceneObject import SceneObject, NodeTypes
 from ..serverAdapter import send_parameter_update
 
 ### Operator to show to the user that a new animation has been received
@@ -55,13 +55,14 @@ class ReportReceivedAnimation(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Subclass of SceneObject adding functionalities specific for Characters
-class SceneCharacterObject(SceneObject):
+class SceneObjectCharacter(SceneObject):
 
     ### Class constructor
     #   Initializing TRACER class variable (from line 82)
-    #   Adding character-specific Properties to the Blender Object counterpart of the SceneCharacterObject (from line 66)
+    #   Adding character-specific Properties to the Blender Object counterpart of the SceneObjectCharacter (from line 66)
     def __init__(self, bl_obj: bpy.types.Object):
         super().__init__(bl_obj)
+        self.tracer_type = NodeTypes.CHARACTER
 
         # Initializing non-static class variables
         self.armature_obj_name: str = bl_obj.name
@@ -83,7 +84,7 @@ class SceneCharacterObject(SceneObject):
             else:
                 self.local_bone_rest_transform[abone.name] = abone.matrix_local
         
-        # Adding to the SceneCharacterObject a new Parameter for each bone, in order to control its rotation
+        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its rotation
         for bone in self.armature_obj_pose_bones:
             # finding root bone for hierarchy traversal
             if not bone.parent:
@@ -97,7 +98,7 @@ class SceneCharacterObject(SceneObject):
             #? Sending a Parameter Update when the animation data of a parameter changes
             self.bone_map[local_bone_rotation_parameter.get_parameter_id] = bone_rotation_quaternion
 
-        # Adding to the SceneCharacterObject a new Parameter for each bone, in order to control its position
+        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its position
         for bone in self.armature_obj_pose_bones:
             # finding root bone for hierarchy traversal
             if not bone.parent:
@@ -112,7 +113,7 @@ class SceneCharacterObject(SceneObject):
         # Look for the object assigned to the blender property in the scene
         path_ID = -1
         for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-            if obj == self.editable_object.get("Control Path"):
+            if obj == self.blender_object.get("Control Path"):
                 path_ID = i
                 break
         # If the Object is in the Scene, create a new Parameter and save the object_ID of the Control path Object in it
@@ -182,12 +183,12 @@ class SceneCharacterObject(SceneObject):
                     break
 
             if path_ID >= 0:
-                self.parameter_list[-1] = Parameter(value=path_ID, name=self.editable_object.name+"-control_path", parent_object=self)
+                self.parameter_list[-1] = Parameter(value=path_ID, name=self.blender_object.name+"-control_path", parent_object=self)
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
         # Retrieve the character object's armature on which to apply the animation data
-        target_character_obj: bpy.types.Armature = self.editable_object
+        target_character_obj: bpy.types.Armature = self.blender_object
         # Clear the timeline from the old animation if there is one or initialise the data structure if there isn't one yet
         if target_character_obj.animation_data == None:
             target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")

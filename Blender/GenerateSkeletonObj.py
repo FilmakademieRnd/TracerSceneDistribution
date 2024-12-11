@@ -34,7 +34,7 @@ individual license agreement.
 '''
 
 import bpy
-from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object

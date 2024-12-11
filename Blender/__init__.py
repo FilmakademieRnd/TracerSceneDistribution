@@ -37,8 +37,8 @@ bl_info = {
     "name" : "TRACER for Blender",
     "author" : "Tonio Freitag, Alexandru Schwartz, Francesco Andreussi",
     "description" : "",
-    "blender" : (4, 1, 1),
-    "version" : (1, 0, 0),
+    "blender" : (4, 2, 1),
+    "version" : (1, 5, 0),
     "location" : "VIEW3D",
     "warning" : "",
     "category" : "Animationsinstitut"
@@ -55,7 +55,7 @@ from .tools import draw_pointer_numbers_callback
 from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
-from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
+from .SceneObjects.SceneObjectCharacter import ReportReceivedAnimation
 
 # Imported classes to register
 classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,

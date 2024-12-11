@@ -41,7 +41,7 @@ import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
 from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
-from .SceneObjects import SceneCharacterObject
+from .SceneObjects import SceneObjectCharacter
 
 # Checking for ZMQ package installation
 def check_ZMQ():
@@ -349,11 +349,10 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
 def add_point(anim_path, pos=-1, after=True):
     report_type = {'INFO'}
     report_string = "New Control Point added to TRACER Scene"
-    spawn_proportional_offset = mathutils.Vector((0, -1.5, 0))
+    spawn_offset = mathutils.Vector((0, -bpy.context.scene.tracer_properties.new_control_point_pos_offset, 0))
 
     # Calculate offset proportionally to the dimensions of the mesh of the pointer (Control Point) object and in relation to the rotation of the PREVIOUS control point
     base_rotation = anim_path["Control Points"][pos].rotation_euler
-    spawn_offset = anim_path["Control Points"][pos].dimensions * spawn_proportional_offset
     spawn_offset = spawn_offset if after else spawn_offset * -1  # flipping the offset so that the point gets spawned behind the selected one (if after == False)
     spawn_offset.rotate(base_rotation)
     # Create new point, place it next to the CURRENTLY SELECTED point, and select it
@@ -368,10 +367,26 @@ def add_point(anim_path, pos=-1, after=True):
 
     if len(anim_path["Control Points"]) > 0:
         # If Control Path is already populated
+        # Set Frame Value
+        frame_offset = bpy.context.scene.tracer_properties.new_control_point_frame_offset
+        if pos >= 0 and after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        elif pos >= 0 and not after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] - frame_offset
+            new_point['Frame'] = new_frame_value if new_frame_value >= 0 else 0
+        elif pos == -1 and after:
+            cp = anim_path["Control Points"][-1]
+            new_frame_value = anim_path["Control Points"][-1]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        else:
+            new_point['Frame'] = 0
+
         # Append it to the list of Control Points of that path
         control_points = anim_path["Control Points"]
         control_points.append(new_point)
         anim_path["Control Points"] = control_points
+            
         # If the position is not -1 (i.e. end of list), move the point to the correct position
         if pos >= 0:
             # If inserting AFTER the current point, move to the next position (pos+1), otherwise inserting at the position of the current point, which will be moved forward as a result  
