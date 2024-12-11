@@ -41,7 +41,7 @@ import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
 from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
-from .SceneObjects import SceneCharacterObject
+from .SceneObjects import SceneObjectCharacter
 
 # Checking for ZMQ package installation
 def check_ZMQ():

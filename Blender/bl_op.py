@@ -46,7 +46,7 @@ from bpy.app.handlers import persistent
 
 from .settings import TracerData, TracerProperties
 from .SceneObjects.SceneObject import SceneObject
-from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 from .AbstractParameter import Parameter, AnimHostRPC
 from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
 from .tools import clean_up_tracer_data, install_ZMQ, check_ZMQ, setup_tracer_collection, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
@@ -583,7 +583,7 @@ class AnimationRequest(bpy.types.Operator):
 
                 # Getting the Scene Character Object corresponding to the selected Blender Character in the Scene
                 if bpy.data.objects[character_name].tracer_id < len(tracer_data.SceneObjects):
-                    tracer_character_object: SceneCharacterObject = tracer_data.SceneObjects[bpy.data.objects[character_name].tracer_id]
+                    tracer_character_object: SceneObjectCharacter = tracer_data.SceneObjects[bpy.data.objects[character_name].tracer_id]
                     # Ensure that the ID of the Control Path associated with the selected Character is up to date
                     tracer_character_object.update_control_path_id()
 

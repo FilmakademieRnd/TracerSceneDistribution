@@ -44,10 +44,11 @@ from mathutils import Vector, Quaternion
 from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter
 from .SceneObjects.SceneObject import SceneObject, NodeTypes
+from .SceneObjects.SceneObjectMesh import SceneObjectMesh
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight, LightTypes
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
-from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 #from .Avatar_HumanDescription import blender_to_unity_bone_mapping
 
 
@@ -139,10 +140,13 @@ def gather_scene_data():
         return 0
     
 
-def get_object_list():
+def get_object_list() -> list[bpy.types.Object]:
     parent_object_name = "TRACER Scene Root"
-    parent_object = bpy.data.objects.get(parent_object_name)
-    return parent_object.children_recursive
+    parent_object: bpy.types.Object = bpy.data.objects.get(parent_object_name)
+    if parent_object:
+        return parent_object.children_recursive
+    else:
+        return []
     
 ## Process and store a scene object
 #
@@ -562,7 +566,11 @@ def process_editable_objects(obj, index):
             else:
                 tracer_data.SceneObjects.append(SceneObjectLight(obj))
         elif obj.type == 'ARMATURE':
-            tracer_data.SceneObjects.append(SceneCharacterObject(obj))
+            tracer_data.SceneObjects.append(SceneObjectCharacter(obj))
+        # elif obj.type == 'MESH':
+        #     tracer_data.SceneObjects.append(SceneObjectMesh(obj))
+        # elif obj.type == 'EMPTY':
+        #     tracer_data.SceneObjects.append(SceneObject(obj))
         else:
             tracer_data.SceneObjects.append(SceneObject(obj))
 

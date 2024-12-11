@@ -381,10 +381,10 @@ class Parameter(AbstractParameter):
                 case TRACERParamType.VECTOR4.value:
                     value = self.value
                 case TRACERParamType.QUATERNION.value:
-                    self.parent_object.editable_object.rotation_mode = 'QUATERNION'
+                    self.parent_object.blender_object.rotation_mode = 'QUATERNION'
                     quat: Quaternion = self.value
                     value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.editable_object.rotation_mode = 'XYZ'
+                    self.parent_object.blender_object.rotation_mode = 'XYZ'
                 case _:
                     value = self.value
 
