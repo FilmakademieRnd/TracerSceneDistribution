@@ -38,6 +38,7 @@ import time
 
 from mathutils import Vector, Euler
 from .settings import TracerData
+from .bl_op import DoDistribute
 
 # Called at DoDistribute Operator in bl_op.py
 class RealTimeUpdaterOperator(bpy.types.Operator):
@@ -50,13 +51,21 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     def modal(self, context, event):
         if event.type == 'TIMER':
             self.check_for_updates(context)
+        
+        if not DoDistribute.is_distributed:
+            return {'CANCELLED'}
+        
         return {'PASS_THROUGH'}
 
     def execute(self, context):
         wm = context.window_manager
-        tracer_collection = bpy.data.collections.get("TRACER_Collection")
+        tracer_collection: bpy.types.Collection = bpy.data.collections.get("TRACER_Collection")
         self.start_transforms = {}
         self.tracer_data = bpy.context.window_manager.tracer_data
+
+        if not tracer_collection:
+            return {'CANCELLED'}
+
         for obj in tracer_collection.objects:
             # Common properties for all objects
             self.add_to_listening(obj)
@@ -88,7 +97,6 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
     ### Function called at a regular interval to check for updates in the Scene w.r.t. the values in TRACER
     def check_for_updates(self, context):
-        #print("Update!")
         tracer_collection: bpy.types.Collection = bpy.data.collections.get("TRACER_Collection")
         tracer_objects = tracer_collection.objects
         for obj in tracer_objects:
@@ -104,18 +112,18 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             # Compare the current transform with the starting one
             if (obj.location - start_loc).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object:
+                    if obj == scene_obj.blender_object:
                         scene_obj.parameter_list[0].set_value(obj.location)
 
             rotation_difference = (start_rot.to_matrix().inverted() @ obj.rotation_euler.to_matrix()).to_euler()
             if any(abs(value) > 0.0001 for value in rotation_difference):
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object:
+                    if obj == scene_obj.blender_object:
                         scene_obj.parameter_list[1].set_value(obj.rotation_quaternion)
 
             if (obj.scale - start_scl).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object:
+                    if obj == scene_obj.blender_object:
                         scene_obj.parameter_list[2].set_value(obj.scale)
 
             if obj.type == 'LIGHT':
@@ -123,12 +131,12 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 if RealTimeUpdaterOperator.color_difference(obj.data.color, start_color) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object:
+                        if obj == scene_obj.blender_object:
                             scene_obj.parameter_list[3].set_value(obj.data.color)
 
                 if abs(obj.data.energy - start_energy) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object:
+                        if obj == scene_obj.blender_object:
                             scene_obj.parameter_list[4].set_value(obj.data.energy)
 
         # Additional checks for cameras
@@ -137,17 +145,17 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 if abs(obj.data.angle - start_angle) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object:
+                        if obj == scene_obj.blender_object:
                             scene_obj.parameter_list[3].set_value(obj.data.angle)
 
                 if abs(obj.data.clip_start - start_clip_start) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object:
+                        if obj == scene_obj.blender_object:
                             scene_obj.parameter_list[4].set_value(obj.data.clip_start)
 
                 if abs(obj.data.clip_end - start_clip_end) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object:
+                        if obj == scene_obj.blender_object:
                             scene_obj.parameter_list[5].set_value(obj.data.clip_end)
 
 

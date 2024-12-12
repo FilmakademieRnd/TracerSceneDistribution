@@ -37,8 +37,8 @@ bl_info = {
     "name" : "TRACER for Blender",
     "author" : "Tonio Freitag, Alexandru Schwartz, Francesco Andreussi",
     "description" : "",
-    "blender" : (4, 1, 1),
-    "version" : (1, 0, 0),
+    "blender" : (4, 2, 1),
+    "version" : (1, 5, 0),
     "location" : "VIEW3D",
     "warning" : "",
     "category" : "Animationsinstitut"
@@ -47,41 +47,21 @@ bl_info = {
 from typing import Set
 import bpy
 import os
-from .bl_op import DoDistribute
-from .bl_op import StopDistribute
-from .bl_op import SetupScene
-from .bl_op import InstallZMQ
-from .bl_op import SetupCharacter
-from .bl_op import MakeEditable
-from .bl_op import ParentToRoot
-from .bl_op import AddPath
-from .bl_op import AddPointAfter
-from .bl_op import AddPointBefore
-from .bl_op import FKIKToggle
-from .bl_op import ControlPointProps
-from .bl_op import ControlPointSelect
-from .bl_op import EditControlPointHandle
-from .bl_op import UpdateCurveViz
-from .bl_op import EvaluateSpline
-from .bl_op import AnimationRequest
-from .bl_op import AnimationSave
-from .bl_op import InteractionListener
-from .bl_op import ToggleAutoUpdate
-from .bl_op import SendRpcCall
-from .bl_panel import TRACER_PT_Panel
-from .bl_panel import TRACER_PT_Anim_Path_Panel
-from .bl_panel import TRACER_PT_Control_Points_Panel
-from .bl_panel import TRACER_PT_Anim_Path_Menu
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, InteractionListener, SendRpcCall,\
+                    AddPath, AddPointAfter, AddPointBefore, ToggleAutoUpdate, UpdateCurveViz, EvaluateSpline, ControlPointProps, ControlPointSelect, EditControlPointHandle,\
+                    AnimationRequest, AnimationSave
+from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
 from .tools import draw_pointer_numbers_callback
 from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
-from .SceneObjects.SceneCharacterObject import ReportReceivedAnimation
+from .SceneObjects.SceneObjectCharacter import ReportReceivedAnimation
 
 # Imported classes to register
-classes = (DoDistribute, StopDistribute, SetupScene, TRACER_PT_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
-           SetupCharacter, MakeEditable, ParentToRoot, AddPath, AddPointAfter, AddPointBefore, FKIKToggle, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
-           AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
+classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
+            DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
+            SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, AddPath, AddPointAfter, AddPointBefore, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
+            AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
 
 # Container for font information (id and handler object) for drawing text
 font_info = {
@@ -116,8 +96,8 @@ def register():
     bpy.app.handlers.depsgraph_update_post.append(UpdateCurveViz.on_delete_update_handler)  # Adding auto update handler for the animation path. Called any time the scene graph is updated
     bpy.app.handlers.depsgraph_update_post.append(ControlPointProps.update_property_ui)     # Adding auto update handler for the collection of control point properties. Called any time the scene graph is updated
     
-    bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
-    bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)
+    #bpy.app.handlers.load_post.append(InteractionListener.invoke)                           # Re-starting the Interacion Listener every time a new blender scene-file is loaded
+    #bpy.app.handlers.load_factory_startup_post.append(InteractionListener.invoke)
 
     # set the font drawing routine to run every frame
     font_info["handler"] = bpy.types.SpaceView3D.draw_handler_add(draw_pointer_numbers_callback, (font_info["font_id"], font_info["handler"]), 'WINDOW', 'POST_PIXEL')

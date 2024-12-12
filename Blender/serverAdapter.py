@@ -91,7 +91,11 @@ def set_up_thread():
 
     bpy.app.timers.register(read_thread)
     
-    bpy.utils.register_class(TimerModalOperator)
+    if hasattr(bpy.types, 'WM_OT_timer_modal_operator'):
+        print("Timer Modal Operator already registered")
+    else:
+        bpy.utils.register_class(TimerModalOperator)
+    
     bpy.ops.wm.timer_modal_operator()
 
     tracer_data.socket_u = tracer_data.ctx.socket(zmq.PUB)
@@ -123,7 +127,6 @@ def read_thread():
         if tracer_data.socket_d in sockets:
             # Receive message
             msg = tracer_data.socket_d.recv_string()
-            #print(msg) # debug
             # Classify message
             if msg == "header":
                 print("Header request! Sending...")
@@ -146,10 +149,10 @@ def read_thread():
                 print("Materials request! Sending...")
                 if(tracer_data.materialsByteData != None):
                     tracer_data.socket_d.send(tracer_data.materialsByteData)
-            elif msg == "curve":
-                print("curve request! Sending...")
-                if(tracer_data.curvesByteData != None):
-                    tracer_data.socket_d.send(tracer_data.curvesByteData)
+            #elif msg == "curve":
+            #    print("curve request! Sending...")
+            #    if(tracer_data.curvesByteData != None):
+            #        tracer_data.socket_d.send(tracer_data.curvesByteData)
             else: # sent empty
                 tracer_data.socket_d.send_string("")
     return 0.1 # repeat every .1 second
@@ -179,7 +182,6 @@ def listener():
         client_ID   = msg[0]
         msg_time    = msg[1]
         msg_type    = msg[2]
-        #print(type)
         
         if msg_type == MessageType.SYNC.value:
             process_sync_msg(msg)
@@ -188,8 +190,6 @@ def listener():
             start = 3
 
             while start < len(msg):
-                # for i in range(3,13):
-                #     print(struct.unpack('B', msg[i:i+1])[0])
                 if msg_type == MessageType.LOCK.value:
                     last_index = process_lock_msg(msg, start)
                     start = last_index
@@ -288,7 +288,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
             param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
-            if param.get_size() < length-10:
+            if not param.is_animated and param.get_size() < length-10:
                 param.init_animation()
 
             param.deserialize(msg_payload)
@@ -305,12 +305,16 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 
 def send_RPC_msg(rpc_parameter: Parameter):
+    #TODO: use new scene and object to hold AnimHost RPC Parameters (which will trigger RPC calls)
+    scene_id    = 255   if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+    object_id   = 1     if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+
     tracer_data.ParameterUpdateMSG = bytearray([])
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.RPC.value))                 # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', 255))                                   # scene ID (not assigned to a specific scene - for AnimHost)
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', 1))                                     # object ID (not assigned to a specific object)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', scene_id))                              # scene ID (not assigned to a specific scene - for AnimHost)
+    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', object_id))                             # object ID (not assigned to a specific object)
     tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', rpc_parameter.get_parameter_id()))      # parameter/call ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', rpc_parameter.get_tracer_type()))       # parameter type
     length = 10 + rpc_parameter.get_data_size()
@@ -326,6 +330,8 @@ def process_RPC_msg(msg: bytearray, start=0):
     param_type  = struct.unpack( 'B', msg[start+5 : start+6 ])[0]
     length      = struct.unpack('<I', msg[start+6 : start+10])[0] # unpack length of parameter data; 4 bytes (uint); little endian (includes the header bytes)
     start =+ length
+
+    # Do something with the information:)
 
     return start
 

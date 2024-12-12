@@ -32,30 +32,42 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-
+import bpy
 import functools
 import math
-from enum import Enum
+import struct
 from ..AbstractParameter import Parameter
-from .SceneObjectLight import SceneObjectLight
+from .SceneObjectLight import SceneObjectLight, LightTypes
 from ..serverAdapter import send_parameter_update
-
-class LightTypes(Enum):
-    SPOT    = 1
-    SUN     = 2
-    POINT   = 3
-    AREA    = 4
 
 class SceneObjectSpotLight(SceneObjectLight):
     def __init__(self, obj):
         super().__init__(obj)
+
         range = Parameter(1, "Range", self)
         spot_angle = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
         spot_angle.parameter_handler.append(functools.partial(self.update_spot_angle, spot_angle))
 
     def update_spot_angle(self, parameter, new_value):
         if self.network_lock == True:
-            self.editable_object.data.spot_size = new_value
+            self.blender_object.data.spot_size = new_value
         else:
             send_parameter_update(parameter)
 
+    def serialise(self):
+        light_byte_array = super().serialise()
+
+        spot_light_data: bpy.types.SpotLight = self.blender_object.data
+
+        # Light Type
+        light_byte_array.extend(struct.pack('i', LightTypes.SPOT.value))
+        # Light Intensity
+        light_byte_array.extend(struct.pack('f', spot_light_data.energy/100.0))
+        # Light Angle
+        light_byte_array.extend(struct.pack('f', math.degrees(spot_light_data.spot_size)))
+        # Light Range (always 10 because blender does not define it)
+        light_byte_array.extend(struct.pack('f', 10))
+        # Light Colour
+        light_byte_array.extend(struct.pack('3f', spot_light_data.color))
+
+        return light_byte_array

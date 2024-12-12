@@ -34,8 +34,7 @@ individual license agreement.
 '''
 
 import bpy
-from .SceneObjects.SceneCharacterObject import SceneCharacterObject
-from mathutils import Vector, Matrix
+from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
@@ -62,27 +61,17 @@ def process_armature(armature):
     for bone in armature.pose.bones:
         if not bone.parent:
             root_bone = bone
-            print(root_bone)
             break
 
     # Check if the active object is an armature and whehter it has already been processed previously 
     if armature and armature.type == 'ARMATURE' and not was_already_processed(root_bone):
         
         # Adding character-specific Properties to the Blender Armature Object to set up. This allows the character to be steered on the Control Path and its animation to be edited using the Control Rig 
-        if not armature.get("IK_FK_Switch"):
-            armature["IK_FK_Switch"] = 0
-        if not armature.get("Control Path"):
-            armature["Control Path"]: bpy.props.PointerProperty(type=bpy.types.Object, name='Control Path', description='The Control Path used to guide the Character Locomotion',\
-                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'},\
-                                                                poll=SceneCharacterObject.is_control_path, update=SceneCharacterObject.refresh_control_path)
-            armature["Control Path"] = bpy.data.objects["AnimPath"]     if "AnimPath"     in bpy.data.objects else None
-            armature.property_overridable_library_set('["Control Path"]', True)
+        if not armature.get("IK-Flag"):
+            armature["IK-Flag"] = False
 
-        if not armature.get("Control Rig"):
-            armature["Control Rig"]:  bpy.props.PointerProperty(type=bpy.types.Object, name='Control Rig',  description='The Control Rig used to control the character when designing/editing a new animation',\
-                                                                options={'LIBRARY_EDITABLE'}, override={'LIBRARY_OVERRIDABLE'})
-            armature["Control Rig"]  = bpy.data.objects["RIG-Armature"] if "RIG-Armature" in bpy.data.objects else None
-            armature.property_overridable_library_set('["Control Rig"]',  True)
+        if not armature.get("TRACER-Editable"):
+            armature["TRACER-Editable"] = bpy.context.scene.tracer_properties.character_editable_flag
 
         # Forcing update visualisation of Property Panel
         for area in bpy.context.screen.areas:
@@ -102,46 +91,35 @@ def process_armature(armature):
         
         if root_bone:
             # Create empty object for the root bone
-            #root_bone_m4 = armature.matrix_local @ root_bone.bone.matrix_local
-
-            root_to_u = armature.matrix_world
-
-        
-    
-            root_bone_m4 = root_bone.bone.matrix_local
-
-
-            empty_root = create_empty(root_bone.name, root_bone_m4.to_translation() , root_bone_m4.to_quaternion(),  Vector((1.0,1.0,1.0)), None)
+            empty_root = create_empty(root_bone.name, armature.matrix_world @ root_bone.head, root_bone.rotation_quaternion, root_bone.scale, None)
             empty_objects = {root_bone.name: empty_root}
             
-            # Parent the root empty to the armaturess
+            # Parent the root empty to the armature
             empty_root.parent = armature
             
             # Add root bone data to the list
             bone_data = {
                 'name': root_bone.name,
                 'parent': None,
-                'location': root_bone_m4.to_translation(),
-                'rotation': root_bone_m4.to_quaternion(),
-                'scale': Vector((1.0,1.0,1.0))
+                'location': armature.matrix_world @ root_bone.head,
+                'rotation': root_bone.rotation_quaternion,
+                'scale': root_bone.scale
             }
             bone_data_list.append(bone_data)
         
             # Iterate through each bone (excluding the root bone)
             for bone in armature.pose.bones:
                 if bone != root_bone:
-                    bone_matrix_global = bone.bone.matrix_local
-                    #bone_matrix_global = bone.bone.matrix_local
+                    bone_matrix_global = armature.matrix_world @ bone.matrix
                     bone_location_global = bone_matrix_global.to_translation()
                     bone_rotation_global = bone_matrix_global.to_quaternion()
-                    bone_scale_global = bone_matrix_global.to_scale()
 
                     bone_data = {
                         'name': bone.name,
                         'parent': bone.parent,
                         'location': bone_location_global,
                         'rotation': bone_rotation_global,
-                        'scale': Vector((1.0,1.0,1.0))
+                        'scale': bone.scale
                     }
                     bone_data_list.append(bone_data)
         
@@ -172,16 +150,18 @@ def process_armature(armature):
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')
             select_hierarchy(empty_root)
-            switch_collection()
+            switch_collection(bpy.context.selected_objects)
         else:
             bpy.ops.object.select_all(action='DESELECT')
             armature.select_set(True)
-            parent_to_root()
+            parent_to_root([armature])
 
+        for empty in empty_objects.values():
+            empty.hide_set(True)
 
     else:
         if was_already_processed(root_bone):
-            print("The Character has already been processed")
+            bpy.context.window.modal_operators[-1].report({'WARNING'}, "The Character has already been processed")
         else:
-            print("Active object is not an armature or no armature is selected.")
+            bpy.context.window.modal_operators[-1].report({'WARNING'}, "Active object is not an armature or no armature is selected.")
 

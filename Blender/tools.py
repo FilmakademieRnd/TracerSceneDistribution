@@ -41,7 +41,7 @@ import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
 from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
-from .SceneObjects import SceneCharacterObject
+from .SceneObjects import SceneObjectCharacter
 
 # Checking for ZMQ package installation
 def check_ZMQ():
@@ -63,6 +63,13 @@ def get_rna_ui():
 ## Create Collections that will contain every TRACER object
 def setup_tracer_collection():
     tracer_props = bpy.context.scene.tracer_properties
+
+    current_mode = ''
+    if bpy.context.active_object:
+        # Get current mode
+        current_mode = str(bpy.context.active_object.mode)
+        if current_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Force OBJECT mode
     
     # Check if the collection exists. If not, create it and link it to the scene.
     tracer_collection = bpy.data.collections.get(tracer_props.tracer_collection)
@@ -70,20 +77,29 @@ def setup_tracer_collection():
         tracer_collection = bpy.data.collections.new(tracer_props.tracer_collection)
         bpy.context.scene.collection.children.link(tracer_collection)
 
-    # Check if the "TRACER SceneRoot" object already exists. If not, create it and link it to the collection.
+    # Check if the "TRACER Scene Root" object already exists. If not, create it and link it to the collection.
     root = bpy.context.scene.objects.get('TRACER Scene Root')
     if root is None:
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
         bpy.context.active_object.name = 'TRACER Scene Root'
         root = bpy.context.active_object
-        for coll in bpy.context.scene.collection.children:
+        if root.name not in bpy.context.scene.collection.objects:
+            bpy.context.scene.collection.objects.link(root)
+        # Unlinking object from ALL collections
+        for coll in bpy.data.collections:
             if root.name in coll.objects:
                 coll.objects.unlink(root)
+        
         tracer_collection.objects.link(root)
+        if root.name in bpy.context.scene.collection.objects:
+            bpy.context.scene.collection.objects.unlink(root)
     else:
         # Check if the "TRACER Scene Root" object is already linked to the collection. If not link it.
         if not root.name in tracer_collection.objects:
             tracer_collection.objects.link(root)
+    
+    if current_mode != '' and current_mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Revert mode to previous one
 
 # Clearing all the data structures containg TRACER-Related data
 def clean_up_tracer_data(level):
@@ -147,23 +163,22 @@ def install_ZMQ():
 
 # Selecting the hierarchy of all the objects seen by TRACER  
 def select_hierarchy(obj):
-    def select_children(obj):
-        obj.select_set(True)
-        for child in obj.children:
-            select_children(child)
-
     # Deselect all objects first
     bpy.ops.object.select_all(action='DESELECT')
 
     # If obj is a single object
     if isinstance(obj, bpy.types.Object):
         bpy.context.view_layer.objects.active = obj
-        select_children(obj)
+        obj.select_set(True)
+        for child in obj.children_recursive:
+            child.select_set(True)
+            
     # If obj is a list of objects
-    elif isinstance(obj, list):
-        bpy.context.view_layer.objects.active = obj[0]  # Set the first object as the active object
+    elif isinstance(obj, list[bpy.types.Object]):
         for o in obj:
-            select_children(o)
+            o.select_set(True)
+            for child in o.children_recursive:
+                child.select_set(True)
     else:
         print("Invalid object type provided.")
 
@@ -175,23 +190,42 @@ def get_current_collections(obj: bpy.types.Object) -> list[str]:
     return current_collections
     
 # Makes the TRACER Scene Root object the parent of every currently selected object
-def parent_to_root():
-    selected_objects =  bpy.context.selected_objects
+def parent_to_root(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
     parent_object_name = "TRACER Scene Root"
-    parent_object = bpy.data.objects.get(parent_object_name)
+    parent_object: bpy.types.Object = bpy.data.objects.get(parent_object_name)
+    collection: bpy.types.Collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
 
-    if parent_object is None:
-        setup_tracer_collection()
-        parent_object = bpy.data.objects.get(parent_object_name)
+    if parent_object is None or collection is None:
+        report_type = {'ERROR'}
+        report_string = "Set up the TRACER Scene components first"
+        return (report_type, report_string)
 
-    for obj in selected_objects:
+    for obj in objs:
         # Check if the object is not the parent object itself
         if obj != parent_object:
             # Set the parent of the selected object to the parent object
             obj.parent = parent_object
             obj.matrix_parent_inverse = parent_object.matrix_world.inverted()
-            select_hierarchy(selected_objects)
-            switch_collection()
+            for coll in obj.users_collection:
+                coll.objects.unlink(obj)
+            # Link the object to the new collection
+            collection.objects.link(obj)
+            switch_collection(obj.children_recursive)
+
+def switch_collection(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
+    collection_name = bpy.context.scene.tracer_properties.tracer_collection  # Specify the collection name
+    collection = bpy.data.collections.get(collection_name)
+    if collection is None:
+        report_type = {'ERROR'}
+        report_string = "Set up the TRACER Scene components first"
+        return (report_type, report_string)
+                    
+    for obj in objs:
+        for coll in obj.users_collection:
+            coll.objects.unlink(obj)
+
+        # Link the object to the new collection
+        collection.objects.link(obj)
 
 '''
 ----------------------BEGIN FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------
@@ -224,6 +258,7 @@ def add_path(path_name: str) -> tuple[set[str], str]:
         anim_path = bpy.data.objects.new(path_name, bpy.data.meshes["Sphere"])
         bpy.data.collections["TRACER_Collection"].objects.link(anim_path)  # Add anim_prev to the scene
         anim_path.parent = bpy.data.objects["TRACER Scene Root"]
+        bpy.context.scene.tracer_properties.control_path_name = anim_path.name
 
     if len(anim_path.children) == 0:
         # Create default control point in the origin 
@@ -271,7 +306,6 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
     # Check whether a mesh called "Pointer" is already present in the blender data
     if "Pointer" in bpy.data.meshes:
         # If yes, retrieve such mesh and modify its vertices to create an isosceles triangle
-        print("Pointer mesh found")
         ptr_mesh = bpy.data.meshes["Pointer"]
     else:
         # If not, create a new mesh with the geometry data defined above
@@ -315,11 +349,10 @@ def make_point(spawn_location = (0, 0, 0), name = "Pointer"):
 def add_point(anim_path, pos=-1, after=True):
     report_type = {'INFO'}
     report_string = "New Control Point added to TRACER Scene"
-    spawn_proportional_offset = mathutils.Vector((0, -1.5, 0))
+    spawn_offset = mathutils.Vector((0, -bpy.context.scene.tracer_properties.new_control_point_pos_offset, 0))
 
     # Calculate offset proportionally to the dimensions of the mesh of the pointer (Control Point) object and in relation to the rotation of the PREVIOUS control point
     base_rotation = anim_path["Control Points"][pos].rotation_euler
-    spawn_offset = anim_path["Control Points"][pos].dimensions * spawn_proportional_offset
     spawn_offset = spawn_offset if after else spawn_offset * -1  # flipping the offset so that the point gets spawned behind the selected one (if after == False)
     spawn_offset.rotate(base_rotation)
     # Create new point, place it next to the CURRENTLY SELECTED point, and select it
@@ -332,13 +365,28 @@ def add_point(anim_path, pos=-1, after=True):
         report_type = {'ERROR'}
         report_string = "AnimPath has to ONLY be part of TRACER_Collection"
 
-    print("Number of Control Points " + str(len(anim_path["Control Points"])))
     if len(anim_path["Control Points"]) > 0:
         # If Control Path is already populated
+        # Set Frame Value
+        frame_offset = bpy.context.scene.tracer_properties.new_control_point_frame_offset
+        if pos >= 0 and after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        elif pos >= 0 and not after:
+            new_frame_value = anim_path["Control Points"][pos]['Frame'] - frame_offset
+            new_point['Frame'] = new_frame_value if new_frame_value >= 0 else 0
+        elif pos == -1 and after:
+            cp = anim_path["Control Points"][-1]
+            new_frame_value = anim_path["Control Points"][-1]['Frame'] + frame_offset
+            new_point['Frame'] = new_frame_value
+        else:
+            new_point['Frame'] = 0
+
         # Append it to the list of Control Points of that path
         control_points = anim_path["Control Points"]
         control_points.append(new_point)
         anim_path["Control Points"] = control_points
+            
         # If the position is not -1 (i.e. end of list), move the point to the correct position
         if pos >= 0:
             # If inserting AFTER the current point, move to the next position (pos+1), otherwise inserting at the position of the current point, which will be moved forward as a result  
@@ -356,9 +404,6 @@ def add_point(anim_path, pos=-1, after=True):
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
 
-    # Checking list of Control Points
-    print("Control Points:" + str(anim_path["Control Points"]))
-
     # Trigger Path Updating
     update_curve(anim_path)
 
@@ -372,7 +417,6 @@ def add_point(anim_path, pos=-1, after=True):
 def get_pos_name(pos):
     suffix = ""
     if pos < 0:
-        print("move_point doesn't take negative positions")
         return
     elif pos == 0:
         suffix = ""
@@ -386,7 +430,6 @@ def get_pos_name(pos):
 
 ### Function to move a Control Point in the Control Path, given the point to move and the position it should take up
 def move_point(point, new_pos):
-    print("Moving " + point.name + " to position " + str(new_pos))
     # Get the current position of the active object
     point_pos = point.parent["Control Points"].index(point)
     if new_pos == point_pos:
@@ -395,31 +438,17 @@ def move_point(point, new_pos):
             point.parent["Control Points"][i].name = get_pos_name(i)
     if new_pos <  point_pos:
         # Move the elements after the new position forward by one and insert the active object at new_pos
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
         for i in range(new_pos, point_pos+1):
-            print("Control Point " + point.parent["Control Points"][i].name + " to position " + str(i+1))
             if (i+1) < len(point.parent["Control Points"]):
                 point.parent["Control Points"][i+1].name = "tmp"
             point.parent["Control Points"][i].name = get_pos_name(i+1)
-            for i in range(len(point.parent["Control Points"])):
-                print(point.parent["Control Points"][i].name)
         point.name = get_pos_name(new_pos)
-        for i in range(len(point.parent["Control Points"])):
-            print(point.parent["Control Points"][i].name)
     if new_pos  > point_pos:
         # Move the elements before the new position backward by one and insert the active object at new_pos
         point.name = "tmp"
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
         for i in range(point_pos+1, new_pos+1):
-            #print("Control Point " + point.parent["Control Points"][i].name + " to position " + str(i-1))  #! Debug print
             point.parent["Control Points"][i].name = get_pos_name(i-1)
-            #for i in range(len(point.parent["Control Points"])):   #! Debug print
-            #    print(point.parent["Control Points"][i].name)
         point.name = get_pos_name(new_pos)
-        #for i in range(len(point.parent["Control Points"])):   #! Debug print
-        #    print(point.parent["Control Points"][i].name)
     # Evaluate the curve, given the new ordrering of the Control Points
     update_curve(point.parent)
 
@@ -440,12 +469,11 @@ def path_points_check(anim_path):
     anim_path["Control Points"] = control_points
 
 ### Update Curve takes care of updating the AnimPath representation according to the modifications made by the user using the blender UI
-def update_curve(anim_path):
+def update_curve(anim_path: bpy.types.Object):
     # Deselect all selected objects
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
 
-    #print("Number of Control Points for the spline " + str(len(control_points)))
     path_points_check(anim_path)
 
     # Create Control Path from control_points elements
@@ -463,6 +491,12 @@ def update_curve(anim_path):
         bezier_point.handle_right_type = cp.get("Right Handle Type")
         if cp.get("Right Handle Type") != "AUTO":                                                           # do the same for both handles:)
             bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location
+
+    # Deleting old Curve completely form Blender
+    if anim_path.children[0].name == "Control Path":
+        old_path: bpy.types.Object = anim_path.children[0]
+        old_path.select_set(True)
+        bpy.ops.object.delete()
 
     control_path = bpy.data.objects.new('Control Path', bezier_curve_obj)                                   # Create a new Control Path Object with the geometry data of the Bézier Curve
     if len(anim_path.users_collection) == 1 and anim_path.users_collection[0].name == "TRACER_Collection":
@@ -491,34 +525,22 @@ def draw_pointer_numbers_callback(font_id, font_handler):
                 offset_3d.rotate(cp.rotation_euler)
                 anchor_3d_pos = cp.location + offset_3d + anim_path.location
                 # Getting the corresponding 2D viewport location of the 3D location of the control point
-                txt_x, txt_y = bpy_extras.view3d_utils.location_3d_to_region_2d(
+                txt_coords: mathutils.Vector = bpy_extras.view3d_utils.location_3d_to_region_2d(
                     bpy.context.region,
                     bpy.context.space_data.region_3d,
                     anchor_3d_pos)
-            
-                # Setting text position, size, colour (white)
-                blf.position(font_id,
-                             txt_x,
-                             txt_y,
-                             0)
-                blf.size(font_id, 30.0)
-                blf.color(font_id, 1, 1, 1, 1)
-                # Writing text (the number relative to the position of the pointer in the list of control points in the path)
-                blf.draw(font_id, str(i))
+
+                if txt_coords != None:
+                    # Setting text position, size, colour (white)
+                    blf.position(font_id,
+                                 txt_coords.x,
+                                 txt_coords.y,
+                                 0)
+                    blf.size(font_id, 30.0)
+                    blf.color(font_id, 1, 1, 1, 1)
+                    # Writing text (the number relative to the position of the pointer in the list of control points in the path)
+                    blf.draw(font_id, str(i))
 
 '''
 ----------------------END FUNCTIONS RELATED TO THE CONTROL PATH-------------------------------
 '''
-
-def switch_collection():
-    collection_name = "TRACER_Collection"  # Specify the collection name
-    collection = bpy.data.collections.get(collection_name)
-    if collection is None:
-        setup_tracer_collection
-                    
-    for obj in bpy.context.selected_objects:
-        for coll in obj.users_collection:
-            coll.objects.unlink(obj)
-
-        # Link the object to the new collection
-        collection.objects.link(obj)

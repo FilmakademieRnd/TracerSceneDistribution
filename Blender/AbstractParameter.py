@@ -59,14 +59,6 @@ class KeyType(Enum):
     LINEAR  = 2
     BEZIER  = 3
 
-class NodeTypes(Enum):
-    GROUP       = 0
-    GEO         = 1
-    LIGHT       = 2
-    CAMERA      = 3
-    SKINNEDMESH = 4
-    CHARACTER   = 5
-
 class AnimHostRPC(Enum):
     STOP        = 0
     STREAM      = 1
@@ -123,15 +115,17 @@ class Key:
         return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
     
     def is_equal(self, other):
-        return (self.key_type               == other.key_type       and\
-                self.time                   == other.time           and\
-                self.value                  == other.value          and\
-                self.right_tangent_time     == other.right_tangent_time   and\
-                self.right_tangent_value    == other.right_tangent_value     )
+        return (self.key_type               == other.key_type               and\
+                self.time                   == other.time                   and\
+                self.value                  == other.value                  and\
+                self.right_tangent_time     == other.right_tangent_time     and\
+                self.left_tangent_time      == other.left_tangent_time      and\
+                self.right_tangent_value    == other.right_tangent_value    and\
+                self.left_tangent_value     == other.left_tangent_value     )
     
 class KeyList:
     __data: list[Key]
-    #has_changed: bool
+    has_changed: bool
 
     def __init__(self) -> None:
         self.__data = []
@@ -194,6 +188,9 @@ class KeyList:
 
 class AbstractParameter:
 
+    # PUBLIC STATIC variables
+    start_animhost_rpc_id = 0
+
     def __init__ (self, value, name: str, parent_object = None, distribute = True, is_RPC = False, is_animated = False):
         # Non-static class variables
         
@@ -203,9 +200,11 @@ class AbstractParameter:
         self.__type: TRACERParamType = self.get_tracer_type()
         # Paramter ID (private)
         self.__id: int = -1
-        if(parent_object):
+        if parent_object:
             self.__id = len(parent_object.parameter_list)
-            
+        elif is_RPC and parent_object == None:
+            self.__id = AbstractParameter.start_animhost_rpc_id
+            AbstractParameter.start_animhost_rpc_id += 1
         else:
             self.__id = 0
         # Parameter name
@@ -225,7 +224,8 @@ class AbstractParameter:
         # List of handlers that broadcast parameters updates when a parameter is changed
         self.parameter_handler: list[function] = []
 
-        print(f"Object {parent_object} new parameter {self.name} of type {self.__type} with id {str(self.__id)}")
+    def get_object_id(self):
+        return self.parent_object.object_id
 
     def get_parameter_id(self):
         return self.__id
@@ -316,13 +316,13 @@ class Parameter(AbstractParameter):
             return data_size
 
     def set_value(self, new_value):
-        
-        #self.parent_object.network_lock = True
-        if new_value != self.value:
-            self.has_changed = True
-            self.value = new_value.copy()
-            self.emit_has_changed()
-        #self.parent_object.network_lock = False
+        if not self.parent_object.network_lock:
+            self.parent_object.network_lock = True
+            if new_value != self.value:
+                self.has_changed = True
+                self.value = new_value.copy()
+                self.emit_has_changed()
+            self.parent_object.network_lock = False
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:
@@ -381,10 +381,10 @@ class Parameter(AbstractParameter):
                 case TRACERParamType.VECTOR4.value:
                     value = self.value
                 case TRACERParamType.QUATERNION.value:
-                    self.parent_object.editable_object.rotation_mode = 'QUATERNION'
+                    self.parent_object.blender_object.rotation_mode = 'QUATERNION'
                     quat: Quaternion = self.value
                     value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.editable_object.rotation_mode = 'XYZ'
+                    self.parent_object.blender_object.rotation_mode = 'XYZ'
                 case _:
                     value = self.value
 
@@ -423,9 +423,9 @@ class Parameter(AbstractParameter):
         value_bytes = msg_payload[0:data_size]
         self.set_value(self.deserialize_data(value_bytes))
 
-        #if self.is_animated:
-        #    # Reset has_changed flag bevore deserializing the keyframes
-        #    self.key_list.has_changed = False
+        if self.is_animated:
+            # Reset has_changed flag before deserializing the keyframes
+            self.key_list.has_changed = False
 
         if self.is_animated and msg_size > data_size:
             self.key_list.clear()
@@ -462,6 +462,8 @@ class Parameter(AbstractParameter):
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
+            
+            bpy.context.window.modal_operators[-1].report({'INFO'}, "New Animation Received!")
         
         # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
         if self.has_changed and not self.parent_object.network_lock:
@@ -491,12 +493,12 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR3.value:
                 vec3_val = Vector((struct.unpack('<3f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzy
+                return vec3_val.xyz
 
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzyw
+                return vec3_val.wxyz
 
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW
