@@ -36,8 +36,7 @@ individual license agreement.
 import bpy
 import json
 from .SceneObjects.SceneObject import SceneObject
-from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
-from .AbstractParameter import AnimHostRPC
+from .AbstractParameter import AnimHostRPC, Parameter
 
 ## Class to keep editable parameters
 class TracerProperties(bpy.types.PropertyGroup):
@@ -236,10 +235,15 @@ class TracerProperties(bpy.types.PropertyGroup):
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
     animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Request Mode', default='BLOCK')                                                                                                                                   # type: ignore
     slide_frames: bpy.props.BoolProperty(name='Slide Frames from Following Control Points', default=False)                                                                                                                                                                                   # type: ignore
+    
+    animation_request: Parameter
     # Future feature: Neural Network Parameters
     mix_root_translation: bpy.props.FloatProperty(name='Mix Root Translation', description='?', default=0.5, min=0, max=1)                                                                                                                                                         # type: ignore
+    mix_root_translation_param: Parameter
     mix_root_rotation: bpy.props.FloatProperty(name='Mix Root Rotation', description='?', default=0.5, min=0, max=1)                                                                                                                                                               # type: ignore
+    mix_root_rotation_param: Parameter
     mix_control_path: bpy.props.FloatProperty(name='Mix Control Path', description='?', default=1, min=0.000001, max=5)                                                                                                                                                            # type: ignore
+    mix_control_path_param: Parameter
 
     new_control_point_pos_offset: bpy.props.FloatProperty(name='Distance Offset (in meters)', description='Distance of the newly created control point and the currently selected one', default=0.5, min=0.25, max=100)                                                                     # type: ignore
     new_control_point_frame_offset: bpy.props.IntProperty(name='Frame Offset', description='Frame offset of the newly created control point and the currently selected one', default=10, min=0, max=500)                                                                   # type: ignore
@@ -249,29 +253,30 @@ class TracerProperties(bpy.types.PropertyGroup):
 class TracerData():
 
     scene_obj_map: dict[int, SceneObject] = {}
-    scene_light = {}
-    scene_camera = {}
-    scene_mesh = {}
+    sceneLight = {}
+    sceneCamera = {}
+    sceneMesh = {}
 
-    geometry_package = {}
-    material_package = {}
-    texture_package = {}
-    character_package = {}
+    geoPackage = {}
+    materialPackage = {}
+    texturePackage = {}
+    characterPackage = {}
 
     points_for_frames = {}
 
-    objects_to_transfer: list[bpy.types.Object] = []
-    # node_list = []
-    geometry_list = []
-    material_list = []
-    texture_list = []
-    character_list: list[SceneObjectCharacter] = []
-    curve_list = []
-    editable_objects: list[SceneObject] = []
+    objectsToTransfer = []
+    nodeList = []
+    geoList = []
+    materialList = []
+    textureList = []
+    editableList = []
+    characterList = []
+    curveList = []
+    editable_objects = []
 
-    scene_objects: list[SceneObject] = []
+    SceneObjects: list[SceneObject] = []
 
-    root_children_count = 0
+    rootChildCount = 0
     
     socket_d = None
     socket_s = None
@@ -281,16 +286,16 @@ class TracerData():
     ctx = None
     cID = None
     time = 0
-    ping_start_time = 0
+    pingStartTime = 0
 
-    nodes_byte_data = bytearray([])
-    geometry_byte_data = bytearray([])
-    textures_byte_data = bytearray([])
-    header_byte_data = bytearray([])
-    materials_byte_data = bytearray([])
-    characters_byte_data = bytearray([])
-    curves_byte_data = bytearray([]) # DEPRECATED
-    ping_byte_msg = bytearray([])
-    parameter_update_msg = bytearray([])
+    nodesByteData = bytearray([])
+    geoByteData = bytearray([])
+    texturesByteData = bytearray([])
+    headerByteData = bytearray([])
+    materialsByteData = bytearray([])
+    charactersByteData = bytearray([])
+    curvesByteData = bytearray([])
+    pingByteMSG = bytearray([])
+    ParameterUpdateMSG = bytearray([])
 
-    debug_counter = 0
+    debugCounter = 0

@@ -56,6 +56,7 @@ from .settings import TracerData, TracerProperties
 from .updateTRS import RealTimeUpdaterOperator
 from .singleSelect import OBJECT_OT_single_select
 from .SceneObjects.SceneObjectCharacter import ReportReceivedAnimation
+from .AbstractParameter import Parameter, AnimHostRPC
 
 # Imported classes to register
 classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
@@ -89,6 +90,12 @@ def register():
 
     bpy.types.Scene.tracer_properties = bpy.props.PointerProperty(type=TracerProperties)
     bpy.types.Scene.control_point_settings = bpy.props.PointerProperty(type=ControlPointProps)
+
+    AbstractParameter.AbstractParameter.start_animhost_rpc_id = 0
+    TracerProperties.animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", parent_object=None, distribute=False, is_RPC=True)
+    TracerProperties.mix_root_translation_param = Parameter(0.5, "Mix Root Translation", parent_object=None, distribute=False, is_RPC=True)
+    TracerProperties.mix_root_rotation_param    = Parameter(0.5, "Mix Root Rotation",    parent_object=None, distribute=False, is_RPC=True)
+    TracerProperties.mix_control_path_param     = Parameter(1,   "Mix Control Path",     parent_object=None, distribute=False, is_RPC=True)
 
     bpy.types.VIEW3D_MT_mesh_add.append(add_menu_path)      # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Mesh Menu
     bpy.types.VIEW3D_MT_curve_add.append(add_menu_path)     # Adding a submenu with buttons to add a new Control Path and a new Control Point to the Add-Curve Menu
