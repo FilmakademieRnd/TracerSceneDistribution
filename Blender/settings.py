@@ -36,6 +36,7 @@ individual license agreement.
 import bpy
 import json
 from .SceneObjects.SceneObject import SceneObject
+from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 from .AbstractParameter import AnimHostRPC
 
 ## Class to keep editable parameters
@@ -248,30 +249,29 @@ class TracerProperties(bpy.types.PropertyGroup):
 class TracerData():
 
     scene_obj_map: dict[int, SceneObject] = {}
-    sceneLight = {}
-    sceneCamera = {}
-    sceneMesh = {}
+    scene_light = {}
+    scene_camera = {}
+    scene_mesh = {}
 
-    geoPackage = {}
-    materialPackage = {}
-    texturePackage = {}
-    characterPackage = {}
+    geometry_package = {}
+    material_package = {}
+    texture_package = {}
+    character_package = {}
 
     points_for_frames = {}
 
-    objectsToTransfer = []
-    nodeList = []
-    geoList = []
-    materialList = []
-    textureList = []
-    editableList = []
-    characterList = []
-    curveList = []
-    editable_objects = []
+    objects_to_transfer: list[bpy.types.Object] = []
+    # node_list = []
+    geometry_list = []
+    material_list = []
+    texture_list = []
+    character_list: list[SceneObjectCharacter] = []
+    curve_list = []
+    editable_objects: list[SceneObject] = []
 
-    SceneObjects: list[SceneObject] = []
+    scene_objects: list[SceneObject] = []
 
-    rootChildCount = 0
+    root_children_count = 0
     
     socket_d = None
     socket_s = None
@@ -281,16 +281,16 @@ class TracerData():
     ctx = None
     cID = None
     time = 0
-    pingStartTime = 0
+    ping_start_time = 0
 
-    nodesByteData = bytearray([])
-    geoByteData = bytearray([])
-    texturesByteData = bytearray([])
-    headerByteData = bytearray([])
-    materialsByteData = bytearray([])
-    charactersByteData = bytearray([])
-    curvesByteData = bytearray([])
-    pingByteMSG = bytearray([])
-    ParameterUpdateMSG = bytearray([])
+    nodes_byte_data = bytearray([])
+    geometry_byte_data = bytearray([])
+    textures_byte_data = bytearray([])
+    header_byte_data = bytearray([])
+    materials_byte_data = bytearray([])
+    characters_byte_data = bytearray([])
+    curves_byte_data = bytearray([]) # DEPRECATED
+    ping_byte_msg = bytearray([])
+    parameter_update_msg = bytearray([])
 
-    debugCounter = 0
+    debug_counter = 0

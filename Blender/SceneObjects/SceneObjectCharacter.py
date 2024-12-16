@@ -39,7 +39,7 @@ from mathutils import Matrix, Quaternion, Vector, Euler
 import copy
 import bpy
 
-from ..settings import TracerProperties
+#from ..settings import TracerProperties
 from ..AbstractParameter import Parameter, KeyList, Key, KeyType
 from .SceneObject import SceneObject, NodeTypes
 from ..serverAdapter import send_parameter_update
@@ -175,10 +175,10 @@ class SceneObjectCharacter(SceneObject):
 
     ### Function that updates the Tracer ID of the Control Path associated with the current Character in the list of Tracer Parameters
     def update_control_path_id(self):
-        if bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name] != None:
+        if bpy.data.objects[self.tracer_properties.control_path_name] != None:
             path_ID = -1
-            for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-                if obj == bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]:
+            for i, obj in enumerate(self.tracer_data.scene_objects):
+                if obj == bpy.data.objects[self.tracer_properties.control_path_name]:
                     path_ID = i
                     break
 

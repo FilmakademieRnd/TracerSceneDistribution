@@ -46,16 +46,16 @@ from ..serverAdapter import send_parameter_update
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
 #   
-class SceneBoneObject(SceneObjectBase):
+class SceneObjectBone(SceneObjectBase):
     
-    def __init__(self, bl_bone: PoseBone, bl_armature: Armature):
+    def __init__(self, bl_bone: PoseBone, bl_armature_obj: Object):
         super().__init__()
-        bone_matrix_global = bl_armature.matrix_world @ bl_bone.matrix
-        bone_location_global = bone_matrix_global.to_translation()
-        bone_rotation_global = bone_matrix_global.to_quaternion()
-        bone_scale_global = bone_matrix_global.to_scale()
-
-
+        
+        self.is_root: bool = (bl_bone.parent == None)
+        bone_matrix_global: Matrix          = bl_armature_obj.matrix_world @ bl_bone.matrix
+        bone_location_global: Vector        = bone_matrix_global.to_translation()
+        bone_rotation_global: Quaternion    = bone_matrix_global.to_quaternion()
+        bone_scale_global: Vector           = bone_matrix_global.to_scale()
         
         #PSEUDO CODE
         bone_pos = bone_location_global

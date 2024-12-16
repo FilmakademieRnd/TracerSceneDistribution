@@ -33,27 +33,48 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 from bpy.types import Object, Bone
+from enum import Enum
 import bpy
 import functools
 import math
 import copy
+from ..settings import TracerData, TracerProperties
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from mathutils import Vector, Quaternion
 
+class NodeTypes(Enum):
+    GROUP       = 0
+    GEO         = 1
+    LIGHT       = 2
+    CAMERA      = 3
+    SKINNEDMESH = 4
+    CHARACTER   = 5
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
 #   
 class SceneObjectBase():
     
     # PUBLIC STATIC variables
-    start_id = 1
+    start_node_id = 1
+    start_editable_id = 1
     scene_ID = 254
 
-    def __init__(self):
-        self.parameter_list: list[Parameter] = []
-        self.object_id = SceneObjectBase.start_id
-        SceneObjectBase.start_id += 1
+    def __init__(self, bl_obj: Object):
         
+        # PUBLIC NON-STATIC variables declaration
+        self.tracer_data: TracerData = bpy.context.window_manager.tracer_data
+        self.tracer_properties: TracerProperties = bpy.context.scene.tracer_properties
+        self.blender_object: Object = bl_obj
+        self.parameter_list: list[Parameter] = []
+
+        self.scene_object_id = SceneObjectBase.start_node_id
+        SceneObjectBase.start_node_id += 1
+
+        if bl_obj.get("TRACER-Editable", False):
+            self.parameter_object_id = SceneObjectBase.start_editable_id
+            SceneObjectBase.start_editable_id += 1
+        else:
+            self.parameter_object_id = 0
         
     def update_position(self, tracer_pos: Parameter, new_value: Vector):
         pass
@@ -62,4 +83,7 @@ class SceneObjectBase():
         pass
         
     def update_scale(self, tracer_scale: Parameter, new_value: Vector):
+        pass
+
+    def serialise(self):
         pass

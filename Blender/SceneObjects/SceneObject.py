@@ -37,41 +37,23 @@ from bpy.types import Object
 import functools
 import math
 import struct
-from enum import Enum
 import copy
 from mathutils import Vector, Quaternion
 
+from .SceneObjectBase import SceneObjectBase, NodeTypes
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
-
-class NodeTypes(Enum):
-    GROUP       = 0
-    GEO         = 1
-    LIGHT       = 2
-    CAMERA      = 3
-    SKINNEDMESH = 4
-    CHARACTER   = 5
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
 #   
-class SceneObject:
-
-    # PUBLIC STATIC variables
-    start_id: int = 1
-    scene_ID: int = 254
+class SceneObject(SceneObjectBase):
     
     def __init__(self, bl_obj: Object):
-        # PUBLIC NON-STATIC variables declaration
-        # self.parameter_object_id = SceneObject.start_id
-        # self.scene_object_id = tracer_data.objectsToTransfer.index(self.blender_object)
-        self.object_id = SceneObject.start_id
-        SceneObject.start_id += 1
-        self.tracer_type: NodeTypes = NodeTypes.GROUP
+        super().__init__(bl_obj)
 
-        self.parameter_list: list[Parameter] = []
+        self.tracer_type: NodeTypes = NodeTypes.GROUP
         self.network_lock: bool = False
-        self.blender_object: Object = bl_obj
 
         # If the object is TRACER-Editable, initialise the Parameters 
         if self.blender_object.get("TRACER-Editable", False):
@@ -154,37 +136,6 @@ class SceneObject:
     def lock_unlock(self, lock_val: int):
         self.network_lock = bool(lock_val)
         self.blender_object.hide_select = bool(lock_val)
-
-    ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
-    def update_control_points(self):
-        if self.blender_object.get("Control Points", None) != None:
-            rotations = self.parameter_list[-1]
-            locations = self.parameter_list[-2]
-
-            cp_list: list[bpy.types.Object] = self.blender_object.get("Control Points")
-            cp_curve: bpy.types.SplineBezierPoints = self.blender_object.children[0].data.splines[0].bezier_points
-            for i, cp in enumerate(cp_list):
-                locations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp_curve[i].co,
-                                                type                = KeyType.BEZIER,
-                                                right_tangent_time  = cp.get("Ease Out"),
-                                                right_tangent_value = cp_curve[i].handle_right,
-                                                left_tangent_time   = cp.get("Ease In"),
-                                                left_tangent_value  = cp_curve[i].handle_left ),
-                                            i)
-                original_rot_mode = cp.rotation_mode
-                if original_rot_mode != 'QUATERNION':
-                    cp.rotation_mode = 'QUATERNION'
-
-                rotations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp.rotation_quaternion,
-                                                type                = KeyType.LINEAR ),
-                                            i)
-                
-                cp.rotation_mode = original_rot_mode
-
-            self.parameter_list[-2] = locations
-            self.parameter_list[-1] = rotations
 
     def serialise(self) -> bytearray:
         object_byte_array = bytearray([])
