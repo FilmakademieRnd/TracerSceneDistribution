@@ -205,6 +205,7 @@ class AbstractParameter:
         elif is_RPC and parent_object == None:
             self.__id = AbstractParameter.start_animhost_rpc_id
             AbstractParameter.start_animhost_rpc_id += 1
+            print("Creating new RPC Parameter with name " + name + " and id " + str(self.__id))
         else:
             self.__id = 0
         # Parameter name

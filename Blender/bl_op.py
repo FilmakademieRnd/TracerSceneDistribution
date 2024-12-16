@@ -542,12 +542,10 @@ class AnimationRequest(bpy.types.Operator):
     bl_description = "Request new animation for the selected character from AnimHost"
 
     valid_frames: bool = False 
-    animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", None, distribute=False, is_RPC=True)
+    #animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", None, distribute=False, is_RPC=True)
 
     tracer_props: TracerProperties = None
-    mix_root_translation_param: Parameter = None
-    mix_root_rotation_param: Parameter = None
-    mix_control_path_param: Parameter = None
+    global mix_root_translation_param, mix_root_rotation_param, mix_control_path_param
     #animation_request.__id = 1
 
     @classmethod
@@ -565,16 +563,16 @@ class AnimationRequest(bpy.types.Operator):
             return {'FINISHED'}
         
         self.tracer_props = bpy.context.scene.tracer_properties
-        if self.tracer_props and not self.mix_root_translation_param:
-            self.mix_root_translation_param = Parameter(self.tracer_props.mix_root_translation, "Mix Root Translation", None, distribute=False, is_RPC=True)
-        if self.tracer_props and not self.mix_root_rotation_param:
-            self.mix_root_rotation_param = Parameter(self.tracer_props.mix_root_rotation, "Mix Root Rotation", None, distribute=False, is_RPC=True)
-        if self.tracer_props and not self.mix_control_path_param:
-            self.mix_control_path_param = Parameter(self.tracer_props.mix_control_path, "Mix Control Path", None, distribute=False, is_RPC=True)
+        if self.tracer_props and self.tracer_props.mix_root_translation_param == None:
+            self.tracer_props.mix_root_translation_param = Parameter(self.tracer_props.mix_root_translation, "Mix Root Translation", None, distribute=False, is_RPC=True)
+        if self.tracer_props and self.tracer_props.mix_root_rotation_param == None:
+            self.tracer_props.mix_root_rotation_param = Parameter(self.tracer_props.mix_root_rotation, "Mix Root Rotation", None, distribute=False, is_RPC=True)
+        if self.tracer_props and self.tracer_props.mix_control_path_param == None:
+            self.tracer_props.mix_control_path_param = Parameter(self.tracer_props.mix_control_path, "Mix Control Path", None, distribute=False, is_RPC=True)
 
         # TODO: check whether TRACER has been correctly being configured
-        control_path_name: str = bpy.context.scene.tracer_properties.control_path_name
-        character_name: str = bpy.context.scene.tracer_properties.character_name
+        control_path_name: str = self.tracer_props.control_path_name
+        character_name: str = self.tracer_props.character_name
         if  control_path_name != '' and bpy.data.objects[control_path_name] != None and\
             character_name != '' and bpy.data.objects[character_name] != None:
             control_path_bl_obj: bpy.types.Object = bpy.data.objects[control_path_name]
@@ -602,22 +600,22 @@ class AnimationRequest(bpy.types.Operator):
                     # Request Animation from AnimHost through RPC call
                     match self.tracer_props.animation_request_modes:
                         case 'BLOCK':
-                            self.animation_request.value = AnimHostRPC.BLOCK.value
+                            self.tracer_props.animation_request.value = AnimHostRPC.BLOCK.value
                         case 'STREAM':
-                            self.animation_request.value = AnimHostRPC.STREAM.value
+                            self.tracer_props.animation_request.value = AnimHostRPC.STREAM.value
                         case 'LOOP':
-                            self.animation_request.value = AnimHostRPC.STREAM_LOOP.value
+                            self.tracer_props.animation_request.value = AnimHostRPC.STREAM_LOOP.value
                         case 'STOP':
-                            self.animation_request.value = AnimHostRPC.STOP.value
-                    send_RPC_msg(self.animation_request)
+                            self.tracer_props.animation_request.value = AnimHostRPC.STOP.value
+                    send_RPC_msg(self.tracer_props.animation_request)
 
-                    self.mix_root_translation_param.value   = self.tracer_props.mix_root_translation
-                    self.mix_root_rotation_param.value      = self.tracer_props.mix_root_rotation
-                    self.mix_control_path_param.value       = self.tracer_props.mix_control_path
+                    self.tracer_props.mix_root_translation_param.value   = self.tracer_props.mix_root_translation
+                    self.tracer_props.mix_root_rotation_param.value      = self.tracer_props.mix_root_rotation
+                    self.tracer_props.mix_control_path_param.value       = self.tracer_props.mix_control_path
                     #! To be tested
-                    send_RPC_msg(self.mix_root_translation_param)
-                    send_RPC_msg(self.mix_root_rotation_param)
-                    send_RPC_msg(self.mix_control_path_param)
+                    send_RPC_msg(self.tracer_props.mix_root_translation_param)
+                    send_RPC_msg(self.tracer_props.mix_root_rotation_param)
+                    send_RPC_msg(self.tracer_props.mix_control_path_param)
                 
             else:
                 self.report({'ERROR'}, "Assign a value to the Control Path field in the Panel to use this functionality.")
