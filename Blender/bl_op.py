@@ -545,7 +545,6 @@ class AnimationRequest(bpy.types.Operator):
     #animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", None, distribute=False, is_RPC=True)
 
     tracer_props: TracerProperties = None
-    global mix_root_translation_param, mix_root_rotation_param, mix_control_path_param
     #animation_request.__id = 1
 
     @classmethod
@@ -563,12 +562,6 @@ class AnimationRequest(bpy.types.Operator):
             return {'FINISHED'}
         
         self.tracer_props = bpy.context.scene.tracer_properties
-        if self.tracer_props and self.tracer_props.mix_root_translation_param == None:
-            self.tracer_props.mix_root_translation_param = Parameter(self.tracer_props.mix_root_translation, "Mix Root Translation", None, distribute=False, is_RPC=True)
-        if self.tracer_props and self.tracer_props.mix_root_rotation_param == None:
-            self.tracer_props.mix_root_rotation_param = Parameter(self.tracer_props.mix_root_rotation, "Mix Root Rotation", None, distribute=False, is_RPC=True)
-        if self.tracer_props and self.tracer_props.mix_control_path_param == None:
-            self.tracer_props.mix_control_path_param = Parameter(self.tracer_props.mix_control_path, "Mix Control Path", None, distribute=False, is_RPC=True)
 
         # TODO: check whether TRACER has been correctly being configured
         control_path_name: str = self.tracer_props.control_path_name

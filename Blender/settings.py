@@ -236,14 +236,14 @@ class TracerProperties(bpy.types.PropertyGroup):
     animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Request Mode', default='BLOCK')                                                                                                                                   # type: ignore
     slide_frames: bpy.props.BoolProperty(name='Slide Frames from Following Control Points', default=False)                                                                                                                                                                                   # type: ignore
     
-    animation_request = None
+    animation_request: Parameter
     # Future feature: Neural Network Parameters
     mix_root_translation: bpy.props.FloatProperty(name='Mix Root Translation', description='?', default=0.5, min=0, max=1)                                                                                                                                                         # type: ignore
-    mix_root_translation_param = None
+    mix_root_translation_param: Parameter
     mix_root_rotation: bpy.props.FloatProperty(name='Mix Root Rotation', description='?', default=0.5, min=0, max=1)                                                                                                                                                               # type: ignore
-    mix_root_rotation_param = None
+    mix_root_rotation_param: Parameter
     mix_control_path: bpy.props.FloatProperty(name='Mix Control Path', description='?', default=1, min=0.000001, max=5)                                                                                                                                                            # type: ignore
-    mix_control_path_param = None
+    mix_control_path_param: Parameter
 
     new_control_point_pos_offset: bpy.props.FloatProperty(name='Distance Offset (in meters)', description='Distance of the newly created control point and the currently selected one', default=0.5, min=0.25, max=100)                                                                     # type: ignore
     new_control_point_frame_offset: bpy.props.IntProperty(name='Frame Offset', description='Frame offset of the newly created control point and the currently selected one', default=10, min=0, max=500)                                                                   # type: ignore
