@@ -52,32 +52,29 @@ class SceneObjectBone(SceneObjectBase):
         super().__init__()
         
         self.is_root: bool = (bl_bone.parent == None)
-        bone_matrix_global: Matrix          = bl_armature_obj.matrix_world @ bl_bone.matrix
-        bone_location_global: Vector        = bone_matrix_global.to_translation()
-        bone_rotation_global: Quaternion    = bone_matrix_global.to_quaternion()
-        bone_scale_global: Vector           = bone_matrix_global.to_scale()
+        self.bone_matrix_global: Matrix         = bl_armature_obj.matrix_world @ bl_bone.matrix
+        self.bone_matrix_pose: Matrix           = bl_bone.matrix_basis
+        self.bone_location_global: Vector       = self.bone_matrix_global.to_translation()
+        self.bone_rotation_global: Quaternion   = self.bone_matrix_global.to_quaternion()
+        self.bone_scale_global: Vector          = self.bone_matrix_global.to_scale()
         
         #PSEUDO CODE
-        bone_pos = bone_location_global
-        bone_rot = bone_rotation_global
-        bone_scl = bone_scale_global
+        # bone_pos = bone_location_global
+        # bone_rot = bone_rotation_global
+        # bone_scl = bone_scale_global
 
         # Populating with TRS (Translation-Rotation-Scale) the list of TRACER parameters of the Scene Object. They will be parameters 0, 1 and 2 in the list
-        tracer_pos = Parameter(bone_pos, bl_bone.name+"-location", self)
-        self.parameter_list.append(tracer_pos)
-        tracer_rot = Parameter(bone_rot, bl_bone.name+"-rotation_euler", self)
-        self.parameter_list.append(tracer_rot)
-        tracer_scl = Parameter(bone_scl, bl_bone.name+"-scale", self)
-        self.parameter_list.append(tracer_scl)
-
-       
-
-
+        # tracer_pos = Parameter(bone_pos, bl_bone.name+"-location", self)
+        # self.parameter_list.append(tracer_pos)
+        # tracer_rot = Parameter(bone_rot, bl_bone.name+"-rotation_euler", self)
+        # self.parameter_list.append(tracer_rot)
+        # tracer_scl = Parameter(bone_scl, bl_bone.name+"-scale", self)
+        # self.parameter_list.append(tracer_scl)
 
         # Bind functions to update parameters to the corresponding instance of the parameter using functools.partial
-        tracer_pos.parameter_handler.append(functools.partial(self.update_position, tracer_pos))
-        tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
-        tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
+        # tracer_pos.parameter_handler.append(functools.partial(self.update_position, tracer_pos))
+        # tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
+        # tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
 
 
 

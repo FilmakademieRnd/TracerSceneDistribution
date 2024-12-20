@@ -41,7 +41,7 @@ import bpy
 
 #from ..settings import TracerProperties
 from ..AbstractParameter import Parameter, KeyList, Key, KeyType
-from .SceneObject import SceneObject, NodeTypes
+from .SceneObjectMesh import SceneObjectMesh, NodeTypes, SceneMeshData
 from ..serverAdapter import send_parameter_update
 
 ### Operator to show to the user that a new animation has been received
@@ -55,7 +55,7 @@ class ReportReceivedAnimation(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Subclass of SceneObject adding functionalities specific for Characters
-class SceneObjectCharacter(SceneObject):
+class SceneObjectCharacter(SceneObjectMesh):
 
     ### Class constructor
     #   Initializing TRACER class variable (from line 82)
@@ -119,6 +119,13 @@ class SceneObjectCharacter(SceneObject):
         # If the Object is in the Scene, create a new Parameter and save the object_ID of the Control path Object in it
         if path_ID >= 0:
             self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
+
+    def process_geometry_mesh(self):
+        mesh_id, mesh_name = super().process_geometry_mesh()
+        mesh: SceneMeshData = self.tracer_data.geometry_dict[mesh_name]
+
+        # Process bone vertices and indices
+    
 
     ### Function that uses the partial transformation matrices to set the bone position and rotations in pose coordinates (as Blender needs)
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):

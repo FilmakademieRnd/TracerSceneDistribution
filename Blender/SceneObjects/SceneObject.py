@@ -33,6 +33,7 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 import bpy
+import logging
 from bpy.types import Object
 import functools
 import math
@@ -52,6 +53,7 @@ class SceneObject(SceneObjectBase):
     def __init__(self, bl_obj: Object):
         super().__init__(bl_obj)
 
+        self.logger = logging.getLogger("TRACER_LOGGER.SCENE_OBJECT")
         self.tracer_type: NodeTypes = NodeTypes.GROUP
         self.network_lock: bool = False
 
@@ -70,22 +72,10 @@ class SceneObject(SceneObjectBase):
             tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
             tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
 
-        # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
-        # These parameters are associated with the root object of the Control Path in the scene
-        control_path = bl_obj.get("Control Points", None) 
-        if control_path != None and len(control_path) > 0:
-            first_point: Object = control_path[0]
-            path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
-            path_locations.init_animation()
-            self.parameter_list.append(path_locations)
-            path_rotations = Parameter(first_point.rotation_quaternion, bl_obj.name+"-path_rotations", self)
-            path_rotations.init_animation()
-            self.parameter_list.append(path_rotations)
 
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
     def is_control_path(self, context: bpy.types.Context) -> bool:
         return self.blender_object.get("Control Points", False)
-
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_pos  the instance of the parameter to update

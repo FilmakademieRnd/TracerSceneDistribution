@@ -42,8 +42,9 @@ import math
 from enum import Enum
 from collections import deque
 import numpy as np
-from .timer import TimerModalOperator
+from .Core.timer import TimerModalOperator
 
+from .Core.SceneManager import SceneManager
 from .AbstractParameter import AbstractParameter, Parameter
 
 class MessageType(Enum):
@@ -271,6 +272,8 @@ def send_parameter_update(parameter: Parameter):
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
 def process_parameter_update(msg: bytearray, start=0) -> int:
+
+
     param: Parameter = None
     msg_size = len(msg) # for debugging
     updated_animation = False
@@ -284,7 +287,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
         msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
 
-        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1].parameter_list):
+        if 0 < obj_id <= len(tracer_data.scene_objects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1].parameter_list):
             param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header

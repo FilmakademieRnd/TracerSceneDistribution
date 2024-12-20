@@ -89,9 +89,7 @@ class SceneManager:
             return []
 
     def process_bones(self, armature_obj : bpy.types.Object):
-        for bone in armature_obj.pose.bones:
-            #print(type(bone))
-            _bone: bpy.types.PoseBone = bone
-            self.tracer_data.scene_objects.append(SceneObjectBone(_bone, armature_obj))
+        for pose_bone in armature_obj.pose.bones:
+            self.tracer_data.scene_objects.append(SceneObjectBone(pose_bone, armature_obj))
 
 

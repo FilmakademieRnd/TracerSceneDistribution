@@ -47,16 +47,19 @@ class LightTypes(Enum):
     AREA    = 3
 
 class SceneObjectLight(SceneObject):
-    def __init__(self, obj):
+    def __init__(self, obj: bpy.types.Object):
         super().__init__(obj)
         self.tracer_type = NodeTypes.LIGHT
-        
-        color = Parameter(obj.data.color, "Color", self)
-        self.parameter_list.append(color)
-        intensity = Parameter(obj.data.energy, "Intensity", self)
-        self.parameter_list.append(intensity)
-        color.parameter_handler.append(functools.partial(self.update_color, color))
-        intensity.parameter_handler.append(functools.partial(self.update_intensity, intensity))
+        bl_light: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = obj.data
+        self.light_type = LightTypes[bl_light.type]
+
+        color_param = Parameter(bl_light.color, "Color", self)
+        self.parameter_list.append(color_param)
+        intensity_param = Parameter(bl_light.energy/100.0, "Intensity", self)
+        self.parameter_list.append(intensity_param)
+
+        color_param.parameter_handler.append(functools.partial(self.update_color, bl_light.color))
+        intensity_param.parameter_handler.append(functools.partial(self.update_intensity, bl_light.energy/100.0))
 
     def update_color(self, parameter, new_value):
         if self.network_lock == True:
@@ -80,7 +83,7 @@ class SceneObjectLight(SceneObject):
         # Light Type
         light_byte_array.extend(struct.pack('i', LightTypes.POINT.value))
         # Light Intensity
-        light_byte_array.extend(struct.pack('f', light_data.energy/100.0))
+        light_byte_array.extend(struct.pack('f', light_data.energy))
         # Light Angle (for PointLight always 45)
         light_byte_array.extend(struct.pack('f', 45))
         # Light Range (always 10 because blender does not define it)

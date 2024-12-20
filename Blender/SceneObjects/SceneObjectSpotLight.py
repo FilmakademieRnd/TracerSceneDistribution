@@ -44,9 +44,8 @@ class SceneObjectSpotLight(SceneObjectLight):
     def __init__(self, obj):
         super().__init__(obj)
 
-        range = Parameter(1, "Range", self)
-        spot_angle = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
-        spot_angle.parameter_handler.append(functools.partial(self.update_spot_angle, spot_angle))
+        angle_param = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
+        angle_param.parameter_handler.append(functools.partial(self.update_spot_angle, angle_param))
 
     def update_spot_angle(self, parameter, new_value):
         if self.network_lock == True:

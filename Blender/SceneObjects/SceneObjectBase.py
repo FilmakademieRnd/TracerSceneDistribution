@@ -35,6 +35,7 @@ individual license agreement.
 from bpy.types import Object, Bone
 from enum import Enum
 import bpy
+import logging
 import functools
 import math
 import copy
@@ -73,6 +74,7 @@ class SceneObjectBase():
         if bl_obj.get("TRACER-Editable", False):
             self.parameter_object_id = SceneObjectBase.start_editable_id
             SceneObjectBase.start_editable_id += 1
+            self.tracer_data.editable_objects.append(self)
         else:
             self.parameter_object_id = 0
         
