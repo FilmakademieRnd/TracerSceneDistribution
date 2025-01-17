@@ -39,50 +39,56 @@ import functools
 import math
 import mathutils
 import struct
-from dataclasses import dataclass
 
 from ..AbstractParameter import Parameter
 from .SceneObject import SceneObject, NodeTypes
+from SceneDataMesh import SceneDataMesh
+from SceneDataMaterial import SceneDataMaterial
+from SceneDataTexture import SceneDataTexture
 from ..serverAdapter import send_parameter_update;
 
-@dataclass
-class SceneMeshData():
-   #vertex_list_size: int
-   #index_list_size: int
-   #normal_list_size: int
-   #uv_list_size: int
-   #bone_weight_list_size: int
-
-   vertices: list[mathutils.Vector] = []
-   normals: list[mathutils.Vector] = []
-   uvs: list [mathutils.Vector] = []
-   indices: list[int] = []
-   bone_weights: list[mathutils.Vector] = []
-   bone_indices: list[mathutils.Vector] = []
-
 class SceneObjectMesh(SceneObject):
-   def __init__(self, obj):
+
+   mesh_geometry_id: int
+   material_id: int
+   color: list[float]
+   roughness: float
+   specular: float
+
+   def __init__(self, obj: bpy.types.Object):
       super().__init__(obj)
 
+      # Public Variables (not TRACER Parameters)
       self.logger = logging.getLogger("TRACER_LOGGER.SCENE_OBJECT_MESH")
       self.tracer_type = NodeTypes.GEO
-      self._mesh_geometry_id = self.process_geometry_mesh()
 
-      if self.blender_object.get("TRACER-Editable", False):
+      # Precess mesh and material only if this SceneObjectMesh is NOT supposed to be a SceneObjectSkinnedMesh
+      #if obj.parent.type != 'ARMATURE':
+      self.mesh_geometry_id   = self.process_geometry_mesh()
+      self.material_id        = SceneDataMaterial.process_material(self)
 
+      if self.material_id > -1:
+         self.color        = self.tracer_data.material_list[self.material_id].color
+         self.roughness    = self.tracer_data.material_list[self.material_id].roughness
+         self.specular     = self.tracer_data.material_list[self.material_id].specular
+      else:
+         self.color        = obj.color
+         self.roughness    = 0.5
+         self.specular     = 0
+
+      if self.is_editable:
          # Private Variables, providing access to the value of the parameters without looking into the Parameter List
-         self._color_param = Parameter(obj.color, "Color", self)
+         self._color_param = Parameter(self.color, "Color", self)
          self.parameter_list.append(self._color_param)
-         self._roughness_param = Parameter(0.5, "Roughness", self)
+         self._roughness_param = Parameter(self.roughness, "Roughness", self)
          self.parameter_list.append(self._roughness_param)
-         self._material_id_param = Parameter(-1, "Material ID", self)
+         self._material_id_param = Parameter(self.material_id, "Material ID", self)
          self.parameter_list.append(self._material_id_param)
          
-         self._color_param.parameter_handler.append(functools.partial(self.update_color, self._color_param))
-         self._roughness_param.parameter_handler.append(functools.partial(self.update_roughness, self._roughness_param))
-         self._material_id_param.parameter_handler.append(functools.partial(self.update_material_id, self._material_id_param))
+         self._color_param.parameter_handler.append(functools.partial(self.update_color, self.color))
+         self._roughness_param.parameter_handler.append(functools.partial(self.update_roughness, self.roughness))
+         self._material_id_param.parameter_handler.append(functools.partial(self.update_material_id, self.material_id))
 
-         # Public Variables (not TRACER Parameters)
    
    def update_color(self, parameter, new_value):
       if self.network_lock == True:
@@ -104,33 +110,17 @@ class SceneObjectMesh(SceneObject):
          send_parameter_update(parameter)
 
    def serialise(self):
-      camera_byte_array = super().serialise()
-
-      camera_data : bpy.types.Camera = self.blender_object.data
-      # Field-Of-View
-      camera_byte_array.extend(struct.pack('f', math.degrees(camera_data.angle)))
-      # Aspect Ratio
-      camera_byte_array.extend(struct.pack('f', camera_data.sensor_width/camera_data.sensor_height))
-      # Near Plane
-      camera_byte_array.extend(struct.pack('f', camera_data.clip_start))
-      # Far Plane
-      camera_byte_array.extend(struct.pack('f', camera_data.clip_end))
-      # Focal Distance (fixed to 5)
-      camera_byte_array.extend(struct.pack('f', 5))
-      # Aperture (fixed to 2)
-      camera_byte_array.extend(struct.pack('f', 2))
-      
-      return camera_byte_array
+      pass
    
    def process_geometry_mesh(self) -> int:
       geo_mesh_name = self.generate_mesh_identifier()
-      geo_mesh_data = SceneMeshData()
+      geo_mesh_data = SceneDataMesh()
 
       # Check if mesh has already being processed (and therefore is in the dictionary)
       pos_idx = 0
-      for name in self.tracer_data.geometry_dict.keys():
-         if geo_mesh_name == name:
-            return pos_idx, geo_mesh_name
+      for geo in self.tracer_data.geometry_list:
+         if geo_mesh_name == geo.name:
+            return pos_idx
          else:
             pos_idx =+ 1
       
@@ -139,7 +129,7 @@ class SceneObjectMesh(SceneObject):
       # Ensuring that this mesh is NOT a Bone of an armature
       if self.blender_object.parent and self.blender_object.parent.type == 'ARMATURE':
          self.logger.error("Mesh %s cannot be processed correctly because part of the %s Armature", *[self.blender_object.data.name, self.blender_object.parent.name], exc_info=1)
-         return -1, ""
+         return -1
       
       # flipping faces because the following axis swap inverts them
       mesh: bmesh.types.BMesh = bmesh.from_edit_mesh(self.blender_object.data)
@@ -154,7 +144,7 @@ class SceneObjectMesh(SceneObject):
       processed_vertices = []
       for triangle in loop_triangles:
          for bm_loop in triangle:
-            original_index = bm_loop.vert.index
+            og_idx = bm_loop.vert.index
             co = bm_loop.vert.co.copy().freeze()
             uv = bm_loop[uv_layer].uv.copy().freeze()
 
@@ -167,19 +157,91 @@ class SceneObjectMesh(SceneObject):
             if new_split_vert not in processed_vertices:
                processed_vertices.append(new_split_vert)
                
+               geo_mesh_data.original_indices.append(og_idx)
                geo_mesh_data.indices.append(len(processed_vertices) - 1)
                geo_mesh_data.vertices.append(co)
                geo_mesh_data.normals.append(normal)
                geo_mesh_data.uvs.append(uv)
 
       mesh.free()
-      self.tracer_data.geometry_dict[geo_mesh_name] = geo_mesh_data
-      return len(self.tracer_data.geometry_dict)-1, geo_mesh_name
+      self.tracer_data.geometry_list.append(geo_mesh_data)
+      return len(self.tracer_data.geometry_list)-1
 
    def generate_mesh_identifier(self) -> str:
-    if self.blender_object.type == 'MESH':
-        return f"Mesh_{self.blender_object.data.name}_{len(self.blender_object.data.vertices)}"
-    elif self.blender_object.type == 'ARMATURE':
-        return f"Armature_{self.blender_object.data.name}_{len(self.blender_object.data.bones)}"
-    else:
-        return f"{self.blender_object.type}_{self.blender_object.name}"
+      if self.blender_object.type == 'MESH':
+         return f"Mesh_{self.blender_object.data.name}_{len(self.blender_object.data.vertices)}"
+      elif self.blender_object.type == 'ARMATURE':
+         return f"Armature_{self.blender_object.data.name}_{len(self.blender_object.data.bones)}"
+      else:
+         return f"{self.blender_object.type}_{self.blender_object.name}"
+      
+   def process_material(self) -> int:
+      # If a the mesh has no material return -1 (empty index)
+      if self.blender_object.active_material == None:
+         return -1
+      else:
+         # If the material has already been processed, return its index
+         material_idx = SceneObject.find_name_in_list(self.blender_object.active_material.name, self.tracer_data.material_list)
+         if material_idx > -1:
+             return material_idx
+         
+         # Otherwise, process and append it to the list of materials
+         material_data = SceneDataMaterial()
+         for i, n in enumerate(self.blender_object.active_material.name.encode()):
+            material_data.name[i] = n
+         for i, n in enumerate(("Standard").encode()):
+            material_data.src[i] = n
+         
+         material_data.color     = self.blender_object.active_material.diffuse_color
+         material_data.roughness = self.blender_object.active_material.roughness
+         material_data.specular  = self.blender_object.active_material.specular_intensity
+         
+         if self.blender_object.active_material.use_nodes and\
+            self.blender_object.active_material.node_tree.bl_rna_get_subclass_py() == bpy.types.ShaderNodeTree:
+            # Looking for the Output Shader Material in a Shader Graph
+            shader_tree: bpy.types.ShaderNodeTree = self.blender_object.active_material.node_tree        # get the Shader Node Tree 
+            shader_out_node: bpy.types.ShaderNode = shader_tree.get_output_node()                        # get its Output Node
+            shader_node: bpy.types.ShaderNode = shader_out_node.inputs[0].links[0].from_node             # get the first Node connected to its first input (Shader) - assuming it is a ShaderNode
+            
+            if shader_node != None:
+               material_data.color = shader_node.inputs[0].default_value
+               if shader_node.bl_rna_get_subclass_py() == bpy.types.ShaderNodeBsdfPrincipled:
+                  material_data.roughness = shader_node.inputs[7].default_value
+                  material_data.specular  = shader_node.inputs[5].default_value
+               
+               texture_node = None
+               if len(shader_node.inputs[0].links) > 0:
+                  node: bpy.types.ShaderNode = shader_node.inputs[0].links[0].from_node
+               if node and node.bl_rna_get_subclass_py() == bpy.types.ShaderNodeTexImage:
+                  texture_node: bpy.types.ShaderNodeTexImage = node
+               if texture_node.image != None:
+                  material_data.texture_id = self.process_texture(texture_node.image)
+      
+      self.tracer_data.material_list.append(material_data)
+      return len(self.tracer_data.material_list)-1
+      
+   def process_texture(self, img: bpy.types.Image) -> int:
+      # If the texture has already been processed return its index
+      texture_idx =  SceneObject.find_name_in_list(img.name, self.tracer_data.texture_list)
+      if texture_idx > -1:
+         return texture_idx
+        
+      try:
+         texture_file = open(img.filepath_from_user(), 'rb')
+      except FileNotFoundError:
+         bpy.context.window.modal_operators[-1].report({'ERROR'}, f"Error: Texture file not found at {img.filepath_from_user()}")
+         return -1
+        
+      # Otherwise, process and append it to the list of textures
+      texture_data = SceneDataTexture()
+
+      texture_data.color_map_data = texture_file.read()
+      texture_data.color_map_data_size = len(texture_data.color_map_data)
+      texture_data.width = img.size[0]
+      texture_data.height = img.size[1]
+      texture_data.name = img.name_full
+
+      texture_file.close()
+
+      self.tracer_data.texture_list.append(texture_data)
+      return len(self.tracer_data.texture_list) - 1

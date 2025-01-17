@@ -233,8 +233,8 @@ def process_scene_object(obj: bpy.types.Object, index):
         
     node.tracer_id = index
 
-    node.editable = int(obj.get("TRACER-Editable", False))
-    tracer_data.editable_objects.append(obj)
+    #node.editable = int(obj.get("TRACER-Editable", False))
+    #tracer_data.editable_objects.append(obj)
 
     if obj.name != 'TRACER Scene Root':
         tracer_data.scene_objects.append(node)
@@ -713,7 +713,7 @@ def get_vertex_bone_weights_and_indices(vert):
         
         return bone_weights, bone_indices
 
-def processGeoNew(mesh):
+def processGeoNew(mesh: bpy.types.Object):
     geoPack = sceneMesh()
     mesh_identifier = generate_mesh_identifier(mesh)
     geoPack.identifier = mesh_identifier

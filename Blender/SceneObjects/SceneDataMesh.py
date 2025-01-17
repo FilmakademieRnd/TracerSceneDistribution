@@ -32,64 +32,46 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-from bpy.types import Object, Bone
-from enum import Enum
 import bpy
+import bmesh
 import logging
 import functools
 import math
-import copy
-from ..settings import TracerData, TracerProperties
-from ..AbstractParameter import Parameter, Key, KeyList, KeyType
-from mathutils import Vector, Quaternion
+import mathutils
+import struct
 
-class NodeTypes(Enum):
-    GROUP       = 0
-    GEO         = 1
-    LIGHT       = 2
-    CAMERA      = 3
-    SKINNEDMESH = 4
-    CHARACTER   = 5
 
-### Class defining the properties and exposed functionalities of any object in a TRACER scene
-#   
-class SceneObjectBase():
+class SceneDataMesh():
+    #vertex_list_size: int
+    #index_list_size: int
+    #normal_list_size: int
+    #uv_list_size: int
+    #bone_weight_list_size: int
+
+    # Class members
+    name: str
+
+    vertices: list[mathutils.Vector]
+    normals: list[mathutils.Vector]
+    uvs: list [mathutils.Vector]
+
+    original_indices: list[int]
+    indices: list[int]
     
-    # PUBLIC STATIC variables
-    start_node_id = 1
-    start_editable_id = 1
-    scene_ID = 254
+    bone_weights: list[list[float]]
+    bone_indices: list[list[int]]
 
-    def __init__(self, bl_obj: Object):
-        
-        # PUBLIC NON-STATIC variables declaration
-        self.tracer_data: TracerData = bpy.context.window_manager.tracer_data
-        self.tracer_properties: TracerProperties = bpy.context.scene.tracer_properties
-        self.blender_object: Object = bl_obj
-        self.is_editable: bool = bl_obj.get("TRACER-Editable", False)
-        self.name: str = bl_obj.name
-        self.parameter_list: list[Parameter] = []
+    def __init__(self):
+        self.name = ''
+        self.vertices = []
+        self.normals = []
+        self.uvs = []
 
-        self.position, self.rotation, self.scale = bl_obj.matrix_world.decompose()
+        self.original_indices = []
+        self.indices = []
 
-        self.scene_object_id = SceneObjectBase.start_node_id
-        SceneObjectBase.start_node_id += 1
-
-        if self.is_editable:
-            self.parameter_object_id = SceneObjectBase.start_editable_id
-            SceneObjectBase.start_editable_id += 1
-            self.tracer_data.editable_objects.append(self)
-        else:
-            self.parameter_object_id = 0
-        
-    def update_position(self, tracer_pos: Parameter, new_value: Vector):
-        pass
-  
-    def update_rotation(self, tracer_rot: Parameter, new_value: Quaternion):
-        pass
-        
-    def update_scale(self, tracer_scale: Parameter, new_value: Vector):
-        pass
+        self.bone_weights = [[]]
+        self.bone_indices = [[]]
 
     def serialise(self):
         pass

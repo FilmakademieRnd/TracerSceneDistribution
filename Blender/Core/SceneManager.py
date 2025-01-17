@@ -15,6 +15,7 @@ from ..SceneObjects.SceneObjectLight import SceneObjectLight
 from ..SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from ..SceneObjects.SceneObjectCharacter import SceneObjectCharacter
 from ..SceneObjects.SceneObjectMesh import SceneObjectMesh
+from ..SceneObjects.SceneObjectMeshSkinned import SceneObjectMeshSkinned
 from ..SceneObjects.SceneObjectPath import SceneObjectPath
 
 class SceneManager:
@@ -35,6 +36,7 @@ class SceneManager:
         self.tracer_data = bpy.context.window_manager.tracer_data
         self.tracer_properties = bpy.context.scene.tracer_properties
 
+    ### Generate the Byte Array describing the Header of the Scene
     def get_header_byte_data(self):
         header_byte_array = bytearray([])
     
@@ -47,6 +49,7 @@ class SceneManager:
 
         self.tracer_data.header_byte_data = header_byte_array
 
+    ### Collect all the data from the Scene into a list of objects (scene_objects) and a list of *editable* objects (editable-objects) 
     def gather_scene_data(self):
         self.tracer_data.clear_tracer_data()
         raw_bl_objects: list[bpy.types.Object] = self.get_object_list()
@@ -59,6 +62,14 @@ class SceneManager:
                 self.logger.debug("TODO Processing character: %s", bl_obj.name)
                 self.tracer_data.scene_objects.append(SceneObjectCharacter(bl_obj))
                 self.process_bones(bl_obj)
+                #self.tracer_data.character_package.append(CharacterPackageData(bl_obj, raw_bl_objects))
+            elif bl_obj.type == 'MESH':
+                if bl_obj.parent == 'ARMATURE':
+                    self.logger.debug("TODO Processing Skinned Mesh: %s", bl_obj.name)
+                    self.tracer_data.scene_objects.append(SceneObjectMeshSkinned(bl_obj))
+                else:
+                    self.logger.debug("TODO Processing Mesh: %s", bl_obj.name)
+                    self.tracer_data.scene_objects.append(SceneObjectMesh(bl_obj))
             elif bl_obj.type == 'CAMERA':
                 #TODO process camera as SceneObjectCamera
                 self.logger.debug("TODO Processing camera: %s", bl_obj.name)

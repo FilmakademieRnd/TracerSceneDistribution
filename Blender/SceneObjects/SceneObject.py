@@ -72,6 +72,17 @@ class SceneObject(SceneObjectBase):
             tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
             tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
 
+    # Helper function to find any element with a certain name in a list of elements (of either SceneObject or SceneData)
+    @classmethod
+    def find_name_in_list(self, name: str, list) -> int:
+        name_bytearray = bytearray(64)
+        for i, n in enumerate(name.encode()):
+            name_bytearray[i] = n
+        
+        i = 0
+        while name_bytearray != list[i].name:
+            i += 1
+            return i
 
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
     def is_control_path(self, context: bpy.types.Context) -> bool:

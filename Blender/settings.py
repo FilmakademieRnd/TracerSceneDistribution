@@ -36,7 +36,10 @@ individual license agreement.
 import bpy
 import json
 from .SceneObjects.SceneObject import SceneObject
-from .SceneObjects.SceneObjectMesh import SceneMeshData
+from .SceneObjects.SceneDataMesh import SceneDataMesh
+from .SceneObjects.SceneDataMaterial import SceneDataMaterial
+from .SceneObjects.SceneDataCharacter import SceneDataCharacter
+from .SceneObjects.SceneDataTexture import SceneDataTexture
 from .AbstractParameter import AnimHostRPC, Parameter
 
 ## Class to keep editable parameters
@@ -258,19 +261,19 @@ class TracerData():
     sceneCamera = {}
     sceneMesh = {}
 
-    materialPackage = {}
-    texturePackage = {}
-    characterPackage = {}
+    material_package = {}
+    texture_package = {}
+    character_package = {}
 
     points_for_frames = {}
 
     #objectsToTransfer = []
     #nodeList = []
-    geometry_dict: dict[str, SceneMeshData] = {}
-    material_list: dict[str, SceneMaterial] = {}
-    texture_list: dict[str, SceneTexture] = []
+    geometry_list: list[SceneDataMesh] = []
+    material_list: list[SceneDataMaterial] = []
+    texture_list: list[SceneDataTexture] = []
     #editable_list = []
-    character_list: dict[str, SceneCharacter] = []
+    character_list: list[SceneDataCharacter] = []
     #curve_list = []
 
     scene_objects: list[SceneObject] = []

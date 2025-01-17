@@ -41,7 +41,8 @@ import bpy
 
 #from ..settings import TracerProperties
 from ..AbstractParameter import Parameter, KeyList, Key, KeyType
-from .SceneObjectMesh import SceneObjectMesh, NodeTypes, SceneMeshData
+from .SceneObject import SceneObject, NodeTypes
+from SceneDataCharacter import SceneDataCharacter
 from ..serverAdapter import send_parameter_update
 
 ### Operator to show to the user that a new animation has been received
@@ -55,7 +56,19 @@ class ReportReceivedAnimation(bpy.types.Operator):
         return {'FINISHED'}
 
 ### Subclass of SceneObject adding functionalities specific for Characters
-class SceneObjectCharacter(SceneObjectMesh):
+class SceneObjectCharacter(SceneObject):
+
+    ### INHERITED FROM SceneObject
+    # tracer_data
+    # tracer_properties
+    # blender_object
+    # is_editable
+    # name
+    # parameter_list
+    # position
+    # rotation
+    # scale
+    # scene_object_id
 
     ### Class constructor
     #   Initializing TRACER class variable (from line 82)
@@ -65,11 +78,10 @@ class SceneObjectCharacter(SceneObjectMesh):
         self.tracer_type = NodeTypes.CHARACTER
 
         # Initializing non-static class variables
-        self.armature_obj_name: str = bl_obj.name
         self.root_bone_name: str = ""
         self.armature_obj_pose_bones: bpy.types.bpy_prop_collection[bpy.types.PoseBone] = bl_obj.pose.bones     # The pose bones (to which the rotations have to be applied)
         self.armature_obj_bones_rest_data: bpy.types.bpy_prop_collection[bpy.types.Bone] = bl_obj.data.bones    # The rest data of the armature bones (to compute the rest pose offsets)
-        self.matrix_world = bl_obj.matrix_world
+        
         self.bone_map = {}
         self.local_bone_rest_transform: dict[str, Matrix] = {}                                                  # Stores the local resting bone space transformations in a dictionary (bone name - rest transfrorm matrix)
         self.local_rotation_map:        dict[str, Matrix] = {}                                                  # Stores the rotation transforms updated by TRACER in local bone space in a dictionary (bone name - rotation matrix) (may cause issues with values updated in a TRACER non-compliant way)
@@ -120,12 +132,59 @@ class SceneObjectCharacter(SceneObjectMesh):
         if path_ID >= 0:
             self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
 
-    def process_geometry_mesh(self):
-        mesh_id, mesh_name = super().process_geometry_mesh()
-        mesh: SceneMeshData = self.tracer_data.geometry_dict[mesh_name]
+    def process_additional_character_data(self, bl_obj_list: list[bpy.types.Object]):        
+        char_data = SceneDataCharacter()
 
-        # Process bone vertices and indices
-    
+        char_data.character_root_id = self.tracer_data.scene_objects.index(self.blender_object)
+
+        ###! Populating char_data.bone_map ###
+        # Populating bone_map with the TRACER indices (positions in the TRACER scene description) of the bones in the character armature
+        armature_data: bpy.types.Armature = self.blender_object.data
+        for bone in armature_data.bones:
+            char_data.bone_map.append(SceneObject.find_name_in_list(bone.name, self.tracer_data.scene_objects))
+        ###! char_data.bone_map is READY!###
+
+        ###! Populating char_data.skeleton_map ###
+        # Adding the position of the character root element in the TRACER scene description to skeleton_map
+        char_data.skeleton_map.append(SceneObject.find_name_in_list(self.blender_object.name, self.tracer_data.scene_objects))
+        
+        # Adding the position of any __mesh__ child of the __armature__ object in the TRACER scene description to skeleton_map
+        for armature_child in self.blender_object.children:
+            if armature_child.type == 'MESH':
+                char_data.skeleton_map.append(SceneObject.find_name_in_list(armature_child.name, self.tracer_data.scene_objects))
+
+                ###! Populating char_data.bone_position, char_data.bone_rotation, char_data.bone_scale ###
+                # For every __mesh__ child of the __armature__ object, also save its **LOCAL** TRS in bone_position, bone_rotation and bone_scale respectively
+                mesh_pos: Vector
+                mesh_rot: Quaternion
+                mesh_scl: Vector
+                mesh_pos, mesh_rot, mesh_scl = armature_child.matrix_local.decompose()
+
+                char_data.bone_position.extend(mesh_pos.xzy)
+                mesh_rot.invert()
+                char_data.bone_rotation.extend([mesh_rot[1], mesh_rot[3], mesh_rot[2], mesh_rot[0]])
+                char_data.bone_scale.extend(mesh_scl.xzy)
+
+
+        # Adding the position of every __PoseBone__ of the character in the TRACER SCene Description to the skeleton_map
+        for pose_bone in self.blender_object.pose.bones:
+            char_data.skeleton_map.append(SceneObject.find_name_in_list(pose_bone.name, self.tracer_data.scene_objects))
+
+            # For every __PoseBone__ of the character, also save its **WORLD** TRS in bone_position, bone_rotation and bone_scale respectively
+            pose_bone_pos: Vector
+            pose_bone_rot: Quaternion
+            pose_bone_scl: Vector
+            pose_bone_pos, pose_bone_rot, pose_bone_scl = (self.blender_object.matrix_world @ pose_bone.matrix).decompose()
+
+            char_data.bone_position.extend(mesh_pos.xzy)
+            mesh_rot.invert()
+            char_data.bone_rotation.extend([mesh_rot[1], mesh_rot[3], mesh_rot[2], mesh_rot[0]])
+            char_data.bone_scale.extend(mesh_scl.xzy)
+        
+        ###! char_data.bone_position, char_data.bone_rotation, char_data.bone_scale are READY!###
+        ###! char_data.skeleton.map is READY!###
+
+        self.tracer_data.character_list.append(char_data)
 
     ### Function that uses the partial transformation matrices to set the bone position and rotations in pose coordinates (as Blender needs)
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
@@ -247,17 +306,17 @@ class SceneObjectCharacter(SceneObjectMesh):
                 for key in parameter.get_key_list():
                     rotation_matrix = local_rot_offest_from_rest[bone_name][key.time]
                     translation_matrix = local_pos_offest_from_rest[bone_name][key.time] if bone_name == "hip" else Matrix.Identity(4) # The translation matrix is defined only for the hip bone
-                    pose_bone: bpy.types.Bone = target_bone.bone
+                    bone: bpy.types.Bone = target_bone.bone
                     new_matrix: Matrix = translation_matrix @ rotation_matrix
                     # Assigning the correct local transformation matrix to the Pose Bone Object -given the parent transform, if there is one-
                     if target_bone.parent:
                         parent_rotation_matrix = local_rot_offest_from_rest[target_bone.parent.name][key.time]
-                        target_bone.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local,
+                        target_bone.matrix_basis = bone.convert_local_to_pose( new_matrix, bone.matrix_local,
                                                                                     parent_matrix = parent_rotation_matrix,
-                                                                                    parent_matrix_local = pose_bone.parent.matrix_local,
+                                                                                    parent_matrix_local = bone.parent.matrix_local,
                                                                                     invert=True )
                     else:
-                        target_bone.matrix_basis = pose_bone.convert_local_to_pose( new_matrix, pose_bone.matrix_local, invert=True )
+                        target_bone.matrix_basis = bone.convert_local_to_pose( new_matrix, bone.matrix_local, invert=True )
                     # Write keyframe for both location and rotation of the current bone at the current frame
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].location', frame=key.time)
                     target_character_obj.keyframe_insert('pose.bones["'+ bone_name +'"].rotation_quaternion', frame=key.time)
