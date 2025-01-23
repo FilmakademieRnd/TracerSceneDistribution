@@ -62,7 +62,7 @@ def process_armature(armature):
     for bone in armature.pose.bones:
         if not bone.parent:
             root_bone = bone
-            print(root_bone)
+            print(root_bone.name)
             break
 
     # Check if the active object is an armature and whehter it has already been processed previously 
@@ -101,8 +101,11 @@ def process_armature(armature):
         bone_data_list = []
         
         if root_bone:
+            root_bone_matrix_global = armature.matrix_world @ root_bone.matrix
+            root_bone_location_global= root_bone_matrix_global.to_translation()
+            root_bone_rotation_global= root_bone_matrix_global.to_quaternion()
             # Create empty object for the root bone
-            empty_root = create_empty(root_bone.name, armature.matrix_world @ root_bone.head, root_bone.rotation_quaternion, root_bone.scale, None)
+            empty_root = create_empty(root_bone.name, root_bone_location_global, root_bone_rotation_global, root_bone.scale, None)
             empty_objects = {root_bone.name: empty_root}
             
             # Parent the root empty to the armature
@@ -112,8 +115,8 @@ def process_armature(armature):
             bone_data = {
                 'name': root_bone.name,
                 'parent': None,
-                'location': armature.matrix_world @ root_bone.head,
-                'rotation': root_bone.rotation_quaternion,
+                'location': root_bone_location_global,
+                'rotation': root_bone_rotation_global,
                 'scale': root_bone.scale
             }
             bone_data_list.append(bone_data)

@@ -39,6 +39,7 @@ import mathutils
 import bmesh
 import struct
 import re
+from bpy_extras.io_utils import axis_conversion
 
 from mathutils import Vector, Quaternion, Matrix
 from.settings import TracerData, TracerProperties
@@ -48,6 +49,7 @@ from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight, LightTypes
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from .SceneObjects.SceneCharacterObject import SceneCharacterObject
+from .JSONEXP import add_TRS, save_TRS_to_json, add_bind_pose
 #from .Avatar_HumanDescription import blender_to_unity_bone_mapping
 
 
@@ -133,6 +135,7 @@ def gather_scene_data():
         get_character_byte_array()
         #getCurvesByteArray()
         
+        save_TRS_to_json()
         return len(tracer_data.objectsToTransfer)
     
     else:
@@ -200,23 +203,24 @@ def process_scene_object(obj: bpy.types.Object, index):
     # When finding an Animation Path to be distributed
     #if obj.name == "AnimPath":
     #    process_control_path(obj)
-            
-        
-    # gather general node data    
+
     nodeMatrix = obj.matrix_local.copy()
 
-    node.position = (nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y)
-    node.scale = (nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y)
-    
+    node.position = nodeMatrix.to_translation().xzy
+    node.scale = nodeMatrix.to_scale().xzy
+
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
         rotFix = mathutils.Matrix.Rotation(math.radians(-90.0), 4, 'X')
         nodeMatrix = nodeMatrix @ rotFix
     
-    rot = nodeMatrix.to_quaternion()
+    #rotFix = mathutils.Matrix.Rotation(math.radians(90.0), 4, 'X')
+    rot = (nodeMatrix).to_quaternion()
     rot.invert()
     node.rotation = (rot[1], rot[3], rot[2], rot[0])
     
+    add_TRS(nodeMatrix, obj.name)
+
     node.name = bytearray(64)
     
     for i, n in enumerate(obj.name.encode()):
@@ -289,7 +293,7 @@ def process_skinned_mesh(obj, nodeSkinMesh):
         if armature_obj:
             armature_data = armature_obj.data  # Accessing the armature data for static bone information
             bind_poses = []
-            root_to_u = armature_obj.matrix_world
+            root_transform = armature_obj.matrix_world
 
             # Conversion matrix to adjust Blender's coordinate system to Unity's
             blender_to_unity = Matrix([
@@ -299,17 +303,25 @@ def process_skinned_mesh(obj, nodeSkinMesh):
                 [0,  0,  0,  1]
             ])
 
+            
             for bone in armature_data.bones:
-                bind_matrix = bone.matrix_local  # Local bone matrix
-                bp_matrix = bind_matrix.inverted()
+                bone_local_transform = bone.matrix_local.copy()  # Local bone matrix
+                (old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
+                old_local_pose = old_local_pose.xzy
+                old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
+                old_local_scl = old_local_scl.xzy
+                bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
 
+                bp_matrix = bone_local_transform.inverted()
                 # Transform the matrix to world space and convert to Unity's coordinate system
-                bp_matrix = blender_to_unity @ (bp_matrix @ root_to_u)
+                bp_matrix = blender_to_unity @ (bp_matrix @ root_transform)
+
+                add_bind_pose(bp_matrix, bone.name)
 
                 # Flatten and append each row of the matrix
                 for row in bp_matrix:
                     bind_poses.extend(row)
-            
+
             desired_length = 1584
             current_length = len(bind_poses)
             if current_length < desired_length:
@@ -394,7 +406,7 @@ def process_character(armature_obj, object_list):
                 chr_pack.bonePosition.extend([nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y])
                 chr_pack.boneScale.extend([nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y])
                 rot = nodeMatrix.to_quaternion()
-                rot.invert()
+                
                 chr_pack.boneRotation.extend([rot[1], rot[3], rot[2], rot[0]])
 
 
@@ -826,12 +838,12 @@ def processGeoNew(mesh):
 
     for i, vert in enumerate(interleaved_buffer):
         geoPack.vertices.append(vert[0][0])
-        geoPack.vertices.append(vert[0][1])
         geoPack.vertices.append(vert[0][2])
+        geoPack.vertices.append(vert[0][1])
 
-        geoPack.normals.append(vert[1][0])
-        geoPack.normals.append(vert[1][2])
-        geoPack.normals.append(vert[1][1])
+        geoPack.normals.append(-vert[1][0])
+        geoPack.normals.append(-vert[1][2])
+        geoPack.normals.append(-vert[1][1])
         
         geoPack.uvs.append(vert[2][0])
         geoPack.uvs.append(vert[2][1])

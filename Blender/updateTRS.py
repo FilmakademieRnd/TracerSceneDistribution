@@ -172,6 +172,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             elif obj.type == 'ARMATURE':  # Ensure it's an armature object
                 for scene_obj in self.tracer_data.SceneObjects :
                     if obj == scene_obj.editable_object and not scene_obj.network_lock:
+                       
                         for bone in obj.pose.bones:
                             current_location = bone.location
                             current_rotation = bone.rotation_quaternion

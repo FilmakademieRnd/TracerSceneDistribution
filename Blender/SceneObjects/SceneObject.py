@@ -37,7 +37,7 @@ import bpy
 import functools
 import math
 import copy
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion,Matrix
 
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
@@ -95,7 +95,8 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.editable_object.location = new_value
+            (_, old_local_rot, old_local_scl) = self.editable_object.matrix_local.decompose()
+            self.editable_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
         else:
             send_parameter_update(tracer_pos)
         # Update the initial_value to the latest value
