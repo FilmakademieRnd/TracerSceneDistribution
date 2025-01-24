@@ -294,29 +294,17 @@ def process_skinned_mesh(obj, nodeSkinMesh):
             armature_data = armature_obj.data  # Accessing the armature data for static bone information
             bind_poses = []
             root_transform = armature_obj.matrix_world
-
-            # Conversion matrix to adjust Blender's coordinate system to Unity's
-            blender_to_unity = Matrix([
-                [1,  0,  0,  0],
-                [0,  0,  1,  0],
-                [0,  1,  0,  0],
-                [0,  0,  0,  1]
-            ])
-
             
             for bone in armature_data.bones:
                 bone_local_transform = bone.matrix_local.copy()
                 bone_local_transform = bone_local_transform.inverted()
+                bone_local_transform = root_transform @ bone_local_transform
                 (old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
                 old_local_pose = old_local_pose.xzy
                 old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
                 old_local_rot.rotate(Euler((0,  math.radians(-90),0), 'XYZ'))
                 old_local_scl = old_local_scl.xzy
                 bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
-
-
-                # Transform the matrix to world space and convert to Unity's coordinate system
-                #bp_matrix =blender_to_unity @  bone_local_transform
 
                 add_bind_pose(bone_local_transform, bone.name)# FOR JSON EXPORT
 
