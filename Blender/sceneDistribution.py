@@ -41,7 +41,7 @@ import struct
 import re
 from bpy_extras.io_utils import axis_conversion
 
-from mathutils import Vector, Quaternion, Matrix
+from mathutils import Vector, Quaternion, Matrix, Euler
 from.settings import TracerData, TracerProperties
 from .AbstractParameter import Parameter, NodeTypes
 from .SceneObjects.SceneObject import SceneObject
@@ -305,21 +305,23 @@ def process_skinned_mesh(obj, nodeSkinMesh):
 
             
             for bone in armature_data.bones:
-                bone_local_transform = bone.matrix_local.copy()  # Local bone matrix
+                bone_local_transform = bone.matrix_local.copy()
+                bone_local_transform = bone_local_transform.inverted()
                 (old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
                 old_local_pose = old_local_pose.xzy
                 old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
+                old_local_rot.rotate(Euler((0,  math.radians(-90),0), 'XYZ'))
                 old_local_scl = old_local_scl.xzy
                 bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
 
-                bp_matrix = bone_local_transform.inverted()
-                # Transform the matrix to world space and convert to Unity's coordinate system
-                bp_matrix = blender_to_unity @ (bp_matrix @ root_transform)
 
-                add_bind_pose(bp_matrix, bone.name)
+                # Transform the matrix to world space and convert to Unity's coordinate system
+                #bp_matrix =blender_to_unity @  bone_local_transform
+
+                add_bind_pose(bone_local_transform, bone.name)# FOR JSON EXPORT
 
                 # Flatten and append each row of the matrix
-                for row in bp_matrix:
+                for row in bone_local_transform:
                     bind_poses.extend(row)
 
             desired_length = 1584
