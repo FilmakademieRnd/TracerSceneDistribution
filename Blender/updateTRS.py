@@ -96,7 +96,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 # Create a key for this bone's transformation
                 bone_name = bone.name
-                current_transform = (tuple(current_location), tuple(current_rotation))
+                current_transform = bone.matrix
                 self.previous_bone_transforms[bone_name] = current_transform
 
         # For other types of objects
@@ -191,15 +191,16 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                                 prev_transform = self.previous_bone_transforms[bone_name]
 
                                 # If any of location, rotation, or scale has changed, we print the bone's name
-                                if current_transform != prev_transform:
+                                if current_rotation != prev_transform:
+                                    print("Updating " + bone_name)
                                     for scene_obj in self.tracer_data.SceneObjects :
                                         if obj == scene_obj.editable_object and not scene_obj.network_lock:
                                             for parameter in scene_obj.parameter_list:
                                                 if parameter.name == bone_name + "-rotation_quaternion":
-                                                    parameter.set_value(current_transform_local_space.to_quaternion())
+                                                    parameter.set_value(current_rotation)
                         
                     # Store the current transform for future comparison
-                                    self.previous_bone_transforms[bone_name] = current_transform_pose_space
+                                    self.previous_bone_transforms[bone_name] = current_rotation.copy()
 
 
                 # Update the starting transform and specific properties for lights and cameras

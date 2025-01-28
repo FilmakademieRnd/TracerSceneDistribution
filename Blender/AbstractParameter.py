@@ -403,7 +403,7 @@ class Parameter(AbstractParameter):
                 unity_vec4 = value.xzyw
                 return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value.x, value.z, value.y, -value.w)
+                return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.COLOR.value:
                 #! Color in mathutils is only RGB
                 return struct.pack('<4f', value.r, value.b, value.g, 1)
@@ -500,7 +500,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW
                 quat_val = Quaternion((struct.unpack('<4f', msg_payload)))
-                return Quaternion((-quat_val[3], quat_val[0], quat_val[2], quat_val[1]))
+                return Quaternion((quat_val[3], quat_val[0], quat_val[1], quat_val[2]))
 
             case TRACERParamType.COLOR.value:
                 color_vec = Vector((struct.unpack('<4f', msg_payload)))

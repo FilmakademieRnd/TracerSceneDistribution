@@ -58,7 +58,7 @@ def save_TRS_to_json():
     """
     # Define the desktop and output file paths
     desktop_path = os.path.join(os.path.expanduser("~"), "Desktop")
-    output_file = os.path.join(desktop_path, "TRANSFORM.json")
+    output_file = os.path.join(desktop_path, "MATRIX_LOCAL.json")
 
     try:
         # Ensure the desktop directory exists (it always should, but for safety)
