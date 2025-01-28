@@ -40,10 +40,9 @@ import copy
 import bpy
 
 #from ..settings import TracerProperties
-from ..AbstractParameter import Parameter, KeyList, Key, KeyType
+from .AbstractParameter import Parameter, KeyList, Key, KeyType
 from .SceneObject import SceneObject, NodeTypes
 from SceneDataCharacter import SceneDataCharacter
-from ..serverAdapter import send_parameter_update
 
 ### Operator to show to the user that a new animation has been received
 class ReportReceivedAnimation(bpy.types.Operator):
@@ -76,6 +75,14 @@ class SceneObjectCharacter(SceneObject):
     def __init__(self, bl_obj: bpy.types.Object):
         super().__init__(bl_obj)
         self.tracer_type = NodeTypes.CHARACTER
+
+        self.blender_object["IK-Flag"] = self.blender_object.get("IK-Flag", False)                  # Adding the IK-Flag property if not already present
+        self.blender_object["TRACER-Editable"] = self.blender_object.get("TRACER-Editable", False)  # Adding the TRACER-Editable property if not already present
+
+        # Forcing update visualisation of Property Panel
+        for area in bpy.context.screen.areas:
+            if area.type == 'PROPERTIES':
+                area.tag_redraw()
 
         # Initializing non-static class variables
         self.root_bone_name: str = ""
@@ -122,15 +129,17 @@ class SceneObjectCharacter(SceneObject):
             local_bone_position_parameter.parameter_handler.append(functools.partial(self.update_bone_position, local_bone_position_parameter))
 
         # Add Control Path Parameter (as Scene Object ID)
+        self.update_control_path_id()
+
         # Look for the object assigned to the blender property in the scene
-        path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-            if obj == self.blender_object.get("Control Path"):
-                path_ID = i
-                break
-        # If the Object is in the Scene, create a new Parameter and save the object_ID of the Control path Object in it
-        if path_ID >= 0:
-            self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
+        # path_ID = -1
+        # for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
+        #     if obj == self.blender_object.get("Control Path"):
+        #         path_ID = i
+        #         break
+        # # If the Object is in the Scene, create a new Parameter and save the object_ID of the Control path Object in it
+        # if path_ID >= 0:
+        #     self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
 
     def process_additional_character_data(self, bl_obj_list: list[bpy.types.Object]):        
         char_data = SceneDataCharacter()
@@ -241,16 +250,17 @@ class SceneObjectCharacter(SceneObject):
 
     ### Function that updates the Tracer ID of the Control Path associated with the current Character in the list of Tracer Parameters
     def update_control_path_id(self):
-        if bpy.data.objects[self.tracer_properties.control_path_name] != None:
-            path_ID = -1
-            for i, obj in enumerate(self.tracer_data.scene_objects):
-                if obj == bpy.data.objects[self.tracer_properties.control_path_name]:
-                    path_ID = i
-                    break
+        path_ID = -1
+        if self.tracer_properties.control_path_name in bpy.data.objects:
+            path_ID = bpy.data.objects.keys().index(self.tracer_properties.control_path_name)
 
-            if path_ID >= 0:
-                self.parameter_list[-1] = Parameter(value=path_ID, name=self.blender_object.name+"-control_path", parent_object=self)
-
+        # If the Control Path Parameter has already been added to the parameter list, just set the new value,
+        # otherwise create the new parameter and append it to the parameter_list
+        if self.parameter_list[-1].name == self.blender_object.name+"-control_path":
+            self.parameter_list[-1].set_value(path_ID)
+        else:
+            self.parameter_list.append(Parameter(value=path_ID, name=self.blender_object.name+"-control_path", parent_object=self))
+        
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
         # Retrieve the character object's armature on which to apply the animation data

@@ -32,24 +32,16 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-import bpy
-import bmesh
-import logging
-import functools
-import math
-import mathutils
+#import bpy
+#import bmesh
+#import logging
+#import functools
+#import math
+#import mathutils
 import struct
 
 
 class SceneDataTexture():
-    # Class members
-    name: bytearray
-
-    color_map_data: bytes
-    color_map_data_size: int
-    width: int
-    height: int
-    format: int
 
     def __init__(self):
         self.name = bytearray(64)
@@ -60,5 +52,13 @@ class SceneDataTexture():
         self.height = 0
         self.format = 0 #???
 
-    def serialise(self):
-        pass
+    def serialise(self) -> bytearray:
+        texture_binary = bytearray([])
+
+        texture_binary.extend(struct.pack('i', self.width))
+        texture_binary.extend(struct.pack('i', self.height))
+        texture_binary.extend(struct.pack('i', self.format))
+        texture_binary.extend(struct.pack('i', self.color_map_data_size))
+        texture_binary.extend(self.color_map_data)
+        
+        return texture_binary

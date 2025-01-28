@@ -32,46 +32,57 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-import bpy
-import bmesh
-import logging
-import functools
-import math
+#import bpy
+#import bmesh
+#import logging
+#import functools
+#import math
 import mathutils
 import struct
 
 
 class SceneDataMesh():
-    #vertex_list_size: int
-    #index_list_size: int
-    #normal_list_size: int
-    #uv_list_size: int
-    #bone_weight_list_size: int
-
-    # Class members
-    name: str
-
-    vertices: list[mathutils.Vector]
-    normals: list[mathutils.Vector]
-    uvs: list [mathutils.Vector]
-
-    original_indices: list[int]
-    indices: list[int]
-    
-    bone_weights: list[list[float]]
-    bone_indices: list[list[int]]
 
     def __init__(self):
-        self.name = ''
-        self.vertices = []
-        self.normals = []
-        self.uvs = []
+        self.name: str = ''
+        self.vertices:  list[mathutils.Vector] = []
+        self.normals:   list[mathutils.Vector] = []
+        self.uvs:       list[mathutils.Vector] = []
 
-        self.original_indices = []
-        self.indices = []
+        self.original_indices:  list[int] = []
+        self.indices:           list[int] = []
 
-        self.bone_weights = [[]]
-        self.bone_indices = [[]]
+        self.bone_weights: list[list[float]]    = [[]]
+        self.bone_indices: list[list[int]]      = [[]]
 
-    def serialise(self):
-        pass
+    def serialise(self) -> bytearray:
+        mesh_binary = bytearray([])
+
+        # Serialise vertices
+        size_vertices: int = len(self.vertices)
+        mesh_binary.extend(struct.pack('i', size_vertices))
+        mesh_binary.extend(struct.pack('%sf' % size_vertices*3, *self.vertices))
+
+        # Serialise indices
+        size_indices: int = len(self.indices)
+        mesh_binary.extend(struct.pack('i', size_indices))
+        mesh_binary.extend(struct.pack('%sf' % size_indices*3, *self.indices))
+
+        # Serialise normals
+        size_normals: int = len(self.normals)
+        mesh_binary.extend(struct.pack('i', size_normals))
+        mesh_binary.extend(struct.pack('%sf' % size_normals*3, *self.normals))
+
+        # Serialise UVs
+        size_uvs: int = len(self.uvs)
+        mesh_binary.extend(struct.pack('i', size_uvs))
+        mesh_binary.extend(struct.pack('%sf' % size_uvs*2, *self.uvs))
+
+        # Serialise bone weights and bone indices
+        size_bone_infos: int = len(self.bone_weights)
+        mesh_binary.extend(struct.pack('i', size_bone_infos))
+        if size_bone_infos > 0:
+            mesh_binary.extend(struct.pack('%sf' % size_bone_infos*4, *self.bone_weights))
+            mesh_binary.extend(struct.pack('%sf' % size_bone_infos*4, *self.bone_indices))
+
+        return mesh_binary

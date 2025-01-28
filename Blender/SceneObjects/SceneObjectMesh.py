@@ -40,12 +40,12 @@ import math
 import mathutils
 import struct
 
-from ..AbstractParameter import Parameter
+from .AbstractParameter import Parameter
 from .SceneObject import SceneObject, NodeTypes
 from SceneDataMesh import SceneDataMesh
 from SceneDataMaterial import SceneDataMaterial
 from SceneDataTexture import SceneDataTexture
-from ..serverAdapter import send_parameter_update;
+from ..Core.ServerAdapter import send_parameter_update;
 
 class SceneObjectMesh(SceneObject):
 

@@ -33,28 +33,18 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 import bpy
-import bmesh
-import logging
-import functools
-import math
-import mathutils
+#import bmesh
+#import logging
+#import functools
+#import math
+#import mathutils
 import struct
 
 #from .SceneObjectMesh import SceneObjectMesh
-from .SceneDataTexture import SceneDataTexture
+#from .SceneDataTexture import SceneDataTexture
 
 
 class SceneDataMaterial():
-    # Class members
-    name: bytearray
-    src: bytearray #? src means???
-
-    color:      list[float]
-    roughness:  float
-    specular:   float
-
-    material_id:    int
-    texture_id:     int
 
     def __init__(self):
         self.name = bytearray(64)
@@ -68,4 +58,22 @@ class SceneDataMaterial():
         self.texture_id:     int = -1
 
     def serialise(self):
-        pass
+        material_binary = bytearray([])
+
+        material_binary.extend(struct.pack('i', 1))     # Material type (always 1 in blender)
+        material_binary.extend(struct.pack('i', 64))    # Material name size (always 64)
+        material_binary.extend(self.name)
+        material_binary.extend(struct.pack('i', 64))    # Material src (which means???) (always 64)
+        material_binary.extend(self.src)
+        material_binary.extend(struct.pack('i', self.material_id))
+        material_binary.extend(struct.pack('i', len(bpy.context.window_manager.tracer_data.texture_list))) #???????????? WTF???????
+        if self.texture_id > -1:
+            material_binary.extend(struct.pack('i', self.texture_id))
+            material_binary.extend(struct.pack('f', 0))     # texture offsets
+            material_binary.extend(struct.pack('f', 0))     # texture offsets
+            material_binary.extend(struct.pack('f', 1))     # texture scales
+            material_binary.extend(struct.pack('f', 1))     # texture scales
+        # else:
+        #     material_binary.extend(struct.pack('i', -1))
+
+        return material_binary

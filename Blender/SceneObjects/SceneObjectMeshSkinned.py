@@ -41,7 +41,7 @@ import bpy
 
 #from ..settings import TracerProperties
 from .SceneObjectMesh import SceneObjectMesh, NodeTypes, SceneDataMesh
-from ..serverAdapter import send_parameter_update
+from ..Core.ServerAdapter import send_parameter_update
 
 ### Subclass of SceneObject adding functionalities specific for Characters
 class SceneObjectMeshSkinned(SceneObjectMesh):

@@ -39,9 +39,9 @@ import math
 import copy
 from mathutils import Vector, Quaternion, Matrix
 
-from ..AbstractParameter import Parameter, Key, KeyList, KeyType
+from .AbstractParameter import Parameter, Key, KeyList, KeyType
 from .SceneObjectBase import SceneObjectBase
-from ..serverAdapter import send_parameter_update
+from ..Core.ServerAdapter import send_parameter_update
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene

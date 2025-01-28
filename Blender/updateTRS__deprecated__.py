@@ -37,7 +37,7 @@ import bpy
 import time
 
 from mathutils import Vector, Euler
-from .settings import TracerData
+from .Core.SceneManager import SceneManager
 from .bl_op import DoDistribute
 
 # Called at DoDistribute Operator in bl_op.py
@@ -46,7 +46,6 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     bl_label = "Real-Time Updater"
 
     _timer = None
-    tracer_data: TracerData = None
     
     def modal(self, context, event):
         if event.type == 'TIMER':

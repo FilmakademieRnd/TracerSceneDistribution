@@ -42,7 +42,7 @@ import re
 
 from mathutils import Vector, Quaternion
 from.settings import TracerData, TracerProperties
-from .AbstractParameter import Parameter
+from .SceneObjects.AbstractParameter import Parameter
 from .SceneObjects.SceneObject import SceneObject, NodeTypes
 from .SceneObjects.SceneObjectMesh import SceneObjectMesh
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
@@ -415,7 +415,7 @@ def process_character(armature_obj, object_list):
     tracer_data.character_list.append(chr_pack)
     return chr_pack
 
-## Given a Control Path in the scene, it evaluates it, it fills a new Curve Package object with the sampled data, and adds it to the list of curves to be shared with the other TRACER clients
+### Given a Control Path in the scene, it evaluates it, it fills a new Curve Package object with the sampled data, and adds it to the list of curves to be shared with the other TRACER clients
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to tracer_data.curve_list (@see TracerData())

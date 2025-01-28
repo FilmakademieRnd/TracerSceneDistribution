@@ -47,22 +47,23 @@ bl_info = {
 from typing import Set
 import bpy
 import os
-from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, InteractionListener, SendRpcCall,\
+from .bl_op import  DoDistribute, UpdateScene, SetupScene, InstallZMQ, SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     AddPath, AddPointAfter, AddPointBefore, ToggleAutoUpdate, UpdateCurveViz, EvaluateSpline, ControlPointProps, ControlPointSelect, EditControlPointHandle,\
                     AnimationRequest, AnimationSave
+from .bl_op_modal import InteractionListener, UpdateSender, SingleSelect
 from .bl_panel import ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu
-from .tools import draw_pointer_numbers_callback
+from .bl_op_control_path import draw_pointer_numbers_callback
+from .Core.SceneManager import SceneManager
 from .settings import TracerData, TracerProperties
-from .updateTRS import RealTimeUpdaterOperator
-from .singleSelect import OBJECT_OT_single_select
+#from .updateTRS import RealTimeUpdaterOperator
 from .SceneObjects.SceneObjectCharacter import ReportReceivedAnimation
-from .AbstractParameter import Parameter, AnimHostRPC
+from .SceneObjects.AbstractParameter import Parameter, AnimHostRPC
 
 # Imported classes to register
 classes = ( ZMQ_PT_Panel, TRACER_PT_Panel, TRACER_PT_Object_Panel, TRACER_PT_Character_Panel, TRACER_PT_Anim_Path_Panel, TRACER_PT_Control_Points_Panel, TRACER_PT_Anim_Path_Menu,
-            DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, RealTimeUpdaterOperator, OBJECT_OT_single_select,
+            DoDistribute, UpdateScene, SetupScene, TracerProperties, InstallZMQ, UpdateSender, SingleSelect,
             SetupCharacter, MakeEditable, ParentToRoot, ParentCharacterToRoot, AddPath, AddPointAfter, AddPointBefore, ControlPointProps, ControlPointSelect, EditControlPointHandle, UpdateCurveViz, EvaluateSpline, ToggleAutoUpdate,
-            AnimationRequest, AnimationSave, InteractionListener, SendRpcCall, ReportReceivedAnimation) 
+            AnimationRequest, AnimationSave, InteractionListener, ReportReceivedAnimation) 
 
 # Container for font information (id and handler object) for drawing text
 font_info = {
@@ -79,6 +80,9 @@ def add_menu_path(self, context):
 # Adding Entries to Menus and enabling callback functions and listeners to "translate" user input in Blender UI into TRACER-oriented actions 
 def register():
     bpy.types.WindowManager.tracer_data = TracerData()
+    bpy.types.WindowManager.scene_manager = SceneManager()
+    bpy.context.window_manager.scene_manager.initialize_manager()
+
     bpy.types.Object.tracer_id = bpy.props.IntProperty(name="TRACER ID", default=-1, description="The ID of the corresponding TRACER Object in the Scene")
     from bpy.utils import register_class
     for cls in classes:

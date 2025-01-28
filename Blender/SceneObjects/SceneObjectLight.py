@@ -35,10 +35,11 @@ individual license agreement.
 import bpy
 import functools
 import struct
+from mathutils import Vector
 from enum import Enum
-from ..AbstractParameter import Parameter
+from .AbstractParameter import Parameter
 from .SceneObject import SceneObject, NodeTypes
-from ..serverAdapter import send_parameter_update;
+from ..Core.ServerAdapter import send_parameter_update;
 
 class LightTypes(Enum):
     SPOT    = 0
@@ -50,23 +51,31 @@ class SceneObjectLight(SceneObject):
     def __init__(self, obj: bpy.types.Object):
         super().__init__(obj)
         self.tracer_type = NodeTypes.LIGHT
-        bl_light: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = obj.data
-        self.light_type = LightTypes[bl_light.type]
+        self.light_data: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = obj.data
+        self.light_type = LightTypes[self.light_data.type]
 
-        color_param = Parameter(bl_light.color, "Color", self)
+        color_param = Parameter(self.light_data.color, "Color", self)
         self.parameter_list.append(color_param)
-        intensity_param = Parameter(bl_light.energy/100.0, "Intensity", self)
+        intensity_param = Parameter(self.light_data.energy/100.0, "Intensity", self)
         self.parameter_list.append(intensity_param)
 
-        color_param.parameter_handler.append(functools.partial(self.update_color, bl_light.color))
-        intensity_param.parameter_handler.append(functools.partial(self.update_intensity, bl_light.energy/100.0))
+        color_param.parameter_handler.append(functools.partial(self.update_color, self.light_data.color))
+        intensity_param.parameter_handler.append(functools.partial(self.update_intensity, self.light_data.energy/100.0))
 
-    def update_color(self, parameter, new_value):
+    def check_for_updates(self):
+        super().check_for_updates()
+
+        if (Vector(self.light_data.color) - Vector(self.parameter_list[3].value)).length > 0.0001:
+            self.update_color(self.parameter_list[3].value)
+        if (self.light_data - self.parameter_list[4].value) > 0.0001:
+            self.update_intensity(self.parameter_list[4])
+
+    def update_color(self, new_value):
         if self.network_lock == True:
             light_data: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = self.blender_object.data
             light_data.color = new_value
         else:
-            send_parameter_update(parameter)
+            send_parameter_update(self.parameter_list[3])
 
     def update_intensity(self, parameter, new_value):
         if self.network_lock == True:

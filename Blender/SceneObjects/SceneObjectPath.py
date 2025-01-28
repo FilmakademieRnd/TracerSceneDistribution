@@ -42,8 +42,8 @@ import mathutils
 from mathutils import Vector, Quaternion
 
 from .SceneObject import SceneObject, NodeTypes
-from ..AbstractParameter import Parameter, Key, KeyList, KeyType
-from ..serverAdapter import send_parameter_update
+from .AbstractParameter import Parameter, Key, KeyList, KeyType
+from ..Core.serverAdapter import send_parameter_update
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
@@ -53,11 +53,14 @@ class SceneObjectPath(SceneObject):
     def __init__(self, bl_obj: Object):
         super().__init__(bl_obj)
 
+        self.sampled_points  = []
+        self.sampled_look_at = []
+
         # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
         # These parameters are associated with the root object of the Control Path in the scene
-        control_path = bl_obj.get("Control Points", None)
-        if control_path != None and len(control_path) > 0:
-            first_point: Object = control_path[0]
+        self.control_points = bl_obj.get("Control Points", None)
+        if self.control_points != None and len(self.control_points) > 0:
+            first_point: Object = self.control_points[0]
             path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
             path_locations.init_animation()
             self.parameter_list.append(path_locations)
@@ -70,6 +73,9 @@ class SceneObjectPath(SceneObject):
         if self.blender_object.get("Control Points", None) != None:
             rotations = self.parameter_list[-1]
             locations = self.parameter_list[-2]
+
+            rotations.key_list.clear()
+            locations.key_list.clear()
 
             cp_list: list[bpy.types.Object] = self.blender_object.get("Control Points")
             cp_curve: bpy.types.SplineBezierPoints = self.blender_object.children[0].data.splines[0].bezier_points
@@ -108,8 +114,8 @@ class SceneObjectPath(SceneObject):
     # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
     # @returns  None            It doesn't return anything, but 
     def sample_control_path(self):
-        sampled_points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
-        sampled_look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
+        self.sampled_points  = [] # list of floats [pos0.x, pos0.y, pos0.z, pos1.x, pos1.y, pos1.z, ..., posN.x, posN.y, posN.z]
+        self.sampled_look_at = [] # list of floats [rot0.x, rot0.y, rot0.z, rot1.x, rot1.y, rot1.z, ..., rotN.x, rotN.y, rotN.z]
         value_error_msg = "The frame value of any point MUST be greater than the previous one!"
 
         control_points: list[bpy.types.Object] = self.blender_object.get("Control Points", None)
@@ -162,8 +168,8 @@ class SceneObjectPath(SceneObject):
                         evaluated_positions = evaluated_positions[: len(evaluated_positions) - 3]
                         evaluated_rotations = evaluated_rotations[: len(evaluated_rotations) - 3]
 
-                    sampled_points.extend(evaluated_positions)
-                    sampled_look_at.extend(evaluated_rotations) 
+                    self.sampled_points.extend(evaluated_positions)
+                    self.sampled_look_at.extend(evaluated_rotations) 
                 else:
                     bpy.context.window_manager.report({"ERROR"}, value_error_msg)
 

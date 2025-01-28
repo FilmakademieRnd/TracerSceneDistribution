@@ -35,12 +35,14 @@ individual license agreement.
 
 import bpy
 import json
+from mathutils import Matrix
+from bpy_extras.io_utils import axis_conversion
 from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneDataMesh import SceneDataMesh
 from .SceneObjects.SceneDataMaterial import SceneDataMaterial
 from .SceneObjects.SceneDataCharacter import SceneDataCharacter
 from .SceneObjects.SceneDataTexture import SceneDataTexture
-from .AbstractParameter import AnimHostRPC, Parameter
+from .SceneObjects.AbstractParameter import AnimHostRPC, Parameter
 
 ## Class to keep editable parameters
 class TracerProperties(bpy.types.PropertyGroup):
@@ -256,26 +258,24 @@ class TracerProperties(bpy.types.PropertyGroup):
 #
 class TracerData():
 
-    #scene_obj_map: dict[int, SceneObject] = {}
-    sceneLight = {}
-    sceneCamera = {}
-    sceneMesh = {}
+    BLENDER_TO_UNITY_CONVERSION_MATRIX: Matrix = axis_conversion(from_forward='Y', from_up='Z', to_forward='-Z', to_up='Y').to_4x4()
+    UNITY_TO_BLENDER_CONVERSION_MATRIX: Matrix = axis_conversion(from_forward='-Z', from_up='Y', to_forward='Y', to_up='Z').to_4x4()
 
-    material_package = {}
-    texture_package = {}
-    character_package = {}
+    # #scene_obj_map: dict[int, SceneObject] = {}
+    # sceneLight = {}
+    # sceneCamera = {}
+    # sceneMesh = {}
 
-    points_for_frames = {}
+    # material_package = {}
+    # texture_package = {}
+    # character_package = {}
 
-    #objectsToTransfer = []
-    #nodeList = []
-    geometry_list: list[SceneDataMesh] = []
+    # points_for_frames = {}
+
+    mesh_list: list[SceneDataMesh] = []
     material_list: list[SceneDataMaterial] = []
     texture_list: list[SceneDataTexture] = []
-    #editable_list = []
     character_list: list[SceneDataCharacter] = []
-    #curve_list = []
-
     scene_objects: list[SceneObject] = []
     editable_objects: list[SceneObject] = []
 
@@ -291,14 +291,29 @@ class TracerData():
     time = 0
     pingStartTime = 0
 
-    nodesByteData = bytearray([])
-    geoByteData = bytearray([])
-    texturesByteData = bytearray([])
-    headerByteData = bytearray([])
-    materialsByteData = bytearray([])
-    charactersByteData = bytearray([])
-    curvesByteData = bytearray([])
-    pingByteMSG = bytearray([])
-    ParameterUpdateMSG = bytearray([])
+    header_byte_data = bytearray([])
+    nodes_byte_data = bytearray([])
+    mesh_byte_data = bytearray([])
+    textures_byte_data = bytearray([])
+    materials_byte_data = bytearray([])
+    characters_byte_data = bytearray([])
+    ping_byte_msg = bytearray([])
+    parameter_update_msg = bytearray([])
 
     debugCounter = 0
+
+    def clear_tracer_data(self, level = 0):
+        if level > 0:
+            self.scene_objects.clear()
+            self.mesh_list.clear()
+            self.material_list.clear()
+            self.texture_list.clear()
+        if level > 1:
+            self.editable_objects.clear()
+            self.header_byte_data.clear()
+            self.nodes_byte_data.clear()
+            self.mesh_byte_data.clear()
+            self.textures_byte_data.clear()
+            self.materials_byte_data.clear()
+            self.ping_byte_msg.clear()
+            self.parameter_update_msg.clear()

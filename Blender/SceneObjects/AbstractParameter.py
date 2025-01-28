@@ -355,10 +355,19 @@ class Parameter(AbstractParameter):
     #######################
 
     def serialize(self) -> bytearray:
-        payload = bytearray([])
-        payload.extend(self.serialize_data(self.value))
+        parameter_update_message = bytearray([])
+
+        # Parameter Header
+        parameter_update_message.extend(struct.pack('<H', self.parent_object.scene_object_id))     # scene object ID
+        parameter_update_message.extend(struct.pack('<H', self.get_parameter_id()))          # parameter ID
+        parameter_update_message.extend(struct.pack(' B', self.get_tracer_type()))           # parameter type
+        length = 10 + self.get_size()
+        parameter_update_message.extend(struct.pack('<I', length))                                # message length
+        
+        # Parameter Payload
+        parameter_update_message.extend(self.serialize_data(self.value))
         if self.is_animated:
-            payload.extend(struct.pack('<H', len(self.key_list)))
+            parameter_update_message.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
                 key_payload = bytearray([])
                 key_payload.extend(struct.pack(' B', key.key_type.value))   #  'B' represents the format of an unsigned char (1 byte) encoded as little endian
@@ -368,8 +377,8 @@ class Parameter(AbstractParameter):
                 key_payload.extend(self.serialize_data(key.value))
                 key_payload.extend(self.serialize_data(key.left_tangent_value))
                 key_payload.extend(self.serialize_data(key.right_tangent_value))
-                payload.extend(key_payload)
-        return payload
+                parameter_update_message.extend(key_payload)
+        return parameter_update_message
 
     def serialize_data(self, value = None) -> bytearray:
         # If the attribute value is not initialised, the internal self.value instance attribute is going to be serialised

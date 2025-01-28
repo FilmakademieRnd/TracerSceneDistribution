@@ -36,15 +36,16 @@ import bpy
 import functools
 import math
 import struct
-from ..AbstractParameter import Parameter
+from .AbstractParameter import Parameter
 from .SceneObject import SceneObject, NodeTypes
-from ..serverAdapter import send_parameter_update;
+from ..Core.ServerAdapter import send_parameter_update;
 
 
 class SceneObjectCamera(SceneObject):
-   def __init__(self, obj):
+   def __init__(self, obj: bpy.types.Object):
       super().__init__(obj)
       self.tracer_type = NodeTypes.CAMERA
+      self.camera_data: bpy.types.Camera = self.blender_object.data
 
       if self.blender_object.get("TRACER-Editable", False):
          fov = Parameter(obj.data.angle, "Fov", self)
@@ -59,37 +60,45 @@ class SceneObjectCamera(SceneObject):
          fov.parameter_handler.append(functools.partial(self.update_fov, fov))
          near.parameter_handler.append(functools.partial(self.update_near, near))
          far.parameter_handler.append(functools.partial(self.update_far, far))
+
+   def check_for_updates(self):
+      super().check_for_updates()
+      if abs(self.parameter_list[3].value - self.camera_data.angle):
+         self.update_fov(self.camera_data.angle)
+      if abs(self.parameter_list[4].value - self.camera_data.clip_start):
+         self.update_near(self.camera_data.clip_start)
+      if abs(self.parameter_list[5].value - self.camera_data.clip_end):
+         self.update_far(self.camera_data.clip_end)
    
-   def update_fov(self, parameter, new_value):
+   def update_fov(self, new_value: float):
       if self.network_lock == True:
-         self.blender_object.data.angle = new_value
+         self.camera_data.angle = new_value
       else:
-         send_parameter_update(parameter)
+         send_parameter_update(self.parameter_list[3])
    
-   def update_near(self, parameter, new_value):
+   def update_near(self, new_value: float):
       if self.network_lock == True:
-         self.blender_object.data.clip_start = new_value
+         self.camera_data.clip_start = new_value
       else:
-         send_parameter_update(parameter)
+         send_parameter_update(self.parameter_list[4])
    
-   def update_far(self, parameter, new_value):
+   def update_far(self, new_value: float):
       if self.network_lock == True:
-         self.blender_object.data.clip_end = new_value
+         self.camera_data.clip_end = new_value
       else:
-         send_parameter_update(parameter)
+         send_parameter_update(self.parameter_list[4])
 
    def serialise(self):
       camera_byte_array = super().serialise()
 
-      camera_data : bpy.types.Camera = self.blender_object.data
       # Field-Of-View
-      camera_byte_array.extend(struct.pack('f', math.degrees(camera_data.angle)))
+      camera_byte_array.extend(struct.pack('f', math.degrees(self.camera_data.angle)))
       # Aspect Ratio
-      camera_byte_array.extend(struct.pack('f', camera_data.sensor_width/camera_data.sensor_height))
+      camera_byte_array.extend(struct.pack('f', self.camera_data.sensor_width/self.camera_data.sensor_height))
       # Near Plane
-      camera_byte_array.extend(struct.pack('f', camera_data.clip_start))
+      camera_byte_array.extend(struct.pack('f', self.camera_data.clip_start))
       # Far Plane
-      camera_byte_array.extend(struct.pack('f', camera_data.clip_end))
+      camera_byte_array.extend(struct.pack('f', self.camera_data.clip_end))
       # Focal Distance (fixed to 5)
       camera_byte_array.extend(struct.pack('f', 5))
       # Aperture (fixed to 2)

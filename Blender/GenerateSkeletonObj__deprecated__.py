@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
-from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
+from .Core.tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
 
 ### Function to create an empty object
 def create_empty(name, location, rotation, scale, parent):

@@ -32,15 +32,15 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-from bpy.types import Object, Bone
+from bpy.types import Object #, Bone
 from enum import Enum
 import bpy
-import logging
-import functools
-import math
-import copy
+#import logging
+#import functools
+#import math
+#import copy
 from ..settings import TracerData, TracerProperties
-from ..AbstractParameter import Parameter, Key, KeyList, KeyType
+from .AbstractParameter import Parameter #, Key, KeyList, KeyType
 from mathutils import Vector, Quaternion
 
 class NodeTypes(Enum):
@@ -58,7 +58,7 @@ class SceneObjectBase():
     # PUBLIC STATIC variables
     start_node_id = 1
     start_editable_id = 1
-    scene_ID = 254
+    scene_id = 254
 
     def __init__(self, bl_obj: Object):
         
@@ -70,7 +70,10 @@ class SceneObjectBase():
         self.name: str = bl_obj.name
         self.parameter_list: list[Parameter] = []
 
-        self.position, self.rotation, self.scale = bl_obj.matrix_world.decompose()
+        decomposed_transform: tuple[Vector, Quaternion, Vector] = bl_obj.matrix_world.decompose()
+        self.position, self.rotation, self.scale = decomposed_transform
+        # TODO: Convert matrices from Blender to Unity coordinate system
+              
 
         self.scene_object_id = SceneObjectBase.start_node_id
         SceneObjectBase.start_node_id += 1
@@ -91,5 +94,14 @@ class SceneObjectBase():
     def update_scale(self, tracer_scale: Parameter, new_value: Vector):
         pass
 
+    def lock_unlock(lock_value: bool|int):
+        pass
+
+    def get_lock_message(self) -> bytearray:
+        pass
+
     def serialise(self):
+        pass
+
+    def check_for_updates(self):
         pass

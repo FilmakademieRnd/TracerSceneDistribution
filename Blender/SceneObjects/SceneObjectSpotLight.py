@@ -36,9 +36,9 @@ import bpy
 import functools
 import math
 import struct
-from ..AbstractParameter import Parameter
+from .AbstractParameter import Parameter
 from .SceneObjectLight import SceneObjectLight, LightTypes
-from ..serverAdapter import send_parameter_update
+from ..Core.ServerAdapter import send_parameter_update
 
 class SceneObjectSpotLight(SceneObjectLight):
     def __init__(self, obj):

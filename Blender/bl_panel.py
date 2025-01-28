@@ -99,7 +99,6 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "TRACER_PT_CHARACTER_PANEL"
     bl_label = "Character"
 
-
     def draw(self, context):
         if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
             layout = self.layout

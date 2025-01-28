@@ -38,12 +38,12 @@ from bpy.types import Object
 import functools
 import math
 import struct
-import copy
+#import copy
 from mathutils import Vector, Quaternion
 
 from .SceneObjectBase import SceneObjectBase, NodeTypes
-from ..AbstractParameter import Parameter, Key, KeyList, KeyType
-from ..serverAdapter import send_parameter_update
+from .AbstractParameter import Parameter #, Key, KeyList, KeyType
+from ..Core.ServerAdapter import send_parameter_update
 
 
 ### Class defining the properties and exposed functionalities of any object in a TRACER scene
@@ -87,24 +87,33 @@ class SceneObject(SceneObjectBase):
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
     def is_control_path(self, context: bpy.types.Context) -> bool:
         return self.blender_object.get("Control Points", False)
+    
+    def check_for_updates(self):
+        # super().check_for_updates()
+        if (self.position - self.blender_object.matrix_world.to_translation()).length > 0.0001:
+            self.update_position(self.blender_object.matrix_world.to_translation())
+        if self.rotation.rotation_difference(self.blender_object.matrix_world.to_quaternion()).angle > 0.0001:
+            self.update_rotation(self.blender_object.matrix_world.to_quaternion())
+        if (self.scale - self.blender_object.matrix_world.to_scale()).length > 0.0001:
+            self.update_scale(self.blender_object.matrix_world.to_scale())
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_pos  the instance of the parameter to update
     #   @param  new_value   the 3D vector describing the new position of this Scene Object  
-    def update_position(self, tracer_pos: Parameter, new_value: Vector):
+    def update_position(self, new_value: Vector):
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
             self.blender_object.location = new_value
         else:
-            send_parameter_update(tracer_pos)
+            send_parameter_update(self.parameter_list[0])
         # Update the initial_value to the latest value
-        tracer_pos.initial_value = new_value
+        self.parameter_list[0].initial_value = new_value
 
     ### Function that updates the value of the roatation of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_rot  the instance of the parameter to update
     #   @param  new_value   the quaternion describing the new rotation of this Scene Object
-    def update_rotation(self, tracer_rot: Parameter, new_value: Quaternion):
+    def update_rotation(self, new_value: Quaternion):
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
@@ -115,29 +124,39 @@ class SceneObject(SceneObjectBase):
             if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
                 self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))
         else:
-            send_parameter_update(tracer_rot)
+            send_parameter_update(self.parameter_list[1])
         # Update the initial_value to the latest value
-        tracer_rot.initial_value = new_value
+        self.parameter_list[1].initial_value = new_value
 
     ### Function that updates the value of the scale of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_scl  the instance of the parameter to update
     #   @param  new_value   the 3D vector describing the new scale of this Scene Object
-    def update_scale(self, tracer_scl: Parameter, new_value: Vector):
+    def update_scale(self, new_value: Vector):
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
             self.blender_object.scale = new_value
         else:
-            send_parameter_update(tracer_scl)
+            send_parameter_update(self.parameter_list[2])
         # Update the initial_value to the latest value
-        tracer_scl.initial_value = new_value
+        self.parameter_list[2].initial_value = new_value
 
     ### Function that toggles the network_lock of Scene Objects
     #   @param  lock_val    value of the network_lock to be set
-    def lock_unlock(self, lock_val: int):
+    def lock_unlock(self, lock_val: bool|int):
         self.network_lock = bool(lock_val)
         self.blender_object.hide_select = bool(lock_val)
 
+    def get_lock_message(self) -> bytearray:
+        lock_byte_array = bytearray([])
+
+        lock_byte_array.extend(struct.pack('H', self.scene_id))             # scene ID
+        lock_byte_array.extend(struct.pack('H', self.scene_object_id))      # object ID
+        lock_byte_array.extend(struct.pack('B', self.network_lock))         # current bool value
+
+        return lock_byte_array
+
+    ### Function that fills the byte array describing the current scene object
     def serialise(self) -> bytearray:
         object_byte_array = bytearray([])
 

@@ -32,39 +32,42 @@ individual license agreement.
  
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
-import bpy
-import bmesh
-import logging
-import functools
-import math
+#import bpy
+#import bmesh
+#import logging
+#import functools
+#import math
 import mathutils
 import struct
 
 
 class SceneDataCharacter():
-    # Class members
-    character_root_id:  int
-
-    bone_position:      list[mathutils.Vector]
-    bone_rotation:      list[mathutils.Vector]
-    bone_scale:         list[mathutils.Vector]
-
-    bone_map:           list[int]
-    skeleton_map:      list[int]
 
     def __init__(self):
-        self.character_root_id = -1
+        self.character_root_id: int = -1
 
-        self.bone_position = []
-        self.bone_rotation = []
-        self.bone_scale = []
+        self.bone_position: list[mathutils.Vector] = []
+        self.bone_rotation: list[mathutils.Vector] = []
+        self.bone_scale:    list[mathutils.Vector] = []
 
-        self.bone_map = []
-        self.skeleton_map = []
+        self.bone_map: list[int]        = []
+        self.skeleton_map: list[int]    = []
 
-    @classmethod
-    def process_character(chr: bpy.types.Object) -> int:
-        pass
+    def serialise(self) -> bytearray:
+        character_binary = bytearray([])
 
-    def serialise(self):
-        pass
+        bone_map_len: int = len(self.bone_map)
+        skel_map_len: int = len(self.skeleton_map)
+
+        character_binary.extend(struct.pack('i', bone_map_len))
+        character_binary.extend(struct.pack('i', skel_map_len))
+        character_binary.extend(struct.pack('i', self.character_root_id))
+
+        character_binary.extend(struct.pack(f'{bone_map_len}i'), *self.bone_map)
+        character_binary.extend(struct.pack(f'{skel_map_len}i'), *self.skeleton_map)
+
+        character_binary.extend(struct.pack('%sf' % skel_map_len*3, *self.bone_position))
+        character_binary.extend(struct.pack('%sf' % skel_map_len*4, *self.bone_rotation))
+        character_binary.extend(struct.pack('%sf' % skel_map_len*3, *self.bone_scale))
+
+        return character_binary
