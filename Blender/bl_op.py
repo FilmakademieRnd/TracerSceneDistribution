@@ -606,9 +606,9 @@ class AnimationRequest(bpy.types.Operator):
                     self.tracer_props.mix_root_rotation_param.value      = self.tracer_props.mix_root_rotation
                     self.tracer_props.mix_control_path_param.value       = self.tracer_props.mix_control_path
                     #! To be tested
-                    send_RPC_msg(self.tracer_props.mix_root_translation_param)
-                    send_RPC_msg(self.tracer_props.mix_root_rotation_param)
-                    send_RPC_msg(self.tracer_props.mix_control_path_param)
+                    #send_RPC_msg(self.tracer_props.mix_root_translation_param)
+                    #send_RPC_msg(self.tracer_props.mix_root_rotation_param)
+                    #send_RPC_msg(self.tracer_props.mix_control_path_param)
                 
             else:
                 self.report({'ERROR'}, "Assign a value to the Control Path field in the Panel to use this functionality.")
@@ -681,10 +681,11 @@ class InteractionListener(bpy.types.Operator):
 
     def modal(self, context, event):
 
-        if not bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
+        if not self.tracer_props.control_path_name in bpy.data.objects:
+            self.anim_path = None
             return {'PASS_THROUGH'}
-        elif self.anim_path == None:
-            self.anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
+        else:
+            self.anim_path = bpy.data.objects[self.tracer_props.control_path_name]
         
         # If the active mode is *changing to* Object
         if self.mode != 'OBJECT' and context.mode == 'OBJECT':
@@ -703,17 +704,17 @@ class InteractionListener(bpy.types.Operator):
             # If one of the Bezier Points of the Control Path was being edited, select the corresponding Control Point Object
             if active_cp_idx >= 0:
                 self.anim_path["Control Points"][active_cp_idx].select_set(True)
-                bpy.context.view_layer.objects.active = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]["Control Points"][active_cp_idx]
+                bpy.context.view_layer.objects.active = bpy.data.objects[self.tracer_props.control_path_name]["Control Points"][active_cp_idx]
         
         # Update the current saved mode
         self.mode = context.mode
 
         # If the Enter or the Left Mouse Button are released (so a changed has been confirmed) and the Auto Update option is active, update the animation curve
         if  (event.type == 'LEFTMOUSE' or event.type == 'RET' or event.type == 'NUMPAD_ENTER') and event.value == 'RELEASE' and \
-            (not context.object == None and (context.object.name == bpy.context.scene.tracer_properties.control_path_name or ((not context.object.parent == None) and\
-                 context.object.parent.name == bpy.context.scene.tracer_properties.control_path_name))) and\
-            bpy.data.objects[self.tracer_props.control_path_name] != None and bpy.data.objects[self.tracer_props.control_path_name]["Auto Update"]:
-            update_curve(bpy.data.objects[self.tracer_props.control_path_name])
+            (not context.object == None and (context.object.name == self.tracer_props.control_path_name or ((not context.object.parent == None) and\
+                 context.object.parent.name == self.tracer_props.control_path_name))) and\
+                 self.anim_path != None and bpy.data.objects[self.tracer_props.control_path_name]["Auto Update"]:
+            update_curve(self.anim_path)
             # If an Animation Preview object is in the scene update also its animation
             if EvaluateSpline.anim_preview_obj_name in bpy.context.scene.objects:
                 if not AnimationRequest.valid_frames:
@@ -736,7 +737,7 @@ class InteractionListener(bpy.types.Operator):
             bpy.ops.object.add_control_point_before()
 
         # If new_cp_location.w >= 0, it means that there is one point in the Bezier Spline that has been moved (i.e. it has a new location)
-        #  - therefore, we need to updater the location of the corresponding Control Point!
+        #  - therefore, we need to update the location of the corresponding Control Point!
         #  - The index of the affected Control Point is "saved" in the w component of new_cp_location, while xyz represent the location vector to be applied to the Control Point
         #  - The update should take place when the editing of the Bezier Point is done (=> context.mode != 'EDIT')
         if context.mode != 'EDIT':

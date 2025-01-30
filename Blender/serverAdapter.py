@@ -306,7 +306,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 def send_RPC_msg(rpc_parameter: Parameter):
     #TODO: use new scene and object to hold AnimHost RPC Parameters (which will trigger RPC calls)
-    scene_id    = 255   if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+    scene_id    = 255   #if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
     object_id   = 1     if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
 
     tracer_data.ParameterUpdateMSG = bytearray([])

@@ -453,23 +453,23 @@ def move_point(point, new_pos):
     update_curve(point.parent)
 
 ### Update the list of Control Points given the current scene status, and remove the Control Path, which is going to be updated
-def path_points_check(anim_path):
+def path_points_check(anim_path: bpy.types.Object):
     # Check the children of the Animation Preview (or corresponding character)
     control_points = []
     cp_names = []   # Helper list containing the names of the control points left in the scene
     for child in anim_path.children:
-        if re.search(r'Control Path', child.name):
+        #if 'Control Path' == child.name:
+        #    bpy.data.objects.remove(child, do_unlink=True)
+        if not child.name in bpy.context.view_layer.objects:
             bpy.data.objects.remove(child, do_unlink=True)
-        elif not child.name in bpy.context.view_layer.objects:
-            bpy.data.objects.remove(child, do_unlink=True)
-        else:
+        elif 'Control Path' != child.name:
             control_points.append(child)
             cp_names.append(child.name)
     
     anim_path["Control Points"] = control_points
 
-### Update Curve takes care of updating the AnimPath representation according to the modifications made by the user using the blender UI
-def update_curve(anim_path: bpy.types.Object):
+### Creates a new Curve takeing care of updating the AnimPath representation according to the modifications made by the user using the blender UI
+def create_new_curve(anim_path: bpy.types.Object):
     # Deselect all selected objects
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
@@ -481,6 +481,7 @@ def update_curve(anim_path: bpy.types.Object):
     bezier_curve_obj.dimensions = '2D'                                                                      # The Curve Object is a 2D curve
 
     bezier_spline = bezier_curve_obj.splines.new('BEZIER')                                                  # Create new Bezier Spline "Mesh"
+    
     bezier_spline.bezier_points.add(len(anim_path.get("Control Points"))-1)                                 # Add points to the Spline to match the length of the control_points list
     for i, cp in enumerate(anim_path.get("Control Points")):
         bezier_point = bezier_spline.bezier_points[i] 
@@ -507,6 +508,57 @@ def update_curve(anim_path: bpy.types.Object):
     for area in bpy.context.screen.areas:
         if area.type == 'PROPERTIES':
             area.tag_redraw()
+
+### Updating the Curve visualisation taking care of updating the AnimPath state according to the modifications made by the user using the blender UI
+def update_curve(anim_path: bpy.types.Object):
+    # Deselect all selected objects
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+
+    path_points_check(anim_path)
+
+    # Getting the Object that holds the spline curve information
+    curve_obj: bpy.types.Object = None
+    for child in anim_path.children:
+        if child.name == "Control Path":
+            curve_obj = child
+            break
+
+    if curve_obj == None:
+        create_new_curve(anim_path)
+        return
+    
+    curve_data: bpy.types.Curve = curve_obj.data
+    spline_points: bpy.types.SplineBezierPoints = curve_data.splines[0].bezier_points
+    control_points: list[bpy.types.Object] = anim_path.get("Control Points")
+    if control_points == None:
+        return
+    if len(spline_points) < len(control_points):
+        spline_points.add(len(control_points) - len(spline_points))
+
+    # Overwrite bezier points info
+    i = 0
+    for cp in control_points:
+        bezier_point = spline_points[i] 
+        bezier_point.co = cp.location                                                                       # Assign the poistion of the elements in the list of Control Points to the Bézier Points
+        bezier_point.handle_left_type  = cp.get("Left Handle Type")                                         # Use the handle data from the list of Control Points for the Bézier Points,
+        if cp.get("Left Handle Type") != "AUTO":
+            bezier_point.handle_left = mathutils.Vector(cp.get("Left Handle").to_list()) + cp.location      # if the handle type is not 'AUTO', any user-made change is saved and applied
+        bezier_point.handle_right_type = cp.get("Right Handle Type")
+        if cp.get("Right Handle Type") != "AUTO":                                                           # do the same for both handles:)
+            bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location    
+        i += 1
+
+    last_cp = control_points[-1]
+    # Pad the left bezier points
+    while i < len(spline_points):
+        bezier_point = spline_points[i] 
+        bezier_point.co = last_cp.location                                                                       # Assign the poistion of the elements in the list of Control Points to the Bézier Points
+        bezier_point.handle_left_type  = "FREE"                                         # Use the handle data from the list of Control Points for the Bézier Points,
+        bezier_point.handle_right_type = "FREE"  
+        bezier_point.handle_left = bezier_point.co
+        bezier_point.handle_right = bezier_point.co
+        i += 1
 
 ### Function for drawing number labels next to the control points
 def draw_pointer_numbers_callback(font_id, font_handler):
