@@ -58,13 +58,16 @@ class SceneObject:
         self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
         self.editable_object: Object = bl_obj
+        
+        nodeMatrix = bl_obj.matrix_local.copy()
 
         # Populating with TRS (Translation-Rotation-Scale) the list of TRACER parameters of the Scene Object. They will be parameters 0, 1 and 2 in the list
-        tracer_pos = Parameter(bl_obj.location.copy(), bl_obj.name+"-location", self)
+
+        tracer_pos = Parameter(nodeMatrix.to_translation(), bl_obj.name+"-location", self)
         self.parameter_list.append(tracer_pos)
-        tracer_rot = Parameter(bl_obj.rotation_quaternion.copy(), bl_obj.name+"-rotation_euler", self)
+        tracer_rot = Parameter(nodeMatrix.to_quaternion(), bl_obj.name+"-rotation_quaternion", self)
         self.parameter_list.append(tracer_rot)
-        tracer_scl = Parameter(bl_obj.scale.copy(), bl_obj.name+"-scale", self)
+        tracer_scl = Parameter(nodeMatrix.to_scale(), bl_obj.name+"-scale", self)
         self.parameter_list.append(tracer_scl)
 
         # Bind functions to update parameters to the corresponding instance of the parameter using functools.partial
@@ -109,9 +112,13 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.editable_object.rotation_mode = 'QUATERNION'
-            self.editable_object.rotation_quaternion = new_value
-            self.editable_object.rotation_mode = 'XYZ'
+            #self.editable_object.rotation_mode = 'QUATERNION'
+            #self.editable_object.rotation_quaternion = new_value
+            #self.editable_object.rotation_mode = 'XYZ'
+
+            (old_local_pos, _, old_local_scl) = self.editable_object.matrix_local.decompose()
+            self.editable_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
+
 
             if self.editable_object.type == 'LIGHT' or self.editable_object.type == 'CAMERA' or self.editable_object.type == 'ARMATURE':
                 self.editable_object.rotation_euler.rotate_axis("X", math.radians(90))

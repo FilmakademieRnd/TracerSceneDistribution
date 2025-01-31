@@ -145,9 +145,9 @@ def gather_scene_data():
 def get_object_list():
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
-    object_list = [parent_object]
-    object_list.extend(parent_object.children_recursive)
-    return object_list
+    #object_list = [parent_object]
+    #object_list.extend(parent_object.children_recursive)
+    return parent_object.children_recursive
     
 ## Process and store a scene object
 #
@@ -205,20 +205,20 @@ def process_scene_object(obj: bpy.types.Object, index):
     # When finding an Animation Path to be distributed
     #if obj.name == "AnimPath":
     #    process_control_path(obj)
-
-    nodeMatrix = obj.matrix_local.copy()
-
-    if obj.name == 'TRACER Scene Root':
-        blender_to_unity = Matrix([
+    blender_to_unity = Matrix([
                 [1,  0,  0,  0],
                 [0,  0,  1,  0],
                 [0,  1,  0,  0],
                 [0,  0,  0,  1]
             ])
-        nodeMatrix = blender_to_unity @ nodeMatrix
+    
+    if obj.parent.name == "TRACER Scene Root": 
+        nodeMatrix =  blender_to_unity @  obj.matrix_local.copy()
+    else:
+        nodeMatrix = obj.matrix_local.copy()
 
-    node.position = nodeMatrix.to_translation().xyz
-    node.scale = nodeMatrix.to_scale().xyz
+    node.position = nodeMatrix.to_translation()
+    node.scale = nodeMatrix.to_scale()
 
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
@@ -248,8 +248,8 @@ def process_scene_object(obj: bpy.types.Object, index):
     node.editable = int(obj.get("TRACER-Editable", False))
     tracer_data.editable_objects.append(obj)
 
-    #if obj.name != 'TRACER Scene Root':
-    tracer_data.nodeList.append(node)
+    if obj.name != 'TRACER Scene Root':
+        tracer_data.nodeList.append(node)
     
 def process_mesh(obj, nodeMesh): 
     nodeMesh.tracer_type = NodeTypes.GEO
@@ -307,6 +307,7 @@ def process_skinned_mesh(obj, nodeSkinMesh):
             bind_poses = []
             root_transform = armature_obj.matrix_world
             
+            
             blender_to_unity = Matrix([
                 [1,  0,  0,  0],
                 [0,  0,  1,  0],
@@ -319,11 +320,12 @@ def process_skinned_mesh(obj, nodeSkinMesh):
 
                 bone_local_transform = bone.matrix_local.copy()
                 bone_local_transform = bone_local_transform.inverted()
-                #bone_local_transform = root_transform @ bone_local_transform
+                #bone_local_transform = bone_local_transform @ root_transform
+                #bone_local_transform = blender_to_unity @ bone_local_transform
                 #(old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
                 #old_local_pose = old_local_pose.xzy
                 #old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
-                #old_local_rot.rotate(Euler((0,  math.radians(-90),0), 'XYZ'))
+                #old_local_rot.rotate(Euler((math.radians(-90), 0 ,0), 'XZY'))
                 #old_local_scl = old_local_scl.xzy
                 #bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
 
@@ -734,7 +736,7 @@ def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
         groups = groups[:4]
         # Ensure there are 4 weights and indices
         while len(groups) < 4:
-            groups.append((0, 0.0))
+            groups.append((-1, 0.0))
         
         # Output the bone indices and weights for this vertex
         bone_indices = []
@@ -778,11 +780,13 @@ def processGeoNew(mesh):
 
     #mesh.data.calc_normals_split()
     bm = bmesh.new()
+
     bm.from_mesh(mesh.data)
 
+    #bm.transform(Matrix(((1,0,0,0), (0,0,1,0), (0,1,0,0), (0,0,0,1))))
     # flipping faces because the following axis swap inverts them????
     #for f in bm.faces:
-        #bmesh.utils.face_flip(f)
+    #    bmesh.utils.face_flip(f)
     #bm.normal_update()
 
     bm.verts.ensure_lookup_table()
@@ -846,6 +850,8 @@ def processGeoNew(mesh):
             _, _, _, vert_bone_weights, vert_bone_indices = vert_data
             geoPack.boneWeights.extend(vert_bone_weights)
             geoPack.boneIndices.extend(vert_bone_indices)
+            #print(vert_bone_indices)
+            #print(vert_bone_weights)
 
         geoPack.bWSize = len(co_buffer)
 
@@ -862,6 +868,13 @@ def processGeoNew(mesh):
         geoPack.uvs.append(vert[2][1])
     bm.free()
 
+
+    # Reverse triangle winding order to fix flipped faces
+    #fixed_indices = []
+    #for i in range(0, len(index_buffer), 3):  
+    #    fixed_indices.append(index_buffer[i])      # First vertex remains the same
+    #    fixed_indices.append(index_buffer[i + 2])  # Swap last and second
+    #    fixed_indices.append(index_buffer[i + 1])  
     
     geoPack.indices = index_buffer
     geoPack.mesh = mesh

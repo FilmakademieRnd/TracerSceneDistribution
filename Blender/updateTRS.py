@@ -75,7 +75,8 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
         return sum((c1 - c2) ** 2 for c1, c2 in zip(color1, color2)) ** 0.5
     
     def add_to_listening(self, obj: bpy.types.Object):
-        transform_data = (obj.location.copy(), obj.rotation_euler.copy(), obj.scale.copy())
+        matrix_local = obj.matrix_local.copy()
+        transform_data = (matrix_local.to_translation(), matrix_local.to_euler(), matrix_local.to_scale())
 
         # Additional properties for lights
         if obj.type == 'LIGHT':
@@ -118,25 +119,28 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             start_rot: Euler  = stored_values[1]
             start_scl: Vector = stored_values[2]
 
+            matrix_local: Matrix = obj.matrix_local.copy()
+
             # Compare the current transform with the starting one
-            if (obj.location - start_loc).length > 0.0001:
+            if (matrix_local.to_translation() - start_loc).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.editable_object and not scene_obj.network_lock :
-                        scene_obj.parameter_list[0].set_value(obj.location)
-                        print(obj.location)
+                        scene_obj.parameter_list[0].set_value(matrix_local.to_translation())
+                        print("matrix_local.to_translation()")
 
-            rotation_difference = (start_rot.to_matrix().inverted() @ obj.rotation_euler.to_matrix()).to_euler()
+            rotation_difference = (start_rot.to_matrix().inverted() @ matrix_local.to_3x3()).to_euler()
             if any(abs(value) > 0.0001 for value in rotation_difference):
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.editable_object and not scene_obj.network_lock :
                         # Directly set rotation using Euler, or convert to quaternion if required
-                        scene_obj.parameter_list[1].set_value( obj.rotation_euler.to_quaternion()) 
-                        print(obj.rotation_euler.to_quaternion())  
+                        scene_obj.parameter_list[1].set_value(matrix_local.to_quaternion()) 
+                        print(matrix_local.to_quaternion())  
 
-            if (obj.scale - start_scl).length > 0.0001:
+            if (matrix_local.to_scale() - start_scl).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.editable_object and not scene_obj.network_lock :
-                        scene_obj.parameter_list[2].set_value(obj.scale)
+                        scene_obj.parameter_list[2].set_value(matrix_local.to_scale())
+                        print("222")
 
             if obj.type == 'LIGHT':
                 start_color, start_energy = self.start_transforms[obj.name][3:5]
@@ -189,7 +193,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                     # Compare the current bone transform with the stored previous transform
                             if bone_name in self.previous_bone_transforms:
                                 prev_transform = self.previous_bone_transforms[bone_name]
-
+                                current_rotation = current_transform_local_space.to_quaternion()
                                 # If any of location, rotation, or scale has changed, we print the bone's name
                                 if current_rotation != prev_transform:
                                     print("Updating " + bone_name)

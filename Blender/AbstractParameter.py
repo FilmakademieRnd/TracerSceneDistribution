@@ -403,7 +403,7 @@ class Parameter(AbstractParameter):
                 unity_vec4 = value.xzyw
                 return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value.x, value.z, value.y, value.w)
+                return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.COLOR.value:
                 #! Color in mathutils is only RGB
                 return struct.pack('<4f', value.r, value.b, value.g, 1)
