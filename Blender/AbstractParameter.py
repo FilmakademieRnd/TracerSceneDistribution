@@ -397,8 +397,8 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR2.value:
                 return struct.pack('<2f', value.x, value.y)
             case TRACERParamType.VECTOR3.value:
-                unity_vec3 = value.xzy
-                return struct.pack('<3f', value.x, value.z, value.y)
+                unity_vec3 = value.xyz
+                return struct.pack('<3f', value.x, value.y, value.z)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
                 return struct.pack('<4f', value.x, value.z, value.y, value.w)
@@ -490,7 +490,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR3.value:
                 vec3_val = Vector((struct.unpack('<3f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xzy
+                return vec3_val.xyz
 
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))

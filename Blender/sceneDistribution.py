@@ -145,9 +145,9 @@ def gather_scene_data():
 def get_object_list():
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
-    #object_list = [parent_object]
-    #object_list.extend(parent_object.children_recursive)
-    return parent_object.children_recursive
+    object_list = [parent_object]
+    object_list.extend(parent_object.children_recursive)
+    return object_list
     
 ## Process and store a scene object
 #
@@ -212,7 +212,7 @@ def process_scene_object(obj: bpy.types.Object, index):
                 [0,  0,  0,  1]
             ])
     
-    if obj.parent.name == "TRACER Scene Root": 
+    if obj.name == "TRACER Scene Root": 
         nodeMatrix =  blender_to_unity @  obj.matrix_local.copy()
     else:
         nodeMatrix = obj.matrix_local.copy()
@@ -248,8 +248,8 @@ def process_scene_object(obj: bpy.types.Object, index):
     node.editable = int(obj.get("TRACER-Editable", False))
     tracer_data.editable_objects.append(obj)
 
-    if obj.name != 'TRACER Scene Root':
-        tracer_data.nodeList.append(node)
+    #if obj.name != 'TRACER Scene Root':
+    tracer_data.nodeList.append(node)
     
 def process_mesh(obj, nodeMesh): 
     nodeMesh.tracer_type = NodeTypes.GEO
