@@ -195,9 +195,9 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
                     if bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
                         row = layout.row()
                         row.operator(ToggleAutoUpdate.bl_idname, text=ToggleAutoUpdate.bl_label)
-                    if not bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]['Auto Update']:
-                        row = layout.row()
-                        row.operator(UpdateCurveViz.bl_idname, text=UpdateCurveViz.bl_label)
+                        if not bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]['Auto Update']:
+                            row = layout.row()
+                            row.operator(UpdateCurveViz.bl_idname, text=UpdateCurveViz.bl_label)
 
 # Define Layout for the Control Points Panel, grouping functionalities related to editing the Points of the Control Path 
 class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):

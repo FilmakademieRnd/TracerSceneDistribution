@@ -550,7 +550,7 @@ class AnimationRequest(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
        control_path_name: str = bpy.context.scene.tracer_properties.control_path_name
-       return control_path_name != '' and bpy.data.objects[control_path_name] != None
+       return control_path_name != '' and control_path_name in bpy.data.objects and bpy.data.objects[control_path_name] != None
 
     def execute(self, context: Context):
         if not AnimationRequest.valid_frames:
@@ -680,7 +680,7 @@ class InteractionListener(bpy.types.Operator):
         self.layout.operator(EditControlPointHandle.bl_idname, text="Edit Handles", icon='HANDLE_ALIGNED')
 
     def modal(self, context, event):
-
+        self.tracer_props = bpy.context.scene.tracer_properties
         if not self.tracer_props.control_path_name in bpy.data.objects:
             self.anim_path = None
             return {'PASS_THROUGH'}
