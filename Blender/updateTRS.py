@@ -178,43 +178,32 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                     if obj == scene_obj.editable_object and not scene_obj.network_lock:
                        
                         for bone in obj.pose.bones:
-                            current_location = bone.matrix_basis.to_translation()
-                            current_rotation = bone.rotation_quaternion
                             bone_name = bone.name
 
-                            current_transform_pose_space = bone.matrix_basis
                             if bone.parent:
-                                current_transform_local_space = bone.bone.convert_local_to_pose( current_transform_pose_space, bone.bone.matrix_local,
-                                                                              parent_matrix = bone.parent.matrix_basis,
-                                                                              parent_matrix_local = bone.parent.bone.matrix_local,
-                                                                              invert=False )
-                                
+                                # Convert current bone's pose matrix to the local space of its parent
+                                local_matrix = bone.parent.matrix.inverted() @ bone.matrix
                             else:
-                                current_transform_local_space = bone.bone.convert_local_to_pose( current_transform_pose_space, bone.bone.matrix_local, invert=False )
+                                # Root bone stays the same (pose matrix is already correct)
+                                local_matrix = bone.matrix
 
-                            #for bone_child in bone.children:
-                             #   quat = bone.matrix_basis.inverted() @ bone_child.matrix_basis
-                              #  if(bone.parent):
-                               #     self.previous_bone_transforms[bone_child.name] = bone_child.bone.convert_local_to_pose(bone_child.matrix_basis, bone_child.bone.matrix_local,
-                                #                                                                                       parent_matrix = bone.parent.matrix_basis , parent_matrix_local = bone.parent.bone.matrix_local,
-                                #                                                                                         invert=False).to_quaternion()
-                                #else: 
-                                 #   self.previous_bone_transforms[bone_child.name] = bone_child.bone.convert_local_to_pose(bone_child.matrix_basis, bone_child.bone.matrix_local, invert=False).to_quaternion()                     
-                    # Compare the current bone transform with the stored previous transform
+                            # Extract the correct local rotation
+                            current_rotation = local_matrix.to_quaternion()
+
+                            # Compare the current bone transform with the stored previous transform
                             if bone_name in self.previous_bone_transforms:
                                 prev_transform = self.previous_bone_transforms[bone_name]
-                                #current_rotation = current_transform_local_space.to_quaternion()
-                                # If any of location, rotation, or scale has changed, we print the bone's name
+
                                 if current_rotation.dot(prev_transform) < 0.9999:
-                                    print("Updating " + bone_name + " " + str(current_transform_local_space.to_euler()))
-                                    for scene_obj in self.tracer_data.SceneObjects :
+                                    for scene_obj in self.tracer_data.SceneObjects:
                                         if obj == scene_obj.editable_object and not scene_obj.network_lock:
                                             for parameter in scene_obj.parameter_list:
                                                 if parameter.name == bone_name + "-rotation_quaternion":
-                                                    parameter.set_value(current_transform_local_space.to_quaternion())
-                        
-                    # Store the current transform for future comparison
+                                                    parameter.set_value(current_rotation)
+
+                                    # Store the updated local transform
                                     self.previous_bone_transforms[bone_name] = current_rotation.copy()
+
 
 
                 # Update the starting transform and specific properties for lights and cameras
