@@ -127,21 +127,21 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             # Compare the current transform with the starting one
             if (matrix_local.to_translation() - start_loc).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                    if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[0].set_value(matrix_local.to_translation())
                         print(obj.name +" Start location" + " " + str(start_loc)  +" " + str(matrix_local.to_translation()))
 
             rotation_difference = (start_rot.to_matrix().inverted() @ matrix_local.to_3x3()).to_euler()
             if any(abs(value) > 0.0001 for value in rotation_difference):
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                    if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         # Directly set rotation using Euler, or convert to quaternion if required
                         scene_obj.parameter_list[1].set_value(matrix_local.to_quaternion()) 
                         print(matrix_local.to_quaternion())  
 
             if (matrix_local.to_scale() - start_scl).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
-                    if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                    if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[2].set_value(matrix_local.to_scale())
                         print("222")
 
@@ -150,12 +150,12 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 if RealTimeUpdaterOperator.color_difference(obj.data.color, start_color) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                        if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[3].set_value(obj.data.color)
 
                 if abs(obj.data.energy - start_energy) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                        if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[4].set_value(obj.data.energy)
 
             # Additional checks for cameras
@@ -164,21 +164,21 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                 if abs(obj.data.angle - start_angle) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object and not scene_obj.network_lock :
+                        if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[3].set_value(obj.data.angle)
 
                 if abs(obj.data.clip_start - start_clip_start) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
-                        if obj == scene_obj.editable_object and not scene_obj.network_lock:
+                        if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[4].set_value(obj.data.clip_start)
 
                 if abs(obj.data.clip_end - start_clip_end) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects :
-                        if obj == scene_obj.editable_object and not scene_obj.network_lock:
+                        if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[5].set_value(obj.data.clip_end)
             elif obj.type == 'ARMATURE':  # Ensure it's an armature object
                 for scene_obj in self.tracer_data.SceneObjects :
-                    if obj == scene_obj.editable_object and not scene_obj.network_lock:
+                    if obj == scene_obj.blender_object and not scene_obj.network_lock:
                        
                         for bone in obj.pose.bones:
                             bone_name = bone.name
@@ -199,7 +199,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                                 if current_rotation.dot(prev_transform) < 0.9999:
                                     for scene_obj in self.tracer_data.SceneObjects:
-                                        if obj == scene_obj.editable_object and not scene_obj.network_lock:
+                                        if obj == scene_obj.blender_object and not scene_obj.network_lock:
                                             for parameter in scene_obj.parameter_list:
                                                 if parameter.name == bone_name + "-rotation_quaternion":
                                                     parameter.set_value(current_rotation)

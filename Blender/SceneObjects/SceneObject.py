@@ -71,7 +71,7 @@ class SceneObject:
 
         self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
-        self.editable_object: Object = bl_obj
+        self.blender_object: Object = bl_obj
         
         local_mat = bl_obj.matrix_local.copy()
 
@@ -111,8 +111,8 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            (_, old_local_rot, old_local_scl) = self.editable_object.matrix_local.decompose()
-            self.editable_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
+            (_, old_local_rot, old_local_scl) = self.blender_object.matrix_local.decompose()
+            self.blender_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
         else:
             send_parameter_update(tracer_pos)
         # Update the initial_value to the latest value
@@ -126,8 +126,8 @@ class SceneObject:
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
 
-            (old_local_pos, _, old_local_scl) = self.editable_object.matrix_local.decompose()
-            self.editable_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
+            (old_local_pos, _, old_local_scl) = self.blender_object.matrix_local.decompose()
+            self.blender_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
 
             if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
                 self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))

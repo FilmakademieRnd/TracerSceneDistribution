@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from settings import TracerProperties
+from .settings import TracerProperties
 from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
@@ -115,7 +115,8 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 row = layout.row()
                 col1 = row.column()
                 # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
-                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
+                
+                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent and bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
                     col1.alert = not SetupCharacter.setup_done
                     col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
