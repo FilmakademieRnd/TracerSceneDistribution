@@ -63,11 +63,12 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
     bl_idname = "TRACER_PT_PANEL"
     bl_label = "TRACER"
     
-    def draw(self, context):
+    def draw(self, context: bpy.types.Context):
         layout = self.layout
         
-        row = layout.row()
-        row.operator(SetupScene.bl_idname, text = SetupScene.bl_label)
+        if not ("TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects):
+            row = layout.row()
+            row.operator(SetupScene.bl_idname, text = SetupScene.bl_label)
 
         row = layout.row()
         row.prop(bpy.context.scene.tracer_properties, 'tracer_collection')
@@ -214,7 +215,8 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
             if bpy.context.mode == 'EDIT_CURVE':
                 #if the user is edidting the points of the bezier spline, disable Control Point features and display message
                 row = layout.row()
-                row.label(text="Feature not available in Edit Curve Mode")
+                row.operator(EditControlPointHandle.bl_idname, text=EditControlPointHandle.bl_label)
+                #row.label(text="Feature not available in Edit Curve Mode")
             elif bpy.context.tool_settings.use_proportional_edit_objects:
                 # If the proportional editing is ENABLED, show warning message and disable control points property editing
                 row = layout.row()

@@ -462,13 +462,14 @@ class ControlPointSelect(bpy.types.Operator):
 class EditControlPointHandle(bpy.types.Operator):
     bl_idname = "curve.edit_control_point_handle"
     bl_label = "Edit Selected Control Point Handles"
-    bl_description = 'Edit the handles of the currently selected Control Point'
+    bl_description = 'Enter/Exit edit the handles of the currently selected Control Point'
 
     last_selected_point_index = -1
 
     def execute(self, context):
-        if bpy.context.scene.tracer_properties.control_path_name != '' and bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
-            anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
+        control_path_name = context.scene.tracer_properties.control_path_name
+        if control_path_name != '' and control_path_name in bpy.data.objects and (context.mode == 'EDIT_MESH' or context.mode == 'OBJECT'):
+            anim_path = bpy.data.objects[control_path_name]
 
             update_curve(anim_path)
             if context.active_object in anim_path["Control Points"]:
@@ -486,6 +487,28 @@ class EditControlPointHandle(bpy.types.Operator):
                 bpy.context.scene.tool_settings.workspace_tool_type = 'DEFAULT'
 
                 control_path_curve.data.splines[0].bezier_points[ptr_idx].select_control_point = True
+                EditControlPointHandle.bl_label = "Exit Handle Editing Mode"
+        elif control_path_name != '' and control_path_name in bpy.data.objects and context.mode == 'EDIT_CURVE':
+            anim_path = bpy.data.objects[control_path_name]
+
+            # If the active object is the control path, check which Bezier Point was being edited (if one)
+            if context.active_object and context.active_object.name == "Control Path":
+                active_cp_idx = EditControlPointHandle.last_selected_point_index
+                EditControlPointHandle.last_selected_point_index = -1
+            else:
+                active_cp_idx = -1
+
+            for cp in anim_path["Control Points"]:                 # For every Pointer Object
+                bpy.context.view_layer.objects.active = cp              # Set it as the Active Object
+                bpy.ops.object.mode_set(mode='OBJECT', toggle=False)    # Set its mode to Object
+                cp.select_set(False)                                    # Deselect it, so that the operation is transparent to the user
+            
+            # If one of the Bezier Points of the Control Path was being edited, select the corresponding Control Point Object
+            if active_cp_idx >= 0:
+                anim_path["Control Points"][active_cp_idx].select_set(True)
+                context.view_layer.objects.active = bpy.data.objects[control_path_name]["Control Points"][active_cp_idx]
+
+            EditControlPointHandle.bl_label = "Edit Selected Control Point Handles"
         else:
             self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
 
@@ -705,6 +728,8 @@ class InteractionListener(bpy.types.Operator):
             if active_cp_idx >= 0:
                 self.anim_path["Control Points"][active_cp_idx].select_set(True)
                 bpy.context.view_layer.objects.active = bpy.data.objects[self.tracer_props.control_path_name]["Control Points"][active_cp_idx]
+            
+            EditControlPointHandle.bl_label = "Edit Selected Control Point Handles"
         
         # Update the current saved mode
         self.mode = context.mode
@@ -754,7 +779,7 @@ class InteractionListener(bpy.types.Operator):
         else:
             bpy.types.VIEW3D_MT_object.remove(InteractionListener.edit_handles)
             
-        if context.active_object and (context.active_object.mode == 'EDIT') and (context.active_object in self.anim_path["Control Points"]):
+        if context.active_object and (context.active_object.mode == 'EDIT' or context.mode == 'EDIT_MESH') and (context.active_object in self.anim_path["Control Points"]):
             # If the User is trying to get into edit mode while selecting a pointer object redirect them to EDIT_CURVE mode while selecting the corresponding Curve Point
             #  - while in EDIT mode, blender will update the Left Handle and Right Handle properties od the Control Point object according to the User interactions with the Control Point
             if not ("Control Path" in bpy.data.objects and self.anim_path["Auto Update"]):
