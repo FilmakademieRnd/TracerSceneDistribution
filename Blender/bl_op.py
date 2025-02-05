@@ -35,7 +35,6 @@ individual license agreement.
 
 from typing import Annotated, Set
 import bpy
-from bpy_extras import anim_utils
 import os
 import re
 import time
@@ -73,11 +72,13 @@ class DoDistribute(bpy.types.Operator):
     is_distributed: bool = False
 
     def execute(self, context):
+        bpy.ops.object.select_all(action='DESELECT')
         print("do distribute")
         if check_ZMQ():
             reset_tracer_connection()
             if DoDistribute.is_distributed:
-                clean_up_tracer_data(level=2)
+                clean_up_tracer_data(level=1)
+                bpy.context.scene.tracer_properties.close_connection = True
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
                 return {'FINISHED'}
@@ -100,6 +101,7 @@ class DoDistribute(bpy.types.Operator):
                     bpy.ops.object.mode_set(mode = 'OBJECT', toggle= True)    # Force OBJECT mode
                 bpy.ops.object.select_all(action='DESELECT')
                 objCount = gather_scene_data()
+
                 bpy.ops.wm.real_time_updater('INVOKE_DEFAULT')
                 bpy.ops.object.single_select('INVOKE_DEFAULT')
                 if objCount > 0:
@@ -109,8 +111,10 @@ class DoDistribute(bpy.types.Operator):
                     self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
                 else:
                     self.report({'ERROR'}, 'TRACER collections not found or empty')
+
                 if current_mode != 'OBJECT':
                     bpy.ops.object.mode_set(mode = current_mode)    # Revert mode to previous one
+
         else:
             self.report({'ERROR'}, 'Please Install Zero MQ before continuing')
         
@@ -123,7 +127,7 @@ class UpdateScene(bpy.types.Operator):
 
     def execute(self, context):
         print('Updating scene data...')
-        clean_up_tracer_data(level=2)
+        clean_up_tracer_data(level=1)
         objCount = gather_scene_data()
         if objCount > 0:
             self.report({'INFO'}, f'Sending {str(objCount)} Objects to TRACER')
@@ -151,6 +155,8 @@ class SetupCharacter(bpy.types.Operator):
     bl_idname = "object.setup_character"
     bl_label = "TRACER Character Setup"
     bl_description = 'generate obj for each Character bone'
+
+    setup_done = False
 
     def execute(self, context):
         print('Setup Character')
@@ -201,7 +207,7 @@ class MakeEditable(bpy.types.Operator):
     
 class ParentToRoot(bpy.types.Operator):
     bl_idname = "object.parent_selected_to_root"
-    bl_label = "Add Object to TRACER"
+    bl_label = "Parent objects to TRACER Scene Root"
     bl_description = 'Parent all the selected object to the TRACER Scene Root'
 
     def execute(self, context):
@@ -211,7 +217,7 @@ class ParentToRoot(bpy.types.Operator):
     
 class ParentCharacterToRoot(bpy.types.Operator):
     bl_idname = "object.parent_character_to_root"
-    bl_label = "Add Character to TRACER"
+    bl_label = "Parent Character to TRACER Scene Root"
     bl_description = 'Parent the chosen Character to the TRACER Scene Root'
 
     def execute(self, context):
@@ -414,8 +420,8 @@ class UpdateCurveViz(bpy.types.Operator):
 #   Inverts value of the Auto Update bool property for the Control Path object. Triggered by a button in the TRACER Add On Panel
 class ToggleAutoUpdate(bpy.types.Operator):
     bl_idname = "object.toggle_auto_eval"
-    bl_label = "Enable Advanced Functionalities"
-    bl_description = 'Enable/Disable advanced functionalities on the Control Path'
+    bl_label = "Enable Path Auto Update"
+    bl_description = 'Enable/Disable the automatic re-calculation of the path'
 
     def execute(self, context):
         # If the toggling should happen only when the path is selected, add also the following condition -> and bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name].select_get()
@@ -430,9 +436,9 @@ class ToggleAutoUpdate(bpy.types.Operator):
                     area.tag_redraw()
 
             if (not anim_path["Auto Update"]) or bpy.context.tool_settings.use_proportional_edit_objects:
-                ToggleAutoUpdate.bl_label = "Enable Advanced Functionalities"
+                ToggleAutoUpdate.bl_label = "Enable Path Auto Update"
             else:
-                ToggleAutoUpdate.bl_label = "Disable Advanced Functionalities"
+                ToggleAutoUpdate.bl_label = "Disable Path Auto Update"
                 ControlPointProps.update_property_ui(context.scene)
         else:
             self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
@@ -542,7 +548,7 @@ class EvaluateSpline(bpy.types.Operator):
             anim_path = bpy.data.objects[control_path_name]
             if EvaluateSpline.anim_preview_obj_name not in bpy.data.objects:
                 anim_prev = make_point(spawn_location=anim_path["Control Points"][0].location + Vector((0, 0, 0.5)), name = EvaluateSpline.anim_preview_obj_name)
-                bpy.context.scene.collection.objects.link(anim_prev)
+                bpy.data.collections["Collection"].objects.link(anim_prev)
             else:
                 EvaluateSpline.bl_label = "Update Animation Preview"
                 anim_prev = bpy.data.objects[EvaluateSpline.anim_preview_obj_name]
@@ -660,30 +666,13 @@ class AnimationSave(bpy.types.Operator):
 
     def execute(self, context: Context):
         character_name: str = bpy.context.scene.tracer_properties.character_name
-        if len(character_name) > 0 and character_name in bpy.data.objects and bpy.data.objects[character_name].type == 'ARMATURE' and bpy.data.objects[character_name].animation_data.action != None:
+        if len(character_name) > 0 and bpy.data.objects[character_name] != None and bpy.data.objects[character_name].type == 'ARMATURE' and bpy.data.objects[character_name].animation_data.action != None:
             print("Animation Data Found!")
-            # Save Animation on the Character Armature
             bpy.data.objects[character_name].animation_data.use_nla = True
             new_track = bpy.data.objects[character_name].animation_data.nla_tracks.new()
             new_track.select = True
             new_track.name = "AnimHost Output"
             new_track.strips.new(name="AnimHost Output", start=0, action=bpy.data.objects[character_name].animation_data.action)
-
-        control_rig_name: str = bpy.context.scene.tracer_properties.control_rig_name
-        if len(control_rig_name) > 0 and control_rig_name in bpy.data.objects and bpy.data.objects[control_rig_name].type == 'ARMATURE':# and bpy.data.objects[control_rig_name].animation_data.action != None:
-            # Save Animation on the Control Rig Armature
-            bpy.data.objects[control_rig_name].animation_data.use_nla = True
-            new_track = bpy.data.objects[control_rig_name].animation_data.nla_tracks.new()
-            new_track.select = True
-            new_track.name = "AnimHost Output"
-            new_track.strips.new(name="AnimHost Output", start=0, action=bpy.data.objects[character_name].animation_data.action)
-            bpy.data.objects[control_rig_name].animation_data.action = new_track.strips[-1].action
-            bpy.context.view_layer.objects.active = bpy.data.objects[control_rig_name]
-            bpy.ops.object.mode_set(mode='POSE')
-            bpy.ops.pose.select_all(action='SELECT')
-            bpy.ops.nla.bake(frame_start=bpy.context.scene.frame_start, frame_end=bpy.context.scene.frame_end, visual_keying=True, use_current_action=True, only_selected=True, clear_constraints=False, bake_types={'POSE'}, channel_types={"ROTATION", "LOCATION"})
-            #action_frames = new_track.strips[-1].action.frame_end - new_track.strips[-1].action.frame_start
-            #anim_utils.bake_action(bpy.data.objects[control_rig_name], action=new_track.strips[-1].action, frames=int(action_frames), bake_options=anim_utils.BakeOptions(True, False, True, False, False, False, False, False, False, False, False, False))
 
         return {'FINISHED'}
 

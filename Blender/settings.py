@@ -47,27 +47,27 @@ class TracerProperties(bpy.types.PropertyGroup):
         elif self.control_rig_name in bpy.data.objects and bpy.data.objects[self.control_rig_name].type == 'ARMATURE':
             control_rig: bpy.types.Object = bpy.data.objects[self.control_rig_name]
             control_rig_armature: bpy.types.Armature = control_rig.data
-            control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str, bool, bool, bool]]] = {}
+            self.control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str, bool, bool, bool]]] = {}
             # Save constraints in dictionary
             for bone in control_rig.pose.bones:
                 if  bone.name not in control_rig_armature.collections["ORG"].bones and\
                     bone.name not in control_rig_armature.collections["MCH"].bones and\
                     bone.name not in control_rig_armature.collections["DEF"].bones:
                     
-                    control_rig_constraints[bone.name] = []
+                    self.control_rig_constraints[bone.name] = []
                     if "Copy Location" in bone.constraints:
                         clc: bpy.types.CopyLocationConstraint = bone.constraints.get("Copy Location")
                         copy_loc_constr = (str(clc.type), clc.target.name, clc.subtarget, clc.head_tail, clc.target_space, clc.owner_space, clc.use_x, clc.use_y, clc.use_z)
-                        control_rig_constraints[bone.name].append(copy_loc_constr)
+                        self.control_rig_constraints[bone.name].append(copy_loc_constr)
                     if "Copy Rotation" in bone.constraints:
                         crc: bpy.types.CopyRotationConstraint = bone.constraints.get("Copy Rotation")
                         copy_rot_constr = (str(crc.type), crc.target.name, crc.subtarget, 0.0, crc.target_space, crc.owner_space, crc.use_x, crc.use_y, crc.use_z)
-                        control_rig_constraints[bone.name].append(copy_rot_constr)
+                        self.control_rig_constraints[bone.name].append(copy_rot_constr)
                     if "Copy Transforms" in bone.constraints:
                         ctc: bpy.types.CopyTransformsConstraint = bone.constraints.get("Copy Transforms")
                         copy_trans_constr = (str(ctc.type), ctc.target.name, ctc.subtarget, ctc.head_tail, ctc.target_space, ctc.owner_space, False, False, False)
-                        control_rig_constraints[bone.name].append(copy_trans_constr)
-            control_rig_constraints_string = json.dumps(control_rig_constraints, separators=(',', ':'))
+                        self.control_rig_constraints[bone.name].append(copy_trans_constr)
+            control_rig_constraints_string = json.dumps(self.control_rig_constraints, separators=(',', ':'))
             control_rig["Constraint Dictionary"] = control_rig_constraints_string
 
             if self.character_name != '':
@@ -117,42 +117,20 @@ class TracerProperties(bpy.types.PropertyGroup):
 
         if character_obj != None:
             character_obj["IK-Flag"] = self.character_IK_flag
-
-            character_constraints: dict[str, list[tuple[str, str, str, float, str, str]]] = json.loads(character_obj["Constraint Dictionary"])
             for bone in character_obj.pose.bones:
-                bone_constraints = character_constraints[bone.name]
-                if character_obj["IK-Flag"]:
-                    # Add back constraints to armature if IK-Flag is true
-                    for constraint_description in bone_constraints:
-                        bone.constraints.new(type=constraint_description[0])
-                        constraint_name = constraint_description[0].replace("_", " ").lower().title()   # Converting the constraint type enum string to the actual constraint name (e.g. "COPY_ROTATION" -> "Copy Rotation")
-                        bone.constraints[constraint_name].target = bpy.data.objects[constraint_description[1]]
-                        bone.constraints[constraint_name].subtarget = constraint_description[2]
-                        if constraint_name != "Copy Rotation":
-                            bone.constraints[constraint_name].head_tail = constraint_description[3]
-                        bone.constraints[constraint_name].target_space = constraint_description[4]
-                        bone.constraints[constraint_name].owner_space = constraint_description[5]
-                        if constraint_name != "Copy Transforms":
-                            bone.constraints[constraint_name].use_x = constraint_description[6]
-                            bone.constraints[constraint_name].use_y = constraint_description[7]
-                            bone.constraints[constraint_name].use_z = constraint_description[8]
-                else:
-                    # Remove constraints from armature if IK-Flag is false
-                    for constraint in bone.constraints:
-                        bone.constraints.remove(constraint)
-            
+                for bone_constraint in bone.constraints:
+                    bone_constraint.enabled = bpy.data.objects[self.character_name]["IK-Flag"]
         else:
             bpy.ops.wm.ik_toggle_report_handler('EXEC_DEFAULT')
 
         if control_rig != None:
-            control_rig_constraints: dict[str, list[tuple[str, str, str, float, str, str]]] = json.loads(control_rig["Constraint Dictionary"])
             control_rig_armature: bpy.types.Armature = control_rig.data
             for bone in control_rig.pose.bones:
                 if  bone.name not in control_rig_armature.collections["ORG"].bones and\
                     bone.name not in control_rig_armature.collections["MCH"].bones and\
                     bone.name not in control_rig_armature.collections["DEF"].bones:
                     
-                    bone_constraints = control_rig_constraints[bone.name]
+                    bone_constraints = self.control_rig_constraints[bone.name]
                     if not character_obj["IK-Flag"]:
                         # Add back constraints to control rig if IK-Flag is false
                         for constraint_description in bone_constraints:
@@ -220,6 +198,7 @@ class TracerProperties(bpy.types.PropertyGroup):
             if self.animation_request_modes == item[0]:
                 return item[1]
 
+    close_connection: bool = False
     server_ip: bpy.props.StringProperty(name='Server IP', default = '127.0.0.1', description='IP adress of the machine you are running Blender on. \'127.0.0.1\' for tests only on this machine.')                                                                          # type: ignore
     dist_port: bpy.props.StringProperty(default = '5555')                                                                                                                                                                                                                   # type: ignore
     sync_port: bpy.props.StringProperty(default = '5556')                                                                                                                                                                                                                   # type: ignore

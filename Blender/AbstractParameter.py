@@ -317,13 +317,14 @@ class Parameter(AbstractParameter):
             return data_size
 
     def set_value(self, new_value):
-        if not self.parent_object.network_lock:
-            self.parent_object.network_lock = True
-            if new_value != self.value:
-                self.has_changed = True
+        if new_value != self.value:
+            self.has_changed = True
+            if hasattr(new_value, 'copy'):
                 self.value = new_value.copy()
-                self.emit_has_changed()
-            self.parent_object.network_lock = False
+            else:
+                self.value = new_value
+            self.emit_has_changed()
+            
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:
@@ -399,11 +400,11 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR2.value:
                 return struct.pack('<2f', value.x, value.y)
             case TRACERParamType.VECTOR3.value:
-                unity_vec3 = value.xzy
+                unity_vec3 = value.xyz
                 return struct.pack('<3f', value.x, value.y, value.z)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
-                return struct.pack('<4f', value.x, value.y, value.z, value.w)
+                return struct.pack('<4f', value.x, value.z, value.y, value.w)
             case TRACERParamType.QUATERNION.value:
                 return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.COLOR.value:
@@ -507,8 +508,8 @@ class Parameter(AbstractParameter):
                 return Quaternion((quat_val[3], quat_val[0], quat_val[1], quat_val[2]))
 
             case TRACERParamType.COLOR.value:
-                color_val = Color((struct.unpack('<4f', msg_payload)))
-                return color_val
+                color_vec = Vector((struct.unpack('<4f', msg_payload)))
+                return Color(color_vec.xyz)
 
             case TRACERParamType.STRING.value:
                 # https://docs.python.org/3/library/stdtypes.html#bytearray.decode

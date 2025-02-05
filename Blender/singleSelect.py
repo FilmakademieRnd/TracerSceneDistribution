@@ -35,7 +35,6 @@ individual license agreement.
 
 import bpy
 from .settings import TracerData
-from .bl_op import DoDistribute
 from .serverAdapter import send_lock_msg, send_unlock_msg;
 
 
@@ -47,7 +46,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
     _timer = None
     tracer_data: TracerData = None
     last_selected_objects = set()  # Variable to store the last selected object
-    running = False
 
     def modal(self, context, event):
         if event.type == 'TIMER':
@@ -83,7 +81,7 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 # Update the last selected objects set
                 self.last_selected_objects = current_selected_objects
 
-            if not DoDistribute.is_distributed:
+            if bpy.context.scene.tracer_properties.close_connection:
                 return {'CANCELLED'}
 
         return {'PASS_THROUGH'}
@@ -92,7 +90,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
         self.tracer_data = bpy.context.window_manager.tracer_data
         self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
-        
         return {'RUNNING_MODAL'}
 
     def cancel(self, context):

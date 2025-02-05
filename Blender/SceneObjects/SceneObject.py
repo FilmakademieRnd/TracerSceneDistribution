@@ -39,7 +39,7 @@ import math
 import struct
 from enum import Enum
 import copy
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion,Matrix
 
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
 from ..serverAdapter import send_parameter_update
@@ -71,16 +71,19 @@ class SceneObject:
 
         self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
-        self.blender_object: Object = bl_obj
+        self.editable_object: Object = bl_obj
+        
+        local_mat = bl_obj.matrix_local.copy()
 
         # If the object is TRACER-Editable, initialise the Parameters 
         if self.blender_object.get("TRACER-Editable", False):
             # Populating with TRS (Translation-Rotation-Scale) the list of TRACER parameters of the Scene Object. They will be parameters 0, 1 and 2 in the list
-            tracer_pos = Parameter(bl_obj.location.copy(), bl_obj.name+"-location", self)
+
+            tracer_pos = Parameter(local_mat.to_translation(), bl_obj.name+"-location", self)
             self.parameter_list.append(tracer_pos)
-            tracer_rot = Parameter(bl_obj.rotation_quaternion.copy(), bl_obj.name+"-rotation_euler", self)
+            tracer_rot = Parameter(local_mat.to_quaternion(), bl_obj.name+"-rotation_quaternion", self)
             self.parameter_list.append(tracer_rot)
-            tracer_scl = Parameter(bl_obj.scale.copy(), bl_obj.name+"-scale", self)
+            tracer_scl = Parameter(local_mat.to_scale(), bl_obj.name+"-scale", self)
             self.parameter_list.append(tracer_scl)
 
             # Bind functions to update parameters to the corresponding instance of the parameter using functools.partial
@@ -100,10 +103,6 @@ class SceneObject:
             path_rotations.init_animation()
             self.parameter_list.append(path_rotations)
 
-    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def is_control_path(self, context: bpy.types.Context) -> bool:
-        return self.blender_object.get("Control Points", False)
-
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_pos  the instance of the parameter to update
@@ -112,7 +111,8 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.blender_object.location = new_value
+            (_, old_local_rot, old_local_scl) = self.editable_object.matrix_local.decompose()
+            self.editable_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
         else:
             send_parameter_update(tracer_pos)
         # Update the initial_value to the latest value
@@ -125,9 +125,9 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.blender_object.rotation_mode = 'QUATERNION'
-            self.blender_object.rotation_quaternion = new_value
-            self.blender_object.rotation_mode = 'XYZ'
+
+            (old_local_pos, _, old_local_scl) = self.editable_object.matrix_local.decompose()
+            self.editable_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
 
             if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
                 self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))

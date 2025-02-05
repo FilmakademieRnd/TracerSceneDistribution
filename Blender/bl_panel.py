@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 
-from .settings import TracerProperties, TracerData
+from settings import TracerProperties
 from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
@@ -110,12 +110,13 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
             row.prop(bpy.context.scene.tracer_properties, 'character_name')
             row = layout.row()
             row.prop(bpy.context.scene.tracer_properties, 'control_path_name')
+            row = layout.row()
             if bpy.context.scene.tracer_properties.character_name != "" and bpy.context.scene.tracer_properties.character_name in bpy.data.objects:
                 row = layout.row()
+                col1 = row.column()
                 # Enabling Character Setup ONLY when the character has already been placed in the TRACER Scene
-                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent != None and bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
-                    col1 = row.column()
-                    col1.alert = not bpy.data.objects[bpy.context.scene.tracer_properties.character_name].get('TRACER Setup Done', False)
+                if bpy.data.objects[bpy.context.scene.tracer_properties.character_name].parent.name == "TRACER Scene Root":
+                    col1.alert = not SetupCharacter.setup_done
                     col1.operator(SetupCharacter.bl_idname, text = SetupCharacter.bl_label)
                 col2 = row.column()
                 col2.operator(ParentCharacterToRoot.bl_idname, text = ParentCharacterToRoot.bl_label)
@@ -170,17 +171,11 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
     def draw(self, context):
         if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
             layout = self.layout
-            
-            if bpy.context.scene.tracer_properties.control_path_name == '':
+            row = layout.row()
+            row.operator(AddPath.bl_idname, text=AddPath.bl_label)
+            if bpy.context.scene.tracer_properties.control_path_name != '':
                 row = layout.row()
-                row.operator(AddPath.bl_idname, text=AddPath.bl_label)
-            
-            if bpy.context.scene.tracer_properties.control_path_name != '' and not InteractionListener.is_running:
-                row = layout.row()
-                row.alert = True
                 row.operator(InteractionListener.bl_idname, text=InteractionListener.bl_label)   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
-            
-            if bpy.context.scene.tracer_properties.control_path_name != '' and InteractionListener.is_running:
                 if bpy.context.mode == 'EDIT_CURVE':
                     #if the user is edidting the points of the bezier spline, disable Control Point features and display message
                     row = layout.row()
@@ -209,7 +204,7 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
     bl_parent_id = TRACER_PT_Anim_Path_Panel.bl_idname
 
     def draw(self, context):
-        if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects and InteractionListener.is_running:
+        if "TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects:
             layout = self.layout
             # If the proportional editing is ENABLED, show warning message and disable control points property editing
             if bpy.context.mode == 'EDIT_CURVE':
@@ -243,7 +238,6 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                 #! Style is not currently used by the framework
                 #title6 = grid.box(); title6.alert = True; title6.label(text="STYLE")
 
-                AnimationRequest.valid_frames = True    # Initialising value
                 # Setting the owner of the data, if it exists
                 cp_list_size = len(anim_path["Control Points"])
                 for i in range(cp_list_size):
@@ -267,12 +261,11 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                         frame = grid.box()
                         # If a frame value is not valid (smaller than the previous or bigger than the following,
                         # mark it as an alert
-                        if (  i > 0             and cp["Frame"] <= anim_path["Control Points"][i-1]["Frame"])\
-                        or (i+1 < cp_list_size  and cp["Frame"] >= anim_path["Control Points"][i+1]["Frame"]):
+                        if (  i > 0             and cp["Frame"] < anim_path["Control Points"][i-1]["Frame"])\
+                        or (i+1 < cp_list_size  and cp["Frame"] > anim_path["Control Points"][i+1]["Frame"]):
                             frame.alert = True
                         else:
                             frame.alert = False
-                        AnimationRequest.valid_frames = AnimationRequest.valid_frames and not frame.alert       # Checking that all frame values are valid
                         frame.alignment = 'CENTER'; frame.label(text=str(cp["Frame"]));                         # alignment does nothing. Buggy Blender.
 
                         e__in = grid.box(); e__in.alignment = 'CENTER'; e__in.label(text=str(cp["Ease In"]));   # alignment does nothing. Buggy Blender.
