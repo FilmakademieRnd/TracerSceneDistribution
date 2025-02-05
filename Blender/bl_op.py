@@ -165,10 +165,20 @@ class SetupCharacter(bpy.types.Operator):
             return {'FINISHED'}
 
         if  not bpy.data.objects[character_name].get('TRACER Setup Done', False):
+            character_obj: bpy.types.Object = bpy.data.objects[character_name]
             bpy.ops.object.select_all(action='DESELECT')
-            bpy.context.view_layer.objects.active = bpy.data.objects[character_name]
-            process_armature(bpy.data.objects[character_name])
-            bpy.data.objects[character_name]['TRACER Setup Done'] = True
+            bpy.context.view_layer.objects.active = character_obj
+            character_obj.animation_data_clear()
+            character_obj.select_set(True)
+            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            character_obj.select_set(False)
+            for character_child in character_obj.children_recursive:
+                character_child.select_set(True)
+                bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+                character_child.select_set(False)
+            process_armature(character_obj)
+            character_obj.select_set(True)
+            character_obj['TRACER Setup Done'] = True
         return {'FINISHED'}
     
 class MakeEditable(bpy.types.Operator):
