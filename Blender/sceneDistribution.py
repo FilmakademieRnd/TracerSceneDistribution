@@ -1007,7 +1007,7 @@ def get_materials_byte_array():
             matBinary.extend(struct.pack('i', 64)) # src.size
             matBinary.extend(mat.src) # src
             matBinary.extend(struct.pack('i', mat.materialID)) # mat id
-            if mat.tex != None:
+            if len(tracer_data.textureList) > 0:
                 matBinary.extend(struct.pack('i', 1))# tex id size
             else:
                 matBinary.extend(struct.pack('i', 0))# tex id size
