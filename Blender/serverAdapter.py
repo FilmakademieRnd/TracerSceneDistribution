@@ -260,8 +260,8 @@ def send_parameter_update(modified_parameter_list: list[Parameter]):    # parame
     tracer_data.ParameterUpdateMSG = bytearray([])
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
-    for parameter in modified_parameter_list:
-        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
+    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
+    for parameter in modified_parameter_list:      
         tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
         tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
         tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID

@@ -701,7 +701,9 @@ def processTexture(tex):
     try:
         texFile = open(tex.filepath_from_user(), 'rb')
     except FileNotFoundError:
-        bpy.context.window.modal_operators[-1].report({'ERROR'}, f"Error: Texture file not found at {tex.filepath_from_user()}")
+        size_modal_operators = len(bpy.context.window.modal_operators)
+        if size_modal_operators > 0:
+            bpy.context.window.modal_operators[0].report({'ERROR'}, f"Error: Texture file not found at {tex.filepath_from_user()}")
         return -1
     
     texBytes = texFile.read()
@@ -1005,7 +1007,10 @@ def get_materials_byte_array():
             matBinary.extend(struct.pack('i', 64)) # src.size
             matBinary.extend(mat.src) # src
             matBinary.extend(struct.pack('i', mat.materialID)) # mat id
-            matBinary.extend(struct.pack('i', 1))# tex id size
+            if mat.tex != None:
+                matBinary.extend(struct.pack('i', 1))# tex id size
+            else:
+                matBinary.extend(struct.pack('i', 0))# tex id size
             if(mat.textureId != -1):
                 matBinary.extend(struct.pack('i', mat.textureId))# tex id
                 matBinary.extend(struct.pack('f', 0)) # tex offsets
