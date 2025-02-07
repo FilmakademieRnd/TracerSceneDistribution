@@ -38,6 +38,7 @@ import time
 
 from mathutils import Vector, Euler, Matrix
 from .settings import TracerData
+from .serverAdapter import send_parameter_update
 
 # Called at DoDistribute Operator in bl_op.py
 class RealTimeUpdaterOperator(bpy.types.Operator):
@@ -173,7 +174,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                             scene_obj.parameter_list[4].set_value(obj.data.clip_start)
 
                 if abs(obj.data.clip_end - start_clip_end) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects :
+                    for scene_obj in self.tracer_data.SceneObjects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[5].set_value(obj.data.clip_end)
             elif obj.type == 'ARMATURE':  # Ensure it's an armature object
@@ -206,8 +207,9 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
                                     # Store the updated local transform
                                     self.previous_bone_transforms[bone_name] = current_rotation.copy()
-
-
+            
+            if len(self.tracer_data.modified_parameters) > 0:
+                send_parameter_update(self.tracer_data.modified_parameters)
 
                 # Update the starting transform and specific properties for lights and cameras
             if obj.type == 'LIGHT':

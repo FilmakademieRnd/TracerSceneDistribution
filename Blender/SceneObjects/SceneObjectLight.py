@@ -58,19 +58,21 @@ class SceneObjectLight(SceneObject):
         color.parameter_handler.append(functools.partial(self.update_color, color))
         intensity.parameter_handler.append(functools.partial(self.update_intensity, intensity))
 
-    def update_color(self, parameter, new_value):
+    def update_color(self, color: Parameter, new_value):
         if self.network_lock == True:
             light_data: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = self.blender_object.data
             light_data.color = new_value
         else:
-            send_parameter_update(parameter)
+            #send_parameter_update(color)
+            self.tracer_data.modified_parameters.append(color)
 
-    def update_intensity(self, parameter, new_value):
+    def update_intensity(self, intensity: Parameter, new_value):
         if self.network_lock == True:
             light_data: bpy.types.PointLight | bpy.types.SunLight | bpy.types.AreaLight = self.blender_object.data
             light_data.energy = new_value
         else:
-            send_parameter_update(parameter)
+            #send_parameter_update(intensity)
+            self.tracer_data.modified_parameters.append(intensity)
 
     def serialise(self):
         light_byte_array = super().serialise()

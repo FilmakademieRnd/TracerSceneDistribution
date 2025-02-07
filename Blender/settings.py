@@ -35,7 +35,7 @@ individual license agreement.
 
 import bpy
 import json
-from .SceneObjects.SceneObject import SceneObject
+#from .SceneObjects.SceneObject import SceneObject
 from .AbstractParameter import AnimHostRPC, Parameter
 
 ## Class to keep editable parameters
@@ -231,7 +231,7 @@ class TracerProperties(bpy.types.PropertyGroup):
 #
 class TracerData():
 
-    scene_obj_map: dict[int, SceneObject] = {}
+    scene_obj_map: dict = {}
     sceneLight = {}
     sceneCamera = {}
     sceneMesh = {}
@@ -253,7 +253,8 @@ class TracerData():
     curveList = []
     editable_objects = []
 
-    SceneObjects: list[SceneObject] = []
+    SceneObjects: list = []
+    modified_parameters: list[Parameter] = []
 
     rootChildCount = 0
     

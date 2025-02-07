@@ -42,7 +42,7 @@ import copy
 from mathutils import Vector, Quaternion,Matrix
 
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
-from ..serverAdapter import send_parameter_update
+from ..settings import TracerData
 
 class NodeTypes(Enum):
     GROUP       = 0
@@ -63,6 +63,7 @@ class SceneObject:
     
     def __init__(self, bl_obj: Object):
         # PUBLIC NON-STATIC variables declaration
+        self.tracer_data: TracerData = bpy.context.window_manager.tracer_data
         # self.parameter_object_id = SceneObject.start_id
         # self.scene_object_id = tracer_data.objectsToTransfer.index(self.blender_object)
         self.object_id = SceneObject.start_id
@@ -114,7 +115,9 @@ class SceneObject:
             (_, old_local_rot, old_local_scl) = self.blender_object.matrix_local.decompose()
             self.blender_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
         else:
-            send_parameter_update(tracer_pos)
+            # Instead of sending the parameter update, place the updated parameter into a list with other updated parameters 
+            # send_parameter_update(tracer_pos)
+            self.tracer_data.modified_parameters.append(tracer_pos)
         # Update the initial_value to the latest value
         tracer_pos.initial_value = new_value
 
@@ -132,7 +135,8 @@ class SceneObject:
             if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
                 self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))
         else:
-            send_parameter_update(tracer_rot)
+            #send_parameter_update(tracer_rot)
+            self.tracer_data.modified_parameters.append(tracer_rot)
         # Update the initial_value to the latest value
         tracer_rot.initial_value = new_value
 
@@ -145,7 +149,8 @@ class SceneObject:
         if self.network_lock:
             self.blender_object.scale = new_value
         else:
-            send_parameter_update(tracer_scl)
+            #send_parameter_update(tracer_scl)
+            self.tracer_data.modified_parameters.append(tracer_scl)
         # Update the initial_value to the latest value
         tracer_scl.initial_value = new_value
 

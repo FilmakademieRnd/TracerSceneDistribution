@@ -38,7 +38,7 @@ import bpy
 import os
 import re
 import time
-from mathutils import Vector, Euler
+from mathutils import Vector, Euler, Matrix
 
 from bpy.types import Context
 from bpy.app.handlers import persistent
@@ -182,8 +182,10 @@ class SetupCharacter(bpy.types.Operator):
                 character_child.select_set(True)
                 bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
                 character_child.select_set(False)
+            character_obj.pose.bones[0].location = Vector((0,0,0))
             process_armature(character_obj)
             character_obj.select_set(True)
+            character_obj['TRACER-Editable'] = True
             character_obj['TRACER Setup Done'] = True
         return {'FINISHED'}
     

@@ -75,6 +75,10 @@ class SceneObjectCharacter(SceneObject):
         self.local_rotation_map:        dict[str, Matrix] = {}                                                  # Stores the rotation transforms updated by TRACER in local bone space in a dictionary (bone name - rotation matrix) (may cause issues with values updated in a TRACER non-compliant way)
         self.local_translation_map:     dict[str, Matrix] = {}                                                  # Stores the positional transforms updated by TRACER in local bone space in a dictionary (bone name - translation matrix)
 
+        #! Initialise Control Path Positions Param
+        #! Initialise Control Path Rotations Param
+        # See SceneObject.py line 98
+
         # Saving initial/resting armature bone transforms in local **bone** space
         # Necessary for then applying animation displacements in the correct transform space
         for abone in self.armature_obj_bones_rest_data:
@@ -160,9 +164,9 @@ class SceneObjectCharacter(SceneObject):
 
     ### Function that takes the new rotaional offset -w.r.t. the rest transform- as a quaternion and translates it into a 4x4 matrix
     #   that expresses the bone rotation relative to the parent and own rest bone -to be used as the new matrix_basis-
-    def update_bone_rotation(self, tracer_rot: Parameter, new_quat: Quaternion):
+    def update_bone_rotation(self, bone_rot: Parameter, new_quat: Quaternion):
         if self.network_lock:
-            bone_name = tracer_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: spine_1-rotation_quat -> hip-
+            bone_name = bone_rot.name.partition("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: spine_1-rotation_quat -> hip-
             target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]
             local_rest_transform: Matrix = self.local_bone_rest_transform[bone_name]
             
@@ -175,19 +179,24 @@ class SceneObjectCharacter(SceneObject):
             self.local_rotation_map[bone_name] = new_rotation_matrix
             self.set_pose_matrices(target_bone)
         else:
-            send_parameter_update(tracer_rot)
+            #send_parameter_update(bone_rot)
+            self.tracer_data.modified_parameters.append(bone_rot)
     
     ### Function that takes the new positional offset -w.r.t. the rest transform- as a 3D vector and translates it into a 4x4 matrix
     #   that expresses the bone position of the bone in world space
     #!  It applies only to the hip bone, while the other bones have just an Identity matrix as positional matrix since they do not get directly displaced during the animation 
-    def update_bone_position(self, tracer_pos: Parameter, new_value: Vector):
-        bone_name = tracer_pos.name.split("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: hip-location -> hip-
+    def update_bone_position(self, bone_pos: Parameter, new_value: Vector):
+        bone_name = bone_pos.name.split("-")[0] # Extracting the name of the bone from the name of the parameter -e.g: hip-location -> hip-
         target_bone: bpy.types.Bone = self.armature_obj_pose_bones[bone_name]
-
+        
         if bone_name == "hip":
-            bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
-            rest_t, rest_r, rest_s = bone_rest_transform.decompose()
-            self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
+            if self.network_lock:
+                bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
+                rest_t, rest_r, rest_s = bone_rest_transform.decompose()
+                self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
+            else:
+                #send_parameter_update(bone_pos)
+                self.modified_parameters.append(bone_pos)
         else:
             self.local_translation_map[bone_name] = Matrix.Identity(4)
 

@@ -60,23 +60,26 @@ class SceneObjectCamera(SceneObject):
          near.parameter_handler.append(functools.partial(self.update_near, near))
          far.parameter_handler.append(functools.partial(self.update_far, far))
    
-   def update_fov(self, parameter, new_value):
+   def update_fov(self, fov: Parameter, new_value):
       if self.network_lock == True:
          self.blender_object.data.angle = new_value
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(fov)
+         self.tracer_data.modified_parameters.append(fov)
    
-   def update_near(self, parameter, new_value):
+   def update_near(self, near: Parameter, new_value):
       if self.network_lock == True:
          self.blender_object.data.clip_start = new_value
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(near)
+         self.tracer_data.modified_parameters.append(near)
    
-   def update_far(self, parameter, new_value):
+   def update_far(self, far: Parameter, new_value):
       if self.network_lock == True:
          self.blender_object.data.clip_end = new_value
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(far)
+         self.tracer_data.modified_parameters.append(far)
 
    def serialise(self):
       camera_byte_array = super().serialise()

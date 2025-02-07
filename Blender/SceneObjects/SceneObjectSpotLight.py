@@ -48,11 +48,12 @@ class SceneObjectSpotLight(SceneObjectLight):
         spot_angle = Parameter(math.degrees(obj.data.spot_size), "Spot", self)
         spot_angle.parameter_handler.append(functools.partial(self.update_spot_angle, spot_angle))
 
-    def update_spot_angle(self, parameter, new_value):
+    def update_spot_angle(self, spot_angle : Parameter, new_value):
         if self.network_lock == True:
             self.blender_object.data.spot_size = new_value
         else:
-            send_parameter_update(parameter)
+            #send_parameter_update(spot_angle)
+            bpy.context.window_manager.tracer_data.modified_parameters.append(spot_angle)
 
     def serialise(self):
         light_byte_array = super().serialise()

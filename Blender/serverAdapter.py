@@ -255,20 +255,23 @@ def process_sync_msg(msg: bytearray, start=0):
         tracer_data.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
     
 
-def send_parameter_update(parameter: Parameter):
+def send_parameter_update(modified_parameter_list: list[Parameter]):    # parameter -> list of parameters
+    # loop over parameters in the list of accumulated parameters
     tracer_data.ParameterUpdateMSG = bytearray([])
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
-    length = 10 + parameter.get_size()
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
-    tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
+    for parameter in modified_parameter_list:
+        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
+        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
+        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
+        length = 10 + parameter.get_size()
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
+        tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
 
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
+    modified_parameter_list.clear()
 
 def process_parameter_update(msg: bytearray, start=0) -> int:
     param: Parameter = None

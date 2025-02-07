@@ -241,6 +241,7 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
 
                 # Setting the owner of the data, if it exists
                 cp_list_size = len(anim_path["Control Points"])
+                AnimationRequest.valid_frames = True
                 for i in range(cp_list_size):
                     cp = anim_path["Control Points"][i]
                     row = layout.row()
@@ -267,6 +268,7 @@ class TRACER_PT_Control_Points_Panel(TRACER_Panel, bpy.types.Panel):
                             frame.alert = True
                         else:
                             frame.alert = False
+                        AnimationRequest.valid_frames = AnimationRequest.valid_frames and (not frame.alert)
                         frame.alignment = 'CENTER'; frame.label(text=str(cp["Frame"]));                         # alignment does nothing. Buggy Blender.
 
                         e__in = grid.box(); e__in.alignment = 'CENTER'; e__in.label(text=str(cp["Ease In"]));   # alignment does nothing. Buggy Blender.
