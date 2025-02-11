@@ -110,6 +110,8 @@ def clear_tracer_data():
     tracer_data.charactersByteData.clear()
     tracer_data.curvesByteData.clear()
 
+    SceneObject.start_id = 1
+
 ## General function to gather scene data
 #
 def gather_scene_data():
@@ -245,7 +247,8 @@ def process_scene_object(obj: bpy.types.Object, index):
     node.tracer_id = index
 
     node.editable = int(obj.get("TRACER-Editable", False))
-    tracer_data.editable_objects.append(obj)
+    if node.editable:
+        tracer_data.editable_objects.append(obj)
 
     #if obj.name != 'TRACER Scene Root':
     tracer_data.nodeList.append(node)

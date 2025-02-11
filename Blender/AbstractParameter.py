@@ -202,6 +202,7 @@ class AbstractParameter:
         self.__id: int = -1
         if parent_object:
             self.__id = len(parent_object.parameter_list)
+            #print("Creating new parameter " + name + " with id " + str(self.__id))
         elif is_RPC and parent_object == None:
             self.__id = AbstractParameter.start_animhost_rpc_id
             AbstractParameter.start_animhost_rpc_id += 1
@@ -349,7 +350,7 @@ class Parameter(AbstractParameter):
 
             if self.has_changed:
                 self.emit_has_changed()
-            self.parent_object.network_lock = False
+            #self.parent_object.network_lock = False
 
     #######################
     ###  Serialization  ###
@@ -440,6 +441,7 @@ class Parameter(AbstractParameter):
             while key_count < n_keys:
                 # Read Key Type
                 key_type = struct.unpack('B', msg_payload[byte_count:byte_count+1])[0]
+                key_type = key_type if key_type >= 1 and key_type <= 3 else 1
                 byte_count += 1
                 # Read Key Timestamp
                 time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
@@ -458,7 +460,7 @@ class Parameter(AbstractParameter):
                 left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
                 
-                deserialized_key = Key(time = time, value = value, type = key_type,
+                deserialized_key = Key(time = time, value = value, type = KeyType(key_type),
                                        right_tangent_time = right_tangent_time, right_tangent_value = right_tangent_value,
                                        left_tangent_time  = left_tangent_time,  left_tangent_value  = left_tangent_value )
                 self.key_list.set_key(deserialized_key, key_count)
@@ -471,7 +473,7 @@ class Parameter(AbstractParameter):
         if self.has_changed and not self.parent_object.network_lock:
             self.parent_object.network_lock = True
             self.emit_has_changed()
-            self.parent_object.network_lock = False
+            #self.parent_object.network_lock = False
 
     def deserialize_data(self, msg_payload: bytearray):
         match self.get_tracer_type():

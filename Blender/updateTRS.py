@@ -36,9 +36,10 @@ individual license agreement.
 import bpy
 import time
 
-from mathutils import Vector, Euler, Matrix
+from mathutils import Vector, Quaternion, Matrix
 from .settings import TracerData
 from .serverAdapter import send_parameter_update
+from .SceneObjects.SceneObject import SceneObject
 
 # Called at DoDistribute Operator in bl_op.py
 class RealTimeUpdaterOperator(bpy.types.Operator):
@@ -61,7 +62,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
         wm = context.window_manager
         tracer_collection: bpy.types.Collection = bpy.data.collections.get("TRACER_Collection")
         self.start_transforms = {}
-        self.previous_bone_transforms = {}
+        self.previous_bone_rotation = {}
         self.tracer_data = bpy.context.window_manager.tracer_data
 
         if not tracer_collection:
@@ -81,7 +82,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     
     def add_to_listening(self, obj: bpy.types.Object):
         matrix_local = obj.matrix_local.copy()
-        transform_data = (matrix_local.to_translation(), matrix_local.to_euler(), matrix_local.to_scale())
+        transform_data = (matrix_local.to_translation(), matrix_local.to_quaternion(), matrix_local.to_scale())
 
         # Additional properties for lights
         if obj.type == 'LIGHT':
@@ -103,7 +104,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 # Create a key for this bone's transformation
                 bone_name = bone.name
                 current_transform = bone.matrix_basis.to_quaternion()
-                self.previous_bone_transforms[bone_name] = current_transform
+                self.previous_bone_rotation[bone_name] = current_transform
 
         # For other types of objects
         else:
@@ -113,6 +114,8 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
     def check_for_updates(self, context):
         tracer_collection: bpy.types.Collection = bpy.data.collections.get("TRACER_Collection")
         tracer_objects = tracer_collection.objects
+        self.tracer_data.modified_parameters.clear()
+
         for obj in tracer_objects:
             if obj.name not in self.start_transforms:
                 self.add_to_listening(obj)
@@ -120,7 +123,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
             stored_values = self.start_transforms[obj.name]
             start_loc: Vector = stored_values[0]
-            start_rot: Euler  = stored_values[1]
+            start_rot: Quaternion  = stored_values[1]
             start_scl: Vector = stored_values[2]
 
             matrix_local: Matrix = obj.matrix_local.copy()
@@ -132,8 +135,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                         scene_obj.parameter_list[0].set_value(matrix_local.to_translation())
                         print(obj.name +" Start location" + " " + str(start_loc)  +" " + str(matrix_local.to_translation()))
 
-            rotation_difference = (start_rot.to_matrix().inverted() @ matrix_local.to_3x3()).to_euler()
-            if any(abs(value) > 0.0001 for value in rotation_difference):
+            if start_rot.dot(matrix_local.to_quaternion()) < 0.9999:
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         # Directly set rotation using Euler, or convert to quaternion if required
@@ -144,7 +146,6 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[2].set_value(matrix_local.to_scale())
-                        print("222")
 
             if obj.type == 'LIGHT':
                 start_color, start_energy = self.start_transforms[obj.name][3:5]
@@ -195,8 +196,8 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                             current_rotation = local_matrix.to_quaternion()
 
                             # Compare the current bone transform with the stored previous transform
-                            if bone_name in self.previous_bone_transforms:
-                                prev_transform = self.previous_bone_transforms[bone_name]
+                            if bone_name in self.previous_bone_rotation:
+                                prev_transform = self.previous_bone_rotation[bone_name]
 
                                 if current_rotation.dot(prev_transform) < 0.9999:
                                     for scene_obj in self.tracer_data.SceneObjects:
@@ -206,18 +207,18 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                                                     parameter.set_value(current_rotation)
 
                                     # Store the updated local transform
-                                    self.previous_bone_transforms[bone_name] = current_rotation.copy()
+                                    self.previous_bone_rotation[bone_name] = current_rotation.copy()
             
-            if len(self.tracer_data.modified_parameters) > 0:
+            if len(self.tracer_data.modified_parameters) > 0: # potentially and not bpy.context.screen.is_animation_playing
                 send_parameter_update(self.tracer_data.modified_parameters)
 
                 # Update the starting transform and specific properties for lights and cameras
             if obj.type == 'LIGHT':
-                self.start_transforms[obj.name] = (obj.location.copy(), obj.rotation_euler.copy(), obj.scale.copy(), obj.data.color.copy(), obj.data.energy)
+                self.start_transforms[obj.name] = (obj.matrix_local.to_translation().copy(), obj.matrix_local.to_quaternion().copy(), obj.matrix_local.to_scale().copy(), obj.data.color.copy(), obj.data.energy)
             elif obj.type == 'CAMERA':
-                self.start_transforms[obj.name] = (obj.location.copy(), obj.rotation_euler.copy(), obj.scale.copy(), obj.data.angle, obj.data.clip_start, obj.data.clip_end)
+                self.start_transforms[obj.name] = (obj.matrix_local.to_translation().copy(), obj.matrix_local.to_quaternion().copy(), obj.matrix_local.to_scale().copy(), obj.data.angle, obj.data.clip_start, obj.data.clip_end)
             else:
-                self.start_transforms[obj.name] = (obj.matrix_local.to_translation().copy(), obj.rotation_euler.copy(), obj.scale.copy())
+                self.start_transforms[obj.name] = (obj.matrix_local.to_translation().copy(), obj.matrix_local.to_quaternion().copy(), obj.matrix_local.to_scale().copy())
 
     def cancel(self, context):
         wm = context.window_manager

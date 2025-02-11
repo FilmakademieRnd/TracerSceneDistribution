@@ -76,8 +76,8 @@ class DoDistribute(bpy.types.Operator):
         print("do distribute")
         if check_ZMQ():
             reset_tracer_connection()
+            clean_up_tracer_data(level=1)
             if DoDistribute.is_distributed:
-                clean_up_tracer_data(level=1)
                 bpy.context.scene.tracer_properties.close_connection = True
                 DoDistribute.is_distributed = False
                 DoDistribute.bl_label = "Connect to TRACER"
@@ -627,8 +627,8 @@ class AnimationRequest(bpy.types.Operator):
                     point_locations_param = control_path_tracer_obj.parameter_list[-2]
                     point_rotations_param = control_path_tracer_obj.parameter_list[-1]
 
-                    send_parameter_update(point_locations_param)
-                    send_parameter_update(point_rotations_param)
+                    send_parameter_update([point_locations_param])
+                    send_parameter_update([point_rotations_param])
 
                     # [Deprecated - now realying on the ParameterUpdate Message] -> resendCurve()
                     # Request Animation from AnimHost through RPC call

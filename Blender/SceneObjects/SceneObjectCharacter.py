@@ -196,7 +196,7 @@ class SceneObjectCharacter(SceneObject):
                 self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
             else:
                 #send_parameter_update(bone_pos)
-                self.modified_parameters.append(bone_pos)
+                self.tracer_data.modified_parameters.append(bone_pos)
         else:
             self.local_translation_map[bone_name] = Matrix.Identity(4)
 
