@@ -111,8 +111,10 @@ class Key:
             return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
 
     def get_key_size(self):
-        # byte (key_type) +           float (time) +           float (tangent_time) +   size_of_param (value) +    size_of_param (tangentvalue)
-        return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
+        # byte (key_type) +  float (time) + float (tangent_time_left) + float (tangent_time_right) + size_of_param (value) +    size_of_param (tangentvalue_left) + size_of_param (tangentvalue_right)
+        size_time = 4 # float
+        size_value = self.get_data_size()
+        return   1 + size_time + size_time + size_time + size_value + size_value + size_value
     
     def is_equal(self, other):
         return (self.key_type               == other.key_type               and\
@@ -312,8 +314,8 @@ class Parameter(AbstractParameter):
         data_size = self.get_data_size()
         if self.is_animated:
             # When animated, the size of the parameter increases. After the first payload, there will be the number of keys that the animated parameter will have and then the list of those keys. 
-            #         size_of_param +  size_of_short (nr_keys) +             nr_keys *                      size_of_key (= 2* size_of_param (value + tangent_value) + 2 * size_of_float (time + tangent_time) + byte (key_type))
-            return        data_size +                        2 + len(self.key_list) * self.get_key(0).get_key_size()
+            #      size_of_param + number_of_keys (short) +  number_of_keys * size_of_key
+            return data_size +  2 + len(self.key_list) * self.get_key(0).get_key_size()
         else:
             return data_size
 
