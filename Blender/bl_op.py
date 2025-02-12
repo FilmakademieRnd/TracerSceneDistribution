@@ -175,14 +175,14 @@ class SetupCharacter(bpy.types.Operator):
             bpy.ops.object.select_all(action='DESELECT')
             bpy.context.view_layer.objects.active = character_obj
             character_obj.animation_data_clear()
-            character_obj.select_set(True)
-            bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            #character_obj.select_set(True)
+            #bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
             character_obj.select_set(False)
-            for character_child in character_obj.children_recursive:
-                character_child.select_set(True)
-                bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
-                character_child.select_set(False)
-            character_obj.pose.bones[0].location = Vector((0,0,0))
+            #for character_child in character_obj.children_recursive:
+            #    character_child.select_set(True)
+            #    bpy.ops.object.transform_apply(location=False, rotation=False, scale=True)
+            #    character_child.select_set(False)
+            #character_obj.pose.bones[0].location = Vector((0,0,0))
             process_armature(character_obj)
             character_obj.select_set(True)
             character_obj['TRACER-Editable'] = True

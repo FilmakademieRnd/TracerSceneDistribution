@@ -96,7 +96,7 @@ class Key:
     def __sizeof__(self) -> int:
         return self.get_key_size()
 
-    def get_data_size(self):
+    def get_data_size(self) -> int:
         if isinstance(self.value, bool):
             return struct.calcsize('?') # = 1
         elif isinstance(self.value, int) or isinstance(self.value, float):
@@ -109,6 +109,8 @@ class Key:
             return struct.calcsize('f') * 4 # = 16
         elif isinstance(self.value, str):
             return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
+        else:
+            return 0
 
     def get_key_size(self):
         # byte (key_type) +  float (time) + float (tangent_time_left) + float (tangent_time_right) + size_of_param (value) +    size_of_param (tangentvalue_left) + size_of_param (tangentvalue_right)
@@ -268,16 +270,16 @@ class AbstractParameter:
                 return struct.calcsize('f') * 3 # = 12
             case TRACERParamType.VECTOR4.value | TRACERParamType.QUATERNION.value | TRACERParamType.COLOR.value:
                 return struct.calcsize('f') * 4 # = 16
-            case TRACERParamType.STRING:
-                return struct.calcsize('c') * len(self._value) # len_of_string * size_of_char
+            case TRACERParamType.STRING.value:
+                return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
         
     def python_type(self):
-        return type(self._value)
+        return type(self.value)
     
     def set_RPC(self, is_RPC: bool):
         self.__is_RPC = is_RPC
 
-    def is_RPC(self) -> None:
+    def is_RPC(self) -> bool:
         return self.__is_RPC
 
     
