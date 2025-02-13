@@ -99,8 +99,10 @@ class Key:
     def get_data_size(self) -> int:
         if isinstance(self.value, bool):
             return struct.calcsize('?') # = 1
-        elif isinstance(self.value, int) or isinstance(self.value, float):
+        elif isinstance(self.value, int):
             return struct.calcsize('i') # = 4
+        elif isinstance(self.value, float):
+            return struct.calcsize('f') # = 4
         elif isinstance(self.value, Vector) and len(self.value) == 2:
             return struct.calcsize('f') * 2 # = 8
         elif isinstance(self.value, Vector) and len(self.value) == 3:
@@ -113,10 +115,10 @@ class Key:
             return 0
 
     def get_key_size(self):
-        # byte (key_type) +  float (time) + float (tangent_time_left) + float (tangent_time_right) + size_of_param (value) +    size_of_param (tangentvalue_left) + size_of_param (tangentvalue_right)
-        size_time = 4 # float
+        size_of_float = struct.calcsize('f') # = 4
         size_value = self.get_data_size()
-        return   1 + size_time + size_time + size_time + size_value + size_value + size_value
+        #       byte (key_type) +  float (time) + float (tangent_time_left) + float (tangent_time_right) + size_of_param (value) +    size_of_param (tangent_value_left) + size_of_param (tangent_value_right)
+        return                1 + size_of_float +             size_of_float +              size_of_float +            size_value +                            size_value +                          size_value
     
     def is_equal(self, other):
         return (self.key_type               == other.key_type               and\
