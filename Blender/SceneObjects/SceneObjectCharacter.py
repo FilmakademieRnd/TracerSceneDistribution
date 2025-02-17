@@ -107,7 +107,6 @@ class SceneObjectCharacter(SceneObject):
         path_locations.parameter_handler.append(functools.partial(self.update_control_points_locations, path_locations))
         path_rotations.parameter_handler.append(functools.partial(self.update_control_points_rotations, path_rotations))
 
-        #TODO: Add RPC Parameter
         animation_request_rpc = Parameter(AnimHostRPC.BLOCK.value, bl_obj.name+"-animation_request_rpc", parent_object=self, is_RPC=True)
         self.parameter_list.append(animation_request_rpc)
         

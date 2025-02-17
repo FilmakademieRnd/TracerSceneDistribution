@@ -45,6 +45,7 @@ import numpy as np
 from .timer import TimerModalOperator
 
 from .AbstractParameter import Parameter
+from .SceneObjects.SceneObject import NodeTypes
 
 class MessageType(Enum):
     PARAMETERUPDATE = 0
@@ -301,7 +302,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
         start += length
     
     # At the end of the reading, if the message received was an Animation Parameter Update not updating a Control Path, trigger baking the animation over the (Character) Object
-    if param != None and updated_animation and not param.name.find("path_rotations"):
+    if param != None and param.parent_object.tracer_type == NodeTypes.CHARACTER and updated_animation:
         param.parent_object.populate_timeline_with_animation()
 
     return start
