@@ -71,6 +71,7 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         
         if not ("TRACER_Collection" in bpy.data.collections and "TRACER Scene Root" in bpy.data.objects):
             row = layout.row()
+            row.alert = True
             row.operator(SetupScene.bl_idname, text = SetupScene.bl_label)
 
         row = layout.row()
@@ -79,9 +80,10 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         row.prop(bpy.context.scene.tracer_properties, 'server_ip')
 
         row = layout.row()
-        col1 = row.column()
-        col1.alert = not DoDistribute.is_distributed
-        col1.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
+        if "TRACER Scene Root" in bpy.data.objects:
+            col1 = row.column()
+            col1.alert = not DoDistribute.is_distributed
+            col1.operator(DoDistribute.bl_idname, text = DoDistribute.bl_label)
         if DoDistribute.is_distributed:
             col2 = row.column()
             col2.operator(UpdateScene.bl_idname, text = UpdateScene.bl_label)
