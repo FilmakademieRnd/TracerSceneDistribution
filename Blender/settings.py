@@ -212,10 +212,10 @@ class TracerProperties(bpy.types.PropertyGroup):
     control_path_name: bpy.props.StringProperty(name='Control Path', default='', description='Name of the Control Path that is used for generating a new animation', search=get_all_paths)                                                                                  # type: ignore
     character_editable_flag: bpy.props.BoolProperty(name='Editable from TRACER', default=True, description='Is the character allowed to be edited through the TRACER framework', update=update_character_editable)                                                          # type: ignore
     character_IK_flag: bpy.props.BoolProperty(name='IK Enabled', default=False, description='Is the character driven by the IK Control Rig?', update=update_IK_flag)                                                                                                        # type: ignore
-    animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Request Mode', default='BLOCK')                                                                                                                                   # type: ignore
-    slide_frames: bpy.props.BoolProperty(name='Slide Frames from Following Control Points', default=False)                                                                                                                                                                                   # type: ignore
+    animation_request_modes: bpy.props.EnumProperty(items=animation_request_modes_items, name='Request Mode', default='BLOCK')                                                                                                                                              # type: ignore
+    slide_frames: bpy.props.BoolProperty(name='Slide Frames from Following Control Points', default=False)                                                                                                                                                                  # type: ignore
+    path_is_modified: bpy.props.BoolProperty(name='Has the path been modified by the user? If yes, update the TRACER data representation and send a ParameterUpdate', default=False)                                                                                        # type: ignore
     
-    animation_request: Parameter
     # Future feature: Neural Network Parameters
     mix_root_translation: bpy.props.FloatProperty(name='Mix Root Translation', description='?', default=0.5, min=0, max=1)                                                                                                                                                         # type: ignore
     mix_root_translation_param: Parameter

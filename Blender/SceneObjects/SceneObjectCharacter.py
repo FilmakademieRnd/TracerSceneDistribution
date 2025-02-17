@@ -40,9 +40,10 @@ import copy
 import bpy
 
 from ..settings import TracerProperties
-from ..AbstractParameter import Parameter, KeyList, Key, KeyType
+from ..AbstractParameter import Parameter, KeyList, Key, KeyType, AnimHostRPC
 from .SceneObject import SceneObject, NodeTypes
 from ..serverAdapter import send_parameter_update
+from ..tools import update_curve
 
 ### Operator to show to the user that a new animation has been received
 class ReportReceivedAnimation(bpy.types.Operator):
@@ -87,6 +88,28 @@ class SceneObjectCharacter(SceneObject):
                 self.local_bone_rest_transform[abone.name] = abone.parent.matrix_local.inverted() @ abone.matrix_local
             else:
                 self.local_bone_rest_transform[abone.name] = abone.matrix_local
+
+        path_locations = Parameter(Vector(), bl_obj.name+"-path_locations", self)
+        path_locations.init_animation()
+        self.parameter_list.append(path_locations)
+        path_rotations = Parameter(Quaternion(), bl_obj.name+"-path_rotations", self)
+        path_rotations.init_animation()
+        self.parameter_list.append(path_rotations)
+
+        # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
+        # These parameters are associated with the root object of the Control Path in the scene
+        control_path_bl_obj = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
+        control_path: list[bpy.types.Object] = control_path_bl_obj.get("Control Points", None) 
+        if control_path != None and len(control_path) > 0:
+            self.update_control_points_locations(control_path_bl_obj)
+            self.update_control_points_rotations(control_path_bl_obj)
+        
+        path_locations.parameter_handler.append(functools.partial(self.update_control_points_locations, path_locations))
+        path_rotations.parameter_handler.append(functools.partial(self.update_control_points_rotations, path_rotations))
+
+        #TODO: Add RPC Parameter
+        animation_request_rpc = Parameter(AnimHostRPC.BLOCK.value, bl_obj.name+"-animation_request_rpc", parent_object=self, is_RPC=True)
+        self.parameter_list.append(animation_request_rpc)
         
         # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its rotation
         for bone in self.armature_obj_pose_bones:
@@ -115,29 +138,29 @@ class SceneObjectCharacter(SceneObject):
 
         # Add Control Path Parameter (as Scene Object ID)
         # Look for the object assigned to the blender property in the scene
-        path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-            if obj == self.blender_object.get("Control Path"):
-                path_ID = i
-                break
+        #path_ID = -1
+        #for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
+        #    if obj == self.blender_object.get("Control Path"):
+        #        path_ID = i
+        #        break
         # If the Object is in the Scene, create a new Parameter and save the object_ID of the Control path Object in it
-        if path_ID >= 0:
-            self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
+        #if path_ID >= 0:
+        #    self.parameter_list.append(Parameter(value=path_ID, name=bl_obj.name+"-control_path", parent_object=self))
 
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def is_control_path(self, context: bpy.types.Context) -> bool:
-        return self.get("Control Points", False)
+    #def is_control_path(self, context: bpy.types.Context) -> bool:
+    #    return self.get("Control Points", False)
 
     #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def refresh_control_path(self, context: bpy.types.Context) -> None:
-        path_ID = -1
-        for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-            if obj == context.active_object.get("Control Path"):
-                path_ID = i
-        if path_ID >= 0:
-            self.parameter_list[-1] = path_ID
+    #def refresh_control_path(self, context: bpy.types.Context) -> None:
+    #    path_ID = -1
+    #    for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
+    #        if obj == context.active_object.get("Control Path"):
+    #            path_ID = i
+    #    if path_ID >= 0:
+    #        self.parameter_list[-1] = path_ID
 
-        print("Updated Control Path Parameter")
+    #    print("Updated Control Path Parameter")
 
     ### Function that uses the partial transformation matrices to set the bone position and rotations in pose coordinates (as Blender needs)
     def set_pose_matrices(self, pose_bone_obj: bpy.types.PoseBone):
@@ -200,17 +223,76 @@ class SceneObjectCharacter(SceneObject):
         else:
             self.local_translation_map[bone_name] = Matrix.Identity(4)
 
-    ### Function that updates the Tracer ID of the Control Path associated with the current Character in the list of Tracer Parameters
-    def update_control_path_id(self):
-        if bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name] != None:
-            path_ID = -1
-            for i, obj in enumerate(bpy.data.collections["TRACER_Collection"].objects):
-                if obj == bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]:
-                    path_ID = i
-                    break
+    ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
+    def update_control_points_locations(self, control_path_object: bpy.types.Object):
+        locations = self.parameter_list[3]
 
-            if path_ID >= 0:
-                self.parameter_list[-1] = Parameter(value=path_ID, name=self.blender_object.name+"-control_path", parent_object=self)
+        if control_path_object.get("Control Points", None) == None:
+            return
+        
+        cp_list: list[bpy.types.Object] = control_path_object.get("Control Points")
+        cp_curve: bpy.types.SplineBezierPoints = control_path_object.children[0].data.splines[0].bezier_points
+
+        if self.network_lock:
+            for i, cp in enumerate(cp_list):
+                current_key: Key = locations.key_list.get_key(i)
+                cp.location                 = current_key.value
+                cp["Frame"]                 = current_key.time
+                cp["Ease In"]               = current_key.left_tangent_time
+                cp["Ease Out"]              = current_key.right_tangent_time
+                cp_curve[i].handle_left     = current_key.left_tangent_value
+                cp_curve[i].handle_right    = current_key.right_tangent_value
+            update_curve(control_path_object)
+        else:
+            for i, cp in enumerate(cp_list):
+                locations.key_list.set_key(Key( time                = cp.get("Frame"),
+                                                value               = cp_curve[i].co,
+                                                type                = KeyType.BEZIER,
+                                                right_tangent_time  = cp.get("Ease Out"),
+                                                right_tangent_value = cp_curve[i].handle_right,
+                                                left_tangent_time   = cp.get("Ease In"),
+                                                left_tangent_value  = cp_curve[i].handle_left ),
+                                            i)
+            self.parameter_list[3] = locations #TODO: test if this line of code is redundant
+            self.tracer_data.modified_parameters.append(self.parameter_list[3])
+
+    ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
+    def update_control_points_rotations(self, control_path_object: bpy.types.Object):
+        rotations = self.parameter_list[4]
+        if control_path_object.get("Control Points", None) == None:
+            return
+        
+        cp_list: list[bpy.types.Object] = control_path_object.get("Control Points")
+
+        if self.network_lock:
+            #TODO: blender should be responsive to edits of the control path that happen on another client
+            for i, cp in enumerate(cp_list):
+                original_rot_mode = cp.rotation_mode
+                if original_rot_mode != 'QUATERNION':
+                    cp.rotation_mode = 'QUATERNION'
+
+                current_key: Key = rotations.key_list.get_key(i)
+                cp.rotation_quaternion  = current_key.value
+                cp["Frame"]             = current_key.time
+                
+                cp.rotation_mode = original_rot_mode
+
+            update_curve(control_path_object)
+        else:
+            for i, cp in enumerate(cp_list):
+                original_rot_mode = cp.rotation_mode
+                if original_rot_mode != 'QUATERNION':
+                    cp.rotation_mode = 'QUATERNION'
+
+                rotations.key_list.set_key(Key( time    = cp.get("Frame"),
+                                                value   = cp.rotation_quaternion,
+                                                type    = KeyType.LINEAR ),
+                                            i)
+                
+                cp.rotation_mode = original_rot_mode
+
+            self.parameter_list[4] = rotations #TODO: test if this line of code is redundant
+            self.tracer_data.modified_parameters.append(self.parameter_list[4])
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):

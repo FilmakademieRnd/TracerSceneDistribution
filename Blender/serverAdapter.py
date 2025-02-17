@@ -44,7 +44,7 @@ from collections import deque
 import numpy as np
 from .timer import TimerModalOperator
 
-from .AbstractParameter import AbstractParameter, Parameter
+from .AbstractParameter import Parameter
 
 class MessageType(Enum):
     PARAMETERUPDATE = 0
@@ -300,8 +300,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
                     
         start += length
     
-    # At the end of the reading, if the message received was an Animation Parameter Update, trigger baking the animation over the (Character) Object
-    if param != None and updated_animation:
+    # At the end of the reading, if the message received was an Animation Parameter Update not updating a Control Path, trigger baking the animation over the (Character) Object
+    if param != None and updated_animation and not param.name.find("path_rotations"):
         param.parent_object.populate_timeline_with_animation()
 
     return start
@@ -309,7 +309,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 def send_RPC_msg(rpc_parameter: Parameter):
     #TODO: use new scene and object to hold AnimHost RPC Parameters (which will trigger RPC calls)
-    scene_id    = 255   #if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+    scene_id    = 255   if rpc_parameter.parent_object == None else tracer_data.cID
     object_id   = 1     if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
 
     tracer_data.ParameterUpdateMSG = bytearray([])

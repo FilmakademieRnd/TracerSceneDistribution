@@ -92,18 +92,6 @@ class SceneObject:
             tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
             tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
 
-        # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
-        # These parameters are associated with the root object of the Control Path in the scene
-        control_path = bl_obj.get("Control Points", None) 
-        if control_path != None and len(control_path) > 0:
-            first_point: Object = control_path[0]
-            path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
-            path_locations.init_animation()
-            self.parameter_list.append(path_locations)
-            path_rotations = Parameter(first_point.rotation_quaternion, bl_obj.name+"-path_rotations", self)
-            path_rotations.init_animation()
-            self.parameter_list.append(path_rotations)
-
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
     #   @param  tracer_pos  the instance of the parameter to update
@@ -159,37 +147,6 @@ class SceneObject:
     def lock_unlock(self, lock_val: int):
         self.network_lock = bool(lock_val)
         self.blender_object.hide_select = bool(lock_val)
-
-    ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
-    def update_control_points(self):
-        if self.blender_object.get("Control Points", None) != None:
-            rotations = self.parameter_list[-1]
-            locations = self.parameter_list[-2]
-
-            cp_list: list[bpy.types.Object] = self.blender_object.get("Control Points")
-            cp_curve: bpy.types.SplineBezierPoints = self.blender_object.children[0].data.splines[0].bezier_points
-            for i, cp in enumerate(cp_list):
-                locations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp_curve[i].co,
-                                                type                = KeyType.BEZIER,
-                                                right_tangent_time  = cp.get("Ease Out"),
-                                                right_tangent_value = cp_curve[i].handle_right,
-                                                left_tangent_time   = cp.get("Ease In"),
-                                                left_tangent_value  = cp_curve[i].handle_left ),
-                                            i)
-                original_rot_mode = cp.rotation_mode
-                if original_rot_mode != 'QUATERNION':
-                    cp.rotation_mode = 'QUATERNION'
-
-                rotations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp.rotation_quaternion,
-                                                type                = KeyType.LINEAR ),
-                                            i)
-                
-                cp.rotation_mode = original_rot_mode
-
-            self.parameter_list[-2] = locations
-            self.parameter_list[-1] = rotations
 
     def serialise(self) -> bytearray:
         object_byte_array = bytearray([])

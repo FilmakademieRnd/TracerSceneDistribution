@@ -610,43 +610,39 @@ class AnimationRequest(bpy.types.Operator):
         if  control_path_name != '' and bpy.data.objects[control_path_name] != None and\
             character_name != '' and bpy.data.objects[character_name] != None:
             control_path_bl_obj: bpy.types.Object = bpy.data.objects[control_path_name]
-            if control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
+            character_bl_obj: bpy.types.Object = bpy.data.objects[character_name]
+            if character_bl_obj != None and control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
                 tracer_data: TracerData = bpy.context.window_manager.tracer_data
 
                 # Getting the Scene Character Object corresponding to the selected Blender Character in the Scene
                 if bpy.data.objects[character_name].tracer_id < len(tracer_data.SceneObjects):
                     tracer_character_object: SceneObjectCharacter = tracer_data.SceneObjects[bpy.data.objects[character_name].tracer_id]
-                    # Ensure that the ID of the Control Path associated with the selected Character is up to date
-                    tracer_character_object.update_control_path_id()
-
-                if control_path_bl_obj.tracer_id < len(tracer_data.SceneObjects):
-                    control_path_tracer_obj: SceneObject = tracer_data.SceneObjects[control_path_bl_obj.tracer_id]
                     # Ensure that the values of the Control Points exposed to TRACER are up to date
-                    control_path_tracer_obj.update_control_points()
+                    tracer_character_object.update_control_points_locations(control_path_bl_obj)
+                    tracer_character_object.update_control_points_rotations(control_path_bl_obj)
                 
-                    point_locations_param = control_path_tracer_obj.parameter_list[-2]
-                    point_rotations_param = control_path_tracer_obj.parameter_list[-1]
+                    point_locations_param = tracer_character_object.parameter_list[3]
+                    point_rotations_param = tracer_character_object.parameter_list[4]
 
-                    send_parameter_update([point_locations_param])
-                    send_parameter_update([point_rotations_param])
+                    send_parameter_update([point_locations_param, point_rotations_param])
 
-                    # [Deprecated - now realying on the ParameterUpdate Message] -> resendCurve()
                     # Request Animation from AnimHost through RPC call
+                    animation_request_rpc = tracer_character_object.parameter_list[5]
                     match self.tracer_props.animation_request_modes:
                         case 'BLOCK':
-                            self.tracer_props.animation_request.value = AnimHostRPC.BLOCK.value
+                            animation_request_rpc.value = AnimHostRPC.BLOCK.value
                         case 'STREAM':
-                            self.tracer_props.animation_request.value = AnimHostRPC.STREAM.value
+                            animation_request_rpc.value = AnimHostRPC.STREAM.value
                         case 'LOOP':
-                            self.tracer_props.animation_request.value = AnimHostRPC.STREAM_LOOP.value
+                            animation_request_rpc.value = AnimHostRPC.STREAM_LOOP.value
                         case 'STOP':
-                            self.tracer_props.animation_request.value = AnimHostRPC.STOP.value
-                    send_RPC_msg(self.tracer_props.animation_request)
+                            animation_request_rpc.value = AnimHostRPC.STOP.value
+                    send_RPC_msg(animation_request_rpc)
 
-                    self.tracer_props.mix_root_translation_param.value   = self.tracer_props.mix_root_translation
-                    self.tracer_props.mix_root_rotation_param.value      = self.tracer_props.mix_root_rotation
-                    self.tracer_props.mix_control_path_param.value       = self.tracer_props.mix_control_path
-                    #! To be tested
+                    #TODO: Add NN hyperparameters to SceneObjectCharacter
+                    #self.tracer_props.mix_root_translation_param.value   = self.tracer_props.mix_root_translation
+                    #self.tracer_props.mix_root_rotation_param.value      = self.tracer_props.mix_root_rotation
+                    #self.tracer_props.mix_control_path_param.value       = self.tracer_props.mix_control_path
                     #send_RPC_msg(self.tracer_props.mix_root_translation_param)
                     #send_RPC_msg(self.tracer_props.mix_root_rotation_param)
                     #send_RPC_msg(self.tracer_props.mix_control_path_param)

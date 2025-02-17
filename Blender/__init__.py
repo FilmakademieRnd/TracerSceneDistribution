@@ -92,7 +92,8 @@ def register():
     bpy.types.Scene.control_point_settings = bpy.props.PointerProperty(type=ControlPointProps)
 
     AbstractParameter.AbstractParameter.start_animhost_rpc_id = 0
-    TracerProperties.animation_request = Parameter(AnimHostRPC.BLOCK.value, "Request New Animation", parent_object=None, distribute=False, is_RPC=True)
+
+    #TODO: move these RPC Parameters to the SceneObjectCharacter eventually
     TracerProperties.mix_root_translation_param = Parameter(0.5, "Mix Root Translation", parent_object=None, distribute=False, is_RPC=True)
     TracerProperties.mix_root_rotation_param    = Parameter(0.5, "Mix Root Rotation",    parent_object=None, distribute=False, is_RPC=True)
     TracerProperties.mix_control_path_param     = Parameter(1,   "Mix Control Path",     parent_object=None, distribute=False, is_RPC=True)

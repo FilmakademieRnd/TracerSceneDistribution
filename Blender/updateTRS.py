@@ -33,10 +33,13 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 
+from pyclbr import _Object
 import bpy
 import time
 
 from mathutils import Vector, Quaternion, Matrix
+
+from .bl_op import InteractionListener
 from .settings import TracerData
 from .serverAdapter import send_parameter_update
 from .SceneObjects.SceneObject import SceneObject
@@ -179,9 +182,17 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                         if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[5].set_value(obj.data.clip_end)
             elif obj.type == 'ARMATURE':  # Ensure it's an armature object
-                for scene_obj in self.tracer_data.SceneObjects :
+                for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock:
-                       
+                        
+                        control_path_bl_obj: bpy.types.Object = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
+                        if control_path_bl_obj and bpy.context.scene.tracer_properties.path_is_modified:
+                            # Functions that updated the control_points_locations and control_points_rotations Parameters of the SceneObjectCharacter.
+                            # They triggers a series of set_key and appends the parameters to self.tracer_data.modified_parameters
+                            scene_obj.update_control_points_locations(control_path_bl_obj)
+                            scene_obj.update_control_points_rotations(control_path_bl_obj)
+                            bpy.context.scene.tracer_properties.path_is_modified = False
+                        
                         for bone in obj.pose.bones:
                             bone_name = bone.name
 

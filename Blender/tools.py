@@ -40,7 +40,9 @@ import mathutils
 import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
-from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
+from pathlib import Path
+
+#from .bl_op import InteractionListener  # Object-oriented filesystem paths since Python 3.4
 from .SceneObjects import SceneObjectCharacter
 
 # Checking for ZMQ package installation
@@ -554,6 +556,8 @@ def update_curve(anim_path: bpy.types.Object):
         bezier_point.handle_left = bezier_point.co
         bezier_point.handle_right = bezier_point.co
         i += 1
+
+    bpy.context.scene.tracer_properties.path_is_modified = True
 
 ### Function for drawing number labels next to the control points
 def draw_pointer_numbers_callback(font_id, font_handler):

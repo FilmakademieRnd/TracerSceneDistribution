@@ -318,8 +318,8 @@ class Parameter(AbstractParameter):
         data_size = self.get_data_size()
         if self.is_animated:
             # When animated, the size of the parameter increases. After the first payload, there will be the number of keys that the animated parameter will have and then the list of those keys. 
-            #      size_of_param + number_of_keys (short) +  number_of_keys * size_of_key
-            return data_size +  2 + len(self.key_list) * self.get_key(0).get_key_size()
+            #       size_of_param + number_of_keys (short) +     number_of_keys * size_of_key
+            return      data_size +   struct.calcsize('h') + len(self.key_list) * self.get_key(0).get_key_size()
         else:
             return data_size
 
@@ -331,7 +331,6 @@ class Parameter(AbstractParameter):
             else:
                 self.value = new_value
             self.emit_has_changed()
-            
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:
