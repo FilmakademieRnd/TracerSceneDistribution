@@ -219,11 +219,11 @@ def process_scene_object(obj: bpy.types.Object, index):
         nodeMatrix = obj.matrix_local.copy()
 
     node.position = nodeMatrix.to_translation()
-    node.scale = nodeMatrix.to_scale()
+    node.scale = nodeMatrix.to_scale() #if obj.name != "hip" else Vector((1,1,1))
 
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
-        rotFix = mathutils.Matrix.Rotation(math.radians(-90.0), 4, 'X')
+        rotFix = mathutils.Matrix.Rotation(math.radians(-180.0), 4, 'Z')
         nodeMatrix = nodeMatrix @ rotFix
 
    
@@ -324,7 +324,7 @@ def process_skinned_mesh(obj, nodeSkinMesh):
             for bone in armature_data.bones:
 
 
-                bone_local_transform = bone.matrix_local.copy()
+                bone_local_transform = bone.matrix_local.copy() #* 100 if bone.name == "hip" else bone.matrix_local.copy()
                 bone_local_transform = bone_local_transform.inverted()
                 #bone_local_transform = bone_local_transform @ root_transform
                 #bone_local_transform = blender_to_unity @ bone_local_transform
@@ -866,6 +866,7 @@ def processGeoNew(mesh):
             #print(vert_bone_weights)
 
         geoPack.bWSize = len(co_buffer)
+
 
     for i, vert in enumerate(interleaved_buffer):
         geoPack.vertices.append(vert[0][0])

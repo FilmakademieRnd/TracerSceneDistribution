@@ -80,7 +80,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
         return {'RUNNING_MODAL'}
     
     ### Function to compute the Euclidean distance between two color vectors
-    def color_difference(color1, color2):
+    def color_difference(self, color1, color2):
         return sum((c1 - c2) ** 2 for c1, c2 in zip(color1, color2)) ** 0.5
     
     def add_to_listening(self, obj: bpy.types.Object):
@@ -153,7 +153,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             if obj.type == 'LIGHT':
                 start_color, start_energy = self.start_transforms[obj.name][3:5]
 
-                if RealTimeUpdaterOperator.color_difference(obj.data.color, start_color) > 0.0001:
+                if RealTimeUpdaterOperator.color_difference(self, obj.data.color, start_color) > 0.0001:
                     for scene_obj in self.tracer_data.SceneObjects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[3].set_value(obj.data.color)
