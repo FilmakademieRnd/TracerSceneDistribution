@@ -187,6 +187,7 @@ class SetupCharacter(bpy.types.Operator):
             character_obj.select_set(True)
             character_obj['TRACER-Editable'] = True
             character_obj['TRACER Setup Done'] = True
+        SetupCharacter.setup_done = True
         return {'FINISHED'}
     
 class MakeEditable(bpy.types.Operator):

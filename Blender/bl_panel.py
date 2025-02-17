@@ -35,7 +35,8 @@ individual license agreement.
 
 import bpy
 
-from .settings import TracerProperties
+from .tools import check_ZMQ
+
 from .bl_op import  DoDistribute, UpdateScene, SetupScene, SetupCharacter, InstallZMQ, MakeEditable, ParentToRoot, ParentCharacterToRoot,\
                     InteractionListener, AddPath, AddPointAfter, AddPointBefore, UpdateCurveViz, ToggleAutoUpdate,\
                     ControlPointSelect, EditControlPointHandle, EvaluateSpline, AnimationRequest, AnimationSave
@@ -56,7 +57,9 @@ class ZMQ_PT_Panel(TRACER_Panel, bpy.types.Panel):
         layout = self.layout
         
         row = layout.row()
-        row.operator(InstallZMQ.bl_idname, text = InstallZMQ.bl_label)
+        if not check_ZMQ():
+            row.alert = True
+            row.operator(InstallZMQ.bl_idname, text = InstallZMQ.bl_label)
 
 # Define Layout of the main TRACER Add-On Panel, grouping TRACER communication functionalities
 class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
@@ -82,6 +85,8 @@ class TRACER_PT_Panel(TRACER_Panel, bpy.types.Panel):
         if DoDistribute.is_distributed:
             col2 = row.column()
             col2.operator(UpdateScene.bl_idname, text = UpdateScene.bl_label)
+            col3 = row.column()
+            col3.prop(bpy.context.scene.tracer_properties, 'enable_send_updates')
 
 # Define Layout for the Character Panel, grouping functionalities related to the character to animate
 class TRACER_PT_Object_Panel(TRACER_Panel, bpy.types.Panel):
@@ -130,7 +135,6 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 if bpy.context.scene.tracer_properties.control_rig_name != "" and bpy.context.scene.tracer_properties.control_rig_name in bpy.data.objects:
                     row.prop(bpy.context.scene.tracer_properties, 'character_IK_flag')
 
-                tracer_props: TracerProperties = bpy.context.scene.tracer_properties
                 row = layout.row()
                 prop_col = row.column()
                 prop_col.ui_units_x = 7.0
@@ -138,7 +142,7 @@ class TRACER_PT_Character_Panel(TRACER_Panel, bpy.types.Panel):
                 viz_col = row.column()
                 viz_box = viz_col.box()
                 viz_box.scale_y = 0.55
-                animation_request_mode_name = tracer_props.get_animation_request_mode_name()
+                animation_request_mode_name = bpy.context.scene.tracer_properties.get_animation_request_mode_name()
                 viz_box.label(text=animation_request_mode_name)
                 op_col = row.column()
                 op_col.operator(AnimationRequest.bl_idname, text=AnimationRequest.bl_label)
@@ -156,10 +160,9 @@ class TRACER_PT_NN_Params_Panel(TRACER_Panel, bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         row = layout.row()
-        tracer_props: TracerProperties = bpy.context.scene.tracer_properties
-        row.prop(tracer_props, 'mix_root_translation', slider=True)
-        row.prop(tracer_props, 'mix_root_rotation', slider=True)
-        row.prop(tracer_props, 'mix_control_path', slider=True)
+        row.prop(bpy.context.scene.tracer_properties, 'mix_root_translation', slider=True)
+        row.prop(bpy.context.scene.tracer_properties, 'mix_root_rotation', slider=True)
+        row.prop(bpy.context.scene.tracer_properties, 'mix_control_path', slider=True)
 
 # Define Layout for the Animation Control Path Panel, grouping functionalities related to editing the Control Path for an animation 
 class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):

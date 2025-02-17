@@ -410,7 +410,7 @@ class Parameter(AbstractParameter):
                 return struct.pack('<3f', value.x, value.y, value.z)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
-                return struct.pack('<4f', value.x, value.z, value.y, value.w)
+                return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.QUATERNION.value:
                 return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.COLOR.value:

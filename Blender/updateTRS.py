@@ -220,7 +220,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                                     # Store the updated local transform
                                     self.previous_bone_rotation[bone_name] = current_rotation.copy()
             
-            if len(self.tracer_data.modified_parameters) > 0: # potentially and not bpy.context.screen.is_animation_playing
+            if len(self.tracer_data.modified_parameters) > 0 and bpy.context.scene.tracer_properties.enable_send_updates:
                 send_parameter_update(self.tracer_data.modified_parameters)
 
                 # Update the starting transform and specific properties for lights and cameras
