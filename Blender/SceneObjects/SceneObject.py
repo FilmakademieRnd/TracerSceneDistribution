@@ -121,7 +121,7 @@ class SceneObject:
             self.blender_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
 
             if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
-                self.blender_object.rotation_euler.rotate_axis("Z", math.radians(180))
+                self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))
         else:
             #send_parameter_update(tracer_rot)
             self.tracer_data.modified_parameters.append(tracer_rot)

@@ -406,13 +406,12 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR2.value:
                 return struct.pack('<2f', value.x, value.y)
             case TRACERParamType.VECTOR3.value:
-                unity_vec3 = value.xyz
-                return struct.pack('<3f', value.x, value.y, value.z)
+                return struct.pack('<3f', value.x, value.z, value.y)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
                 return struct.pack('<4f', value.x, value.y, value.z, value.w)
             case TRACERParamType.QUATERNION.value:
-                return struct.pack('<4f', value.x, value.y, value.z, value.w)
+                return struct.pack('<4f', value.x, value.z, value.y, -value.w)
             case TRACERParamType.COLOR.value:
                 #! Color in mathutils is only RGB
                 return struct.pack('<4f', value.r, value.b, value.g, 1)
@@ -502,7 +501,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR3.value:
                 vec3_val = Vector((struct.unpack('<3f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.xyz
+                return vec3_val.xzy
 
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
@@ -512,7 +511,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW
                 quat_val = Quaternion((struct.unpack('<4f', msg_payload)))
-                return Quaternion((quat_val[3], quat_val[0], quat_val[1], quat_val[2]))
+                return Quaternion((-quat_val[3], quat_val[0], quat_val[2], quat_val[1]))
 
             case TRACERParamType.COLOR.value:
                 color_vec = Vector((struct.unpack('<4f', msg_payload)))

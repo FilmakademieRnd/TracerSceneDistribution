@@ -110,13 +110,12 @@ def clear_tracer_data():
     tracer_data.charactersByteData.clear()
     tracer_data.curvesByteData.clear()
 
-    SceneObject.start_id = 1
-
 ## General function to gather scene data
 #
 def gather_scene_data():
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
+    print(tracer_data.cID)
     object_list = get_object_list()
 
     if len(object_list) > 0:
@@ -135,7 +134,6 @@ def gather_scene_data():
         get_textures_byte_array()
         get_character_byte_array()
         #getCurvesByteArray()
-        
         #save_TRS_to_json()
         return len(tracer_data.objectsToTransfer)
     
@@ -143,12 +141,10 @@ def gather_scene_data():
         return 0
     
 
-def get_object_list() -> list[bpy.types.Object]:
+def get_object_list():
     parent_object_name = "TRACER Scene Root"
     parent_object = bpy.data.objects.get(parent_object_name)
-    object_list = [parent_object]
-    object_list.extend(parent_object.children_recursive)
-    return object_list
+    return parent_object.children_recursive
     
 ## Process and store a scene object
 #
@@ -156,7 +152,7 @@ def get_object_list() -> list[bpy.types.Object]:
 # @param index The objects index in the list of all objects
 def process_scene_object(obj: bpy.types.Object, index):
     global tracer_data, tracer_props
-    node: sceneObject = sceneObject()
+    node = sceneObject()
     node.tracer_type = NodeTypes.GROUP
     
     # gather light data
@@ -206,34 +202,25 @@ def process_scene_object(obj: bpy.types.Object, index):
     # When finding an Animation Path to be distributed
     #if obj.name == "AnimPath":
     #    process_control_path(obj)
-    blender_to_unity = Matrix([
-                [1,  0,  0,  0],
-                [0,  0,  1,  0],
-                [0,  1,  0,  0],
-                [0,  0,  0,  1]
-            ])
+            
+        
+    # gather general node data    
+    nodeMatrix = obj.matrix_local.copy()
+
+    node.position = (nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y)
+    node.scale = (nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y)
     
-    if obj.name == "TRACER Scene Root": 
-        nodeMatrix =  blender_to_unity @  obj.matrix_local.copy()
-    else:
-        nodeMatrix = obj.matrix_local.copy()
-
-    node.position = nodeMatrix.to_translation()
-    node.scale = nodeMatrix.to_scale() #if obj.name != "hip" else Vector((1,1,1))
-
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
-        rotFix = mathutils.Matrix.Rotation(math.radians(-180.0), 4, 'Z')
+        rotFix = mathutils.Matrix.Rotation(math.radians(-90.0), 4, 'X')
         nodeMatrix = nodeMatrix @ rotFix
-
-   
-    #rotFix = mathutils.Matrix.Rotation(math.radians(90.0), 4, 'X')
-    rot = (nodeMatrix).to_quaternion()
-    #rot.invert()
-    node.rotation = (rot[1], rot[2], rot[3], rot[0])
     
-    #add_TRS(nodeMatrix, obj.name) # JSON debug
+    rot = nodeMatrix.to_quaternion()
+    rot.invert()
+    node.rotation = (rot[1], rot[3], rot[2], rot[0])
 
+    #add_TRS(nodeMatrix, obj.name)
+    
     node.name = bytearray(64)
     
     for i, n in enumerate(obj.name.encode()):
@@ -241,28 +228,23 @@ def process_scene_object(obj: bpy.types.Object, index):
     node.childCount = len(obj.children)
     
     # Assign the child count of the root object
-    #if obj.name == 'TRACER Scene Root':
-        #node.childCount = tracer_data.rootChildCount
+    if obj.name == 'TRACER Scene Root':
+        node.childCount = tracer_data.rootChildCount
     
     node.tracer_id = index
 
     node.editable = int(obj.get("TRACER-Editable", False))
-    if node.editable:
-        tracer_data.editable_objects.append(obj)
+    tracer_data.editable_objects.append(obj)
 
-    #if obj.name != 'TRACER Scene Root':
-    tracer_data.nodeList.append(node)
+    if obj.name != 'TRACER Scene Root':
+        tracer_data.nodeList.append(node)
     
-def process_mesh(obj, nodeMesh) -> sceneMesh: 
+def process_mesh(obj, nodeMesh): 
     nodeMesh.tracer_type = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
     nodeMesh.roughness = 0.5
     nodeMesh.materialId = -1
-    
-    nodeMesh.position = Vector((0,0,0))
-    nodeMesh.scale = Vector((1,1,1))
-    nodeMesh.rotation = Quaternion()
-
+               
     # get geo data of mesh
     nodeMesh.geoId = processGeoNew(obj)
                 
@@ -279,7 +261,7 @@ def process_mesh(obj, nodeMesh) -> sceneMesh:
         nodeMesh.roughness = nodeMaterial.roughness
         nodeMesh.specular = nodeMaterial.specular
                     
-    return nodeMesh
+    return(nodeMesh)
 
 def process_skinned_mesh(obj, nodeSkinMesh):
     nodeSkinMesh.tracer_type = NodeTypes.SKINNEDMESH
@@ -311,9 +293,9 @@ def process_skinned_mesh(obj, nodeSkinMesh):
         if armature_obj:
             armature_data = armature_obj.data  # Accessing the armature data for static bone information
             bind_poses = []
-            root_transform = armature_obj.matrix_world
-            
-            
+
+
+            # Conversion matrix to adjust Blender's coordinate system to Unity's
             blender_to_unity = Matrix([
                 [1,  0,  0,  0],
                 [0,  0,  1,  0],
@@ -322,25 +304,16 @@ def process_skinned_mesh(obj, nodeSkinMesh):
             ])
 
             for bone in armature_data.bones:
+                bind_matrix = bone.matrix_local  # Local bone matrix
+                bp_matrix = bind_matrix.inverted()
 
-
-                bone_local_transform = bone.matrix_local.copy() #* 100 if bone.name == "hip" else bone.matrix_local.copy()
-                bone_local_transform = bone_local_transform.inverted()
-                #bone_local_transform = bone_local_transform @ root_transform
-                #bone_local_transform = blender_to_unity @ bone_local_transform
-                #(old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
-                #old_local_pose = old_local_pose.xzy
-                #old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
-                #old_local_rot.rotate(Euler((math.radians(-90), 0 ,0), 'XZY'))
-                #old_local_scl = old_local_scl.xzy
-                #bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
-
-                #add_bind_pose(bone_local_transform, bone.name) # JSON debug
+                # Transform the matrix to world space and convert to Unity's coordinate system
+                bp_matrix = blender_to_unity @ bp_matrix
 
                 # Flatten and append each row of the matrix
-                for row in bone_local_transform:
-                    bind_poses.extend(row)
-
+                for row in bp_matrix:
+                    bind_poses.extend(row)  
+            
             desired_length = 1584
             current_length = len(bind_poses)
             if current_length < desired_length:
@@ -357,7 +330,6 @@ def process_skinned_mesh(obj, nodeSkinMesh):
                         break
             #for i, bone in enumerate(armature_data.bones):  
                 nodeSkinMesh.skinnedMeshBoneIDs[i] = bone_index
-                print("POSE "+str(nodeSkinMesh.skinnedMeshBoneIDs[i]) +" " + bone.name)
                 
 
         nodeSkinMesh.skinnedMeshBoneIDsSize = len(nodeSkinMesh.skinnedMeshBoneIDs)        
@@ -426,7 +398,7 @@ def process_character(armature_obj, object_list):
                 chr_pack.bonePosition.extend([nodeMatrix.to_translation().x, nodeMatrix.to_translation().z, nodeMatrix.to_translation().y])
                 chr_pack.boneScale.extend([nodeMatrix.to_scale().x, nodeMatrix.to_scale().z, nodeMatrix.to_scale().y])
                 rot = nodeMatrix.to_quaternion()
-                
+                rot.invert()
                 chr_pack.boneRotation.extend([rot[1], rot[3], rot[2], rot[0]])
 
 
@@ -459,7 +431,6 @@ def process_character(armature_obj, object_list):
 # @param control_point_list List of Control Points defining the Control Path
 # @param is_cyclic          Whether the Control Path is cyclic or not (acyclic by default)
 # @returns  None            It doesn't return anything, but appends the evaluated curve (@see curvePackage()) to tracer_data.curveList (@see TracerData())
-#TODO: Move this function into tools because curvePackages are not used anymore. However, the function has a use to update the Animation Preview Object
 def process_control_path(anim_path: bpy.types.Object) -> curvePackage:
     tracer_data = bpy.context.window_manager.tracer_data
     curve_package = curvePackage()
@@ -597,6 +568,7 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
 #@param obj the acual object from the scene
 def process_editable_objects(obj, index):
     is_editable = obj.get("TRACER-Editable", False)
+    print(obj.name + " TRACER-Editable: " + str(is_editable))
     if is_editable:
         if obj.type == 'CAMERA':
             tracer_data.SceneObjects.append(SceneObjectCamera(obj))
@@ -607,10 +579,6 @@ def process_editable_objects(obj, index):
                 tracer_data.SceneObjects.append(SceneObjectLight(obj))
         elif obj.type == 'ARMATURE':
             tracer_data.SceneObjects.append(SceneObjectCharacter(obj))
-        # elif obj.type == 'MESH':
-        #     tracer_data.SceneObjects.append(SceneObjectMesh(obj))
-        # elif obj.type == 'EMPTY':
-        #     tracer_data.SceneObjects.append(SceneObject(obj))
         else:
             tracer_data.SceneObjects.append(SceneObject(obj))
 
@@ -704,9 +672,7 @@ def processTexture(tex):
     try:
         texFile = open(tex.filepath_from_user(), 'rb')
     except FileNotFoundError:
-        size_modal_operators = len(bpy.context.window.modal_operators)
-        if size_modal_operators > 0:
-            bpy.context.window.modal_operators[0].report({'ERROR'}, f"Error: Texture file not found at {tex.filepath_from_user()}")
+        print(f"Error: Texture file not found at {tex.filepath_from_user()}")
         return -1
     
     texBytes = texFile.read()
@@ -748,7 +714,7 @@ def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
         groups = groups[:4]
         # Ensure there are 4 weights and indices
         while len(groups) < 4:
-            groups.append((-1, 0.0))
+            groups.append((0, 0.0))
         
         # Output the bone indices and weights for this vertex
         bone_indices = []
@@ -762,7 +728,6 @@ def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
                 if obj.name == bone_name:
                     bone_index = idx
                     bone_indices.append(bone_index)
-                    
         
         return bone_weights, bone_indices
 
@@ -792,18 +757,16 @@ def processGeoNew(mesh):
 
     #mesh.data.calc_normals_split()
     bm = bmesh.new()
-
     bm.from_mesh(mesh.data)
 
-    #bm.transform(Matrix(((1,0,0,0), (0,0,1,0), (0,1,0,0), (0,0,0,1))))
-    # flipping faces because the following axis swap inverts them????
-    #for f in bm.faces:
-    #    bmesh.utils.face_flip(f)
-    #bm.normal_update()
+    # flipping faces because the following axis swap inverts them
+    for f in bm.faces:
+        bmesh.utils.face_flip(f)
+    bm.normal_update()
 
     bm.verts.ensure_lookup_table()
     uv_layer = bm.loops.layers.uv.active
-    loop_triangles: list[tuple[bmesh.types.BMLoop]] = bm.calc_loop_triangles()
+    loop_triangles = bm.calc_loop_triangles()
 
     split_verts = {} # vertex data : some unique counted index using hash map for quick lookup
     index_buffer = []
@@ -815,8 +778,8 @@ def processGeoNew(mesh):
             co = loop.vert.co.copy().freeze()
             uv = loop[uv_layer].uv.copy().freeze()
 
-            if mesh.data.polygons[0].use_smooth and loop.edge.smooth:
-                normal = loop.vert.normal.copy().freeze()
+            if mesh.data.polygons[0].use_smooth:
+                normal = loop.vert.normal.copy().freeze() if loop.edge.smooth else loop.face.normal.copy().freeze()
             else:
                 normal = loop.face.normal.copy().freeze()
             
@@ -862,32 +825,35 @@ def processGeoNew(mesh):
             _, _, _, vert_bone_weights, vert_bone_indices = vert_data
             geoPack.boneWeights.extend(vert_bone_weights)
             geoPack.boneIndices.extend(vert_bone_indices)
-            #print(vert_bone_indices)
-            #print(vert_bone_weights)
 
         geoPack.bWSize = len(co_buffer)
 
+        for i, vert in enumerate(interleaved_buffer):
+            geoPack.vertices.append(vert[0][0])
+            geoPack.vertices.append(vert[0][1])
+            geoPack.vertices.append(vert[0][2])
 
-    for i, vert in enumerate(interleaved_buffer):
-        geoPack.vertices.append(vert[0][0])
-        geoPack.vertices.append(vert[0][1])
-        geoPack.vertices.append(vert[0][2])
+            geoPack.normals.append(vert[1][0])
+            geoPack.normals.append(vert[1][1])
+            geoPack.normals.append(vert[1][2])
+            
+            geoPack.uvs.append(vert[2][0])
+            geoPack.uvs.append(vert[2][1])
+    else:
+        for i, vert in enumerate(interleaved_buffer):
+            geoPack.vertices.append(vert[0][0])
+            geoPack.vertices.append(vert[0][2])
+            geoPack.vertices.append(vert[0][1])
 
-        geoPack.normals.append(vert[1][0])
-        geoPack.normals.append(vert[1][1])
-        geoPack.normals.append(vert[1][2])
-        
-        geoPack.uvs.append(vert[2][0])
-        geoPack.uvs.append(vert[2][1])
+            geoPack.normals.append(-vert[1][0])
+            geoPack.normals.append(-vert[1][2])
+            geoPack.normals.append(-vert[1][1])
+            
+            geoPack.uvs.append(vert[2][0])
+            geoPack.uvs.append(vert[2][1])
+
     bm.free()
 
-
-    # Reverse triangle winding order to fix flipped faces
-    #fixed_indices = []
-    #for i in range(0, len(index_buffer), 3):  
-    #    fixed_indices.append(index_buffer[i])      # First vertex remains the same
-    #    fixed_indices.append(index_buffer[i + 2])  # Swap last and second
-    #    fixed_indices.append(index_buffer[i + 1])  
     
     geoPack.indices = index_buffer
     geoPack.mesh = mesh
