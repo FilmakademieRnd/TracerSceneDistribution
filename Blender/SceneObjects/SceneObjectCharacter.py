@@ -215,7 +215,7 @@ class SceneObjectCharacter(SceneObject):
             if self.network_lock:
                 bone_rest_transform: Matrix  = self.local_bone_rest_transform[bone_name]
                 rest_t, rest_r, rest_s = bone_rest_transform.decompose()
-                self.local_translation_map[bone_name] = Matrix.Translation(new_value.xzy - rest_t)
+                self.local_translation_map[bone_name] = Matrix.Translation(new_value.xyz - rest_t)
             else:
                 #send_parameter_update(bone_pos)
                 self.tracer_data.modified_parameters.append(bone_pos)
@@ -306,7 +306,7 @@ class SceneObjectCharacter(SceneObject):
 
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone -the other bones won't get displaced-
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}
-        for parameter in self.parameter_list:
+        for parameter in self.parameter_list[6:]:
             bone_name, param_type = parameter.name.split("-")
             if parameter.is_animated and bone_name == "hip" and param_type == "location":
                 offsets = {}
@@ -319,7 +319,7 @@ class SceneObjectCharacter(SceneObject):
 
         # Matrices encoding the rotational offsets form rest pose for every keyframe in every bone parameter
         local_rot_offest_from_rest: dict[str, dict[int, Matrix]] = {}
-        for parameter in self.parameter_list:
+        for parameter in self.parameter_list[6:]:
             bone_name, param_type = parameter.name.split("-")
             if parameter.is_animated and param_type == "rotation_quaternion":
                 offsets = {}
@@ -335,12 +335,12 @@ class SceneObjectCharacter(SceneObject):
                 local_rot_offest_from_rest[bone_name] = offsets
 
         # Resizing the range of the timeline according to the number of keyframes received -arbitrarily choosing the number of keys from the hip rotation parameter-
-        bpy.context.scene.frame_end   = len(self.parameter_list[3].get_key_list()) - 1
+        bpy.context.scene.frame_end   = len(self.parameter_list[6].get_key_list()) - 1
 
         # For every keyframe in every parameter, compute the combination of positional and rotational offsets,
         # convert the resulting local matrix into pose space and add keyframe for location and rotation in the timeline at the right time
         last_frame = 0
-        for parameter in self.parameter_list:
+        for parameter in self.parameter_list[6:]:
             bone_name, param_type = parameter.name.split("-")
             if parameter.is_animated and (param_type == "location" or param_type == "rotation_quaternion"):
                 target_bone: bpy.types.PoseBone = self.armature_obj_pose_bones[bone_name]

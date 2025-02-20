@@ -449,12 +449,12 @@ class Parameter(AbstractParameter):
                 key_type = key_type if key_type >= 1 and key_type <= 3 else 1
                 byte_count += 1
                 # Read Key Timestamp
-                time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
                 # Read Key Tangent Times
-                right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
-                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
                 # Read Key Value
                 value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])

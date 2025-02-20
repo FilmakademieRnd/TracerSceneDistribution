@@ -107,6 +107,7 @@ class SceneObject:
             # send_parameter_update(tracer_pos)
             self.tracer_data.modified_parameters.append(tracer_pos)
         # Update the initial_value to the latest value
+        bpy.context.view_layer.update()
         tracer_pos.initial_value = new_value
 
     ### Function that updates the value of the roatation of Scene Objects and updates the connected TRACER clients if the change is made locally
@@ -116,16 +117,17 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-
+            new_value = new_value.normalized()
             (old_local_pos, _, old_local_scl) = self.blender_object.matrix_local.decompose()
             self.blender_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
 
-            if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
+            if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA': # or self.blender_object.type == 'ARMATURE':
                 self.blender_object.rotation_euler.rotate_axis("Z", math.radians(180))
         else:
             #send_parameter_update(tracer_rot)
             self.tracer_data.modified_parameters.append(tracer_rot)
         # Update the initial_value to the latest value
+        bpy.context.view_layer.update()
         tracer_rot.initial_value = new_value
 
     ### Function that updates the value of the scale of Scene Objects and updates the connected TRACER clients if the change is made locally
