@@ -144,6 +144,31 @@ class SceneObject:
         # Update the initial_value to the latest value
         tracer_scl.initial_value = new_value
 
+    ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
+    def populate_timeline_with_animation(self):
+
+        if self.blender_object.animation_data == None:
+            self.blender_object.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
+        elif self.blender_object.animation_data.action:
+            bpy.data.actions.remove(self.blender_object.animation_data.action)
+            self.blender_object.animation_data.action = bpy.data.actions.new("AnimHost Output")
+
+        for parameter in self.parameter_list:
+            obj_name, param_type = parameter.name.split("-")
+            if parameter.is_animated:
+                for key in parameter.get_key_list():
+                    match param_type:
+                        case 'location':
+                            self.blender_object.location = key.value
+                        case 'rotation_quaternion':
+                            prev_rot_mod = self.blender_object.rotation_mode
+                            self.blender_object.rotation_mode = 'QUATERNION'
+                            self.blender_object.rotation_quaternion = key.value
+                            self.blender_object.rotation_mode = prev_rot_mod
+                        case 'scale':
+                            self.blender_object.scale = key.value
+                    self.blender_object.keyframe_insert(param_type, frame=key.time)
+
     ### Function that toggles the network_lock of Scene Objects
     #   @param  lock_val    value of the network_lock to be set
     def lock_unlock(self, lock_val: int):

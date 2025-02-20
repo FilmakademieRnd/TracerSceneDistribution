@@ -295,6 +295,8 @@ class SceneObjectCharacter(SceneObject):
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
+        super().populate_timeline_with_animation()
+
         # Retrieve the character object's armature on which to apply the animation data
         target_character_obj: bpy.types.Armature = self.blender_object
         # Clear the timeline from the old animation if there is one or initialise the data structure if there isn't one yet
