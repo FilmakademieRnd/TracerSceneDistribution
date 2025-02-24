@@ -364,7 +364,8 @@ class Parameter(AbstractParameter):
     def serialize(self) -> bytearray:
         payload = bytearray([])
         payload.extend(self.serialize_data(self.value))
-        if self.is_animated:
+        if self.is_animated and self.key_list.has_changed:
+            self.key_list.has_changed = False
             payload.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
                 key_payload = bytearray([])
@@ -389,10 +390,11 @@ class Parameter(AbstractParameter):
                 case TRACERParamType.VECTOR4.value:
                     value = self.value
                 case TRACERParamType.QUATERNION.value:
+                    prev_rot_mod = self.blender_object.rotation_mode
                     self.parent_object.blender_object.rotation_mode = 'QUATERNION'
                     quat: Quaternion = self.value
                     value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.blender_object.rotation_mode = 'XYZ'
+                    self.parent_object.blender_object.rotation_mode = prev_rot_mod
                 case _:
                     value = self.value
 
@@ -507,7 +509,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.wxyz
+                return vec3_val.wxzy
 
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW

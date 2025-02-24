@@ -295,14 +295,10 @@ class SceneObjectCharacter(SceneObject):
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
+        super().populate_timeline_with_animation()
+
         # Retrieve the character object's armature on which to apply the animation data
         target_character_obj: bpy.types.Armature = self.blender_object
-        # Clear the timeline from the old animation if there is one or initialise the data structure if there isn't one yet
-        if target_character_obj.animation_data == None:
-            target_character_obj.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
-        elif target_character_obj.animation_data.action:
-            bpy.data.actions.remove(target_character_obj.animation_data.action)
-            target_character_obj.animation_data.action = bpy.data.actions.new("AnimHost Output")
 
         # Matrices encoding the positional offsets form rest pose for every keyframe of the hip bone -the other bones won't get displaced-
         local_pos_offest_from_rest: dict[str, dict[int, Matrix]] = {}

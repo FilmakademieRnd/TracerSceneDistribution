@@ -136,14 +136,14 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[0].set_value(matrix_local.to_translation())
-                        print(obj.name +" Start location" + " " + str(start_loc)  +" " + str(matrix_local.to_translation()))
+                        #print(obj.name +" Start location" + " " + str(start_loc)  +" " + str(matrix_local.to_translation()))
 
             if start_rot.dot(matrix_local.to_quaternion()) < 0.9999:
                 for scene_obj in self.tracer_data.SceneObjects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         # Directly set rotation using Euler, or convert to quaternion if required
                         scene_obj.parameter_list[1].set_value(matrix_local.to_quaternion()) 
-                        print(matrix_local.to_quaternion())  
+                        #print(matrix_local.to_quaternion())  
 
             if (matrix_local.to_scale() - start_scl).length > 0.0001:
                 for scene_obj in self.tracer_data.SceneObjects:
