@@ -162,10 +162,8 @@ class SceneObject:
                         case 'location':
                             self.blender_object.location = key.value
                         case 'rotation_quaternion':
-                            #prev_rot_mod = self.blender_object.rotation_mode
                             self.blender_object.rotation_mode = 'QUATERNION'
                             self.blender_object.rotation_quaternion = key.value
-                            #self.blender_object.rotation_mode = prev_rot_mod
                         case 'scale':
                             self.blender_object.scale = key.value
                     self.blender_object.keyframe_insert(param_type, frame=key.time)
