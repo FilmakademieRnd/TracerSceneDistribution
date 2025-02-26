@@ -64,8 +64,6 @@ class SceneObject:
     def __init__(self, bl_obj: Object):
         # PUBLIC NON-STATIC variables declaration
         self.tracer_data: TracerData = bpy.context.window_manager.tracer_data
-        # self.parameter_object_id = SceneObject.start_id
-        # self.scene_object_id = tracer_data.objectsToTransfer.index(self.blender_object)
         self.object_id = SceneObject.start_id
         SceneObject.start_id += 1
         self.tracer_type: NodeTypes = NodeTypes.GROUP
@@ -194,8 +192,5 @@ class SceneObject:
         for i, n in enumerate(self.blender_object.name.encode()):
             fixed_length_name[i] = n
         object_byte_array.extend(struct.pack(fixed_length_name))
-
-        # if self.blender_object.type == 'MESH':
-        #    process_mesh(self.editabe_object, object_byte_array)
 
         return object_byte_array

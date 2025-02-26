@@ -252,9 +252,8 @@ class TracerData():
     editableList = []
     characterList = []
     curveList = []
-    editable_objects = []
+    editable_objects: list = []
 
-    SceneObjects: list = []
     modified_parameters: list[Parameter] = []
 
     rootChildCount = 0

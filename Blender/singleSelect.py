@@ -67,14 +67,14 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 # Check for deselection
                 deselected_objects = self.last_selected_objects - current_selected_objects
                 for obj in deselected_objects:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object:
                             send_unlock_msg(scene_obj)
 
                 # Check for new selection
                 newly_selected_objects = current_selected_objects - self.last_selected_objects
                 for obj in newly_selected_objects:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object:
                             send_lock_msg(scene_obj)
 

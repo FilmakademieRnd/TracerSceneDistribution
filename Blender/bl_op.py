@@ -33,23 +33,23 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
-from typing import Annotated, Set
+# TODO: split up this file grouping together operators for category (for example Networking, TRACER-related, Control-Path-specific, Persistent/Modal) 
+
 import bpy
 import os
 import re
 import time
-from mathutils import Vector, Euler, Matrix
+from mathutils import Vector, Euler
 
 from bpy.types import Context
 from bpy.app.handlers import persistent
 
 from .settings import TracerData, TracerProperties
-from .SceneObjects.SceneObject import SceneObject
 from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
-from .AbstractParameter import Parameter, AnimHostRPC
+from .AbstractParameter import AnimHostRPC
 from .serverAdapter import send_RPC_msg, send_parameter_update, set_up_thread, close_socket_d, close_socket_s, close_socket_c, close_socket_u
 from .tools import clean_up_tracer_data, install_ZMQ, check_ZMQ, setup_tracer_collection, parent_to_root, add_path, make_point, add_point, move_point, update_curve, path_points_check
-from .sceneDistribution import gather_scene_data, process_control_path#, resendCurve
+from .sceneDistribution import gather_scene_data, process_control_path
 from .GenerateSkeletonObj import process_armature
 
 ## operator classes
@@ -605,7 +605,6 @@ class AnimationRequest(bpy.types.Operator):
         
         self.tracer_props = bpy.context.scene.tracer_properties
 
-        # TODO: check whether TRACER has been correctly being configured
         control_path_name: str = self.tracer_props.control_path_name
         character_name: str = self.tracer_props.character_name
         if  control_path_name != '' and bpy.data.objects[control_path_name] != None and\
@@ -614,18 +613,16 @@ class AnimationRequest(bpy.types.Operator):
             character_bl_obj: bpy.types.Object = bpy.data.objects[character_name]
             if character_bl_obj != None and control_path_bl_obj != None and control_path_bl_obj.get("Control Points", None) != None:
                 tracer_data: TracerData = bpy.context.window_manager.tracer_data
-
+                
+                #clean_up_tracer_data(level=1)
                 # Getting the Scene Character Object corresponding to the selected Blender Character in the Scene
-                if bpy.data.objects[character_name].tracer_id < len(tracer_data.SceneObjects):
-                    tracer_character_object: SceneObjectCharacter = tracer_data.SceneObjects[bpy.data.objects[character_name].tracer_id]
+                if bpy.data.objects[character_name].tracer_id < len(tracer_data.editable_objects):
+                    tracer_character_object: SceneObjectCharacter = tracer_data.editable_objects[bpy.data.objects[character_name].tracer_id]
                     # Ensure that the values of the Control Points exposed to TRACER are up to date
                     tracer_character_object.update_control_points_locations(control_path_bl_obj)
                     tracer_character_object.update_control_points_rotations(control_path_bl_obj)
-                
-                    point_locations_param = tracer_character_object.parameter_list[3]
-                    point_rotations_param = tracer_character_object.parameter_list[4]
 
-                    send_parameter_update([point_locations_param, point_rotations_param])
+                    send_parameter_update(tracer_character_object.parameter_list[3:5])
 
                     # Request Animation from AnimHost through RPC call
                     animation_request_rpc = tracer_character_object.parameter_list[5]

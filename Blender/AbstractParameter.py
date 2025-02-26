@@ -69,6 +69,7 @@ class AnimHostRPC(Enum):
 class AbstractParameter:
     pass
 
+# TODO-suggestion: Split the file in two: Key-KeyList and BstractParameter-Parameter
 class Key:
     ## Class attributes ##
     # frame timestamp of the current key
@@ -364,8 +365,8 @@ class Parameter(AbstractParameter):
     def serialize(self) -> bytearray:
         payload = bytearray([])
         payload.extend(self.serialize_data(self.value))
-        if self.is_animated and self.key_list.has_changed:
-            self.key_list.has_changed = False
+        if self.is_animated:
+            #self.key_list.has_changed = False
             payload.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
                 key_payload = bytearray([])
@@ -384,19 +385,7 @@ class Parameter(AbstractParameter):
         #? Vectors are swizzled (Y-Z swap) in order to comply with the different handidness between blender and unity
         #? Quanternion rotation is taken from the object's rotation and swizzled (from XYZW to WXYZ)
         if value == None:
-            match self.get_tracer_type():
-                case TRACERParamType.VECTOR3.value:
-                    value = self.value
-                case TRACERParamType.VECTOR4.value:
-                    value = self.value
-                case TRACERParamType.QUATERNION.value:
-                    prev_rot_mod = self.blender_object.rotation_mode
-                    self.parent_object.blender_object.rotation_mode = 'QUATERNION'
-                    quat: Quaternion = self.value
-                    value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.blender_object.rotation_mode = prev_rot_mod
-                case _:
-                    value = self.value
+            value = self.value
 
         match self.get_tracer_type():
             case TRACERParamType.BOOL.value:

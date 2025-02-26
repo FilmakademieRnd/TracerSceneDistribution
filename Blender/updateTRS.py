@@ -33,16 +33,12 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 '''
 
-from pyclbr import _Object
 import bpy
-import time
 
 from mathutils import Vector, Quaternion, Matrix
 
-from .bl_op import InteractionListener
 from .settings import TracerData
 from .serverAdapter import send_parameter_update
-from .SceneObjects.SceneObject import SceneObject
 
 # Called at DoDistribute Operator in bl_op.py
 class RealTimeUpdaterOperator(bpy.types.Operator):
@@ -133,20 +129,19 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
 
             # Compare the current transform with the starting one
             if (matrix_local.to_translation() - start_loc).length > 0.0001:
-                for scene_obj in self.tracer_data.SceneObjects:
+                for scene_obj in self.tracer_data.editable_objects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[0].set_value(matrix_local.to_translation())
                         #print(obj.name +" Start location" + " " + str(start_loc)  +" " + str(matrix_local.to_translation()))
 
             if start_rot.dot(matrix_local.to_quaternion()) < 0.9999:
-                for scene_obj in self.tracer_data.SceneObjects:
+                for scene_obj in self.tracer_data.editable_objects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         # Directly set rotation using Euler, or convert to quaternion if required
                         scene_obj.parameter_list[1].set_value(matrix_local.to_quaternion()) 
-                        #print(matrix_local.to_quaternion())  
 
             if (matrix_local.to_scale() - start_scl).length > 0.0001:
-                for scene_obj in self.tracer_data.SceneObjects:
+                for scene_obj in self.tracer_data.editable_objects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock :
                         scene_obj.parameter_list[2].set_value(matrix_local.to_scale())
 
@@ -154,12 +149,12 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 start_color, start_energy = self.start_transforms[obj.name][3:5]
 
                 if RealTimeUpdaterOperator.color_difference(self, obj.data.color, start_color) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[3].set_value(obj.data.color)
 
                 if abs(obj.data.energy - start_energy) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[4].set_value(obj.data.energy)
 
@@ -168,21 +163,21 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                 start_angle, start_clip_start, start_clip_end = stored_values[3:6]
 
                 if abs(obj.data.angle - start_angle) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock :
                             scene_obj.parameter_list[3].set_value(obj.data.angle)
 
                 if abs(obj.data.clip_start - start_clip_start) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[4].set_value(obj.data.clip_start)
 
                 if abs(obj.data.clip_end - start_clip_end) > 0.0001:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object and not scene_obj.network_lock:
                             scene_obj.parameter_list[5].set_value(obj.data.clip_end)
             elif obj.type == 'ARMATURE':  # Ensure it's an armature object
-                for scene_obj in self.tracer_data.SceneObjects:
+                for scene_obj in self.tracer_data.editable_objects:
                     if obj == scene_obj.blender_object and not scene_obj.network_lock:
                         
                         control_path_bl_obj: bpy.types.Object = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
@@ -211,7 +206,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
                                 prev_transform = self.previous_bone_rotation[bone_name]
 
                                 if current_rotation.dot(prev_transform) < 0.9999:
-                                    for scene_obj in self.tracer_data.SceneObjects:
+                                    for scene_obj in self.tracer_data.editable_objects:
                                         if obj == scene_obj.blender_object and not scene_obj.network_lock:
                                             for parameter in scene_obj.parameter_list:
                                                 if parameter.name == bone_name + "-rotation_quaternion":
@@ -223,7 +218,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             if len(self.tracer_data.modified_parameters) > 0 and bpy.context.scene.tracer_properties.enable_send_updates:
                 send_parameter_update(self.tracer_data.modified_parameters)
 
-                # Update the starting transform and specific properties for lights and cameras
+            # Update the starting transform and specific properties for lights and cameras
             if obj.type == 'LIGHT':
                 self.start_transforms[obj.name] = (obj.matrix_local.to_translation().copy(), obj.matrix_local.to_quaternion().copy(), obj.matrix_local.to_scale().copy(), obj.data.color.copy(), obj.data.energy)
             elif obj.type == 'CAMERA':

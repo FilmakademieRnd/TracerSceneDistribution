@@ -34,9 +34,7 @@ individual license agreement.
 '''
 
 import bpy
-from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
-from mathutils import Vector, Matrix
-from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy, setup_tracer_collection;
+from .tools import get_current_collections, switch_collection, parent_to_root, select_hierarchy
 
 ### Function to create an empty object
 def create_empty(name, location, rotation, scale, parent):
@@ -53,16 +51,18 @@ def was_already_processed(armature_root_bone: bpy.types.PoseBone) -> bool:
     return armature_root_bone.name in bpy.data.objects
 
 ### Function to create an object for every bone present in the armature so that the character can be interfaced with TRACER
+# Is called by SetupCharacter operator in bl_op.py
+#! The fucntionality should be migrated to the SceneObjectCharacter
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
+#! It should not be necessary to create empty objects in the blender scene anymore, because the skeletal infromation are already saved on the instance of the SceneObjectCharacter
 def process_armature(armature):
-    # Get the active armature object???
     armature: bpy.types.Object = armature
 
-    # Find the root bone (typically named "Hips")
+    # Find the root bone
     root_bone = None
     for bone in armature.pose.bones:
         if not bone.parent:
             root_bone = bone
-            print(root_bone.name)
             break
 
     # Check if the active object is an armature and whehter it has already been processed previously 
@@ -156,9 +156,6 @@ def process_armature(armature):
                     bpy.context.view_layer.objects.active = armature
                     bpy.ops.object.parent_set(type='BONE', keep_transform=True)
 
-        collection_name = "VPET_Collection"  # Specify the collection name
-        collection = bpy.data.collections.get(collection_name)
-
         if(get_current_collections(armature) != get_current_collections(empty_root)):
             bpy.ops.object.select_all(action='DESELECT')
             select_hierarchy(empty_root)
@@ -170,8 +167,9 @@ def process_armature(armature):
 
 
     else:
+        # Reporting warning for the user within the Blender UI
         n_modal_ops = len(bpy.context.window.modal_operators)
-        if was_already_processed(root_bone):
+        if was_already_processed(root_bone) and n_modal_ops > 0:
             bpy.context.window.modal_operators[n_modal_ops-1].report({'WARNING'}, "The Character has already been processed")
         else:
             bpy.context.window.modal_operators[n_modal_ops-1].report({'WARNING'}, "Active object is not an armature or no armature is selected.")

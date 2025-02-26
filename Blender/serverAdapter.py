@@ -37,8 +37,6 @@ import time
 import threading
 import bpy
 import struct
-import mathutils
-import math
 from enum import Enum
 from collections import deque
 import numpy as np
@@ -272,7 +270,6 @@ def send_parameter_update(modified_parameter_list: list[Parameter]):    # parame
         tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
 
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
-    modified_parameter_list.clear()
 
 def process_parameter_update(msg: bytearray, start=0) -> int:
     param: Parameter = None
@@ -288,8 +285,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
         msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
 
-        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1].parameter_list):
-            param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
+        if 0 < obj_id <= len(tracer_data.editable_objects) and 0 <= param_id < len(tracer_data.editable_objects[obj_id - 1].parameter_list):
+            param = tracer_data.editable_objects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
             if not param.is_animated and param.get_size() < length-10:
@@ -362,9 +359,9 @@ def send_unlock_msg(sceneObject):
 def process_lock_msg(msg: bytearray, start = 0):
     scene_id    = struct.unpack( 'B', msg[start   : start+1])[0]
     obj_id      = struct.unpack('<H', msg[start+1 : start+3])[0]
-    if 0 < obj_id <= len(tracer_data.SceneObjects):
+    if 0 < obj_id <= len(tracer_data.editable_objects):
         lockstate = struct.unpack( 'B', msg[start+3 : start+4])[0]
-        tracer_data.SceneObjects[obj_id-1].lock_unlock(lockstate)
+        tracer_data.editable_objects[obj_id-1].lock_unlock(lockstate)
 
     return len(msg)
     

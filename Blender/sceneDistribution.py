@@ -38,23 +38,18 @@ import math
 import mathutils
 import bmesh
 import struct
-import re
-from bpy_extras.io_utils import axis_conversion
 
-from mathutils import Vector, Quaternion, Matrix, Euler
-from.settings import TracerData, TracerProperties
-from .AbstractParameter import Parameter
+from mathutils import Vector, Quaternion, Matrix
 from .SceneObjects.SceneObject import SceneObject, NodeTypes
-from .SceneObjects.SceneObjectMesh import SceneObjectMesh
 from .SceneObjects.SceneObjectCamera import SceneObjectCamera
 from .SceneObjects.SceneObjectLight import SceneObjectLight, LightTypes
 from .SceneObjects.SceneObjectSpotLight import SceneObjectSpotLight
 from .SceneObjects.SceneObjectCharacter import SceneObjectCharacter
-#from .Avatar_HumanDescription import blender_to_unity_bone_mapping
 
-
-## Creating empty classes to store node data
-#  is there a more elegant way?
+### Creating empty classes to store (non-editable) node data
+#!! In the refactoring branch, all objects in the scene are represented by classes declared in their own file.
+#!! The distinction between editable and non-editable objects is going to be represented by a boolean class variable
+# TODO: No more double classes!!!
 class sceneObject:
     pass
 
@@ -100,7 +95,6 @@ def clear_tracer_data():
     tracer_data.characterList.clear()
     tracer_data.curveList.clear()
     tracer_data.editable_objects.clear()
-    tracer_data.SceneObjects.clear()
     
     tracer_data.nodesByteData.clear()
     tracer_data.geoByteData.clear()
@@ -112,8 +106,7 @@ def clear_tracer_data():
 
     SceneObject.start_id = 1
 
-## General function to gather scene data
-#
+## General function to gather scene data and serialize it
 def gather_scene_data():
     clear_tracer_data()
     tracer_data.cID = int(str(tracer_props.server_ip).split('.')[3])
@@ -150,7 +143,9 @@ def get_object_list() -> list[bpy.types.Object]:
     object_list.extend(parent_object.children_recursive)
     return object_list
     
-## Process and store a scene object
+## Process and store a scene object.
+#! The initialisation of the various objects is done in the various SceneObject subclasses
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 #
 # @param obj The scene object to process
 # @param index The objects index in the list of all objects
@@ -203,9 +198,6 @@ def process_scene_object(obj: bpy.types.Object, index):
         node.tracer_type = NodeTypes.CHARACTER
         process_character(obj, tracer_data.objectsToTransfer)
     
-    # When finding an Animation Path to be distributed
-    #if obj.name == "AnimPath":
-    #    process_control_path(obj)
     blender_to_unity = Matrix([
                 [1,  0,  0,  0],
                 [0,  0,  1,  0],
@@ -213,46 +205,36 @@ def process_scene_object(obj: bpy.types.Object, index):
                 [0,  0,  0,  1]
             ])
     
+    # Applying blender-to-unity converison matrix on the Scene Root
     if obj.name == "TRACER Scene Root": 
         nodeMatrix =  blender_to_unity @  obj.matrix_local.copy()
     else:
         nodeMatrix = obj.matrix_local.copy()
 
     node.position = nodeMatrix.to_translation()
-    node.scale = nodeMatrix.to_scale() #if obj.name != "hip" else Vector((1,1,1))
+    node.scale = nodeMatrix.to_scale()
 
     # camera and light rotation offset
     if obj.type == 'CAMERA' or obj.type == 'LIGHT':
         rotFix = mathutils.Matrix.Rotation(math.radians(-180.0), 4, 'Z')
         nodeMatrix = nodeMatrix @ rotFix
 
-   
-    #rotFix = mathutils.Matrix.Rotation(math.radians(90.0), 4, 'X')
     rot = (nodeMatrix).to_quaternion()
-    #rot.invert()
-    node.rotation = (rot[1], rot[2], rot[3], rot[0])
-    
-    #add_TRS(nodeMatrix, obj.name) # JSON debug
+    node.rotation = (rot[1], rot[2], rot[3], rot[0])    # Representing rotation in XYZW format (swizzle here not to swizzle later in the get_nodes_byte_array function)
 
     node.name = bytearray(64)
-    
     for i, n in enumerate(obj.name.encode()):
         node.name[i] = n
     node.childCount = len(obj.children)
     
-    # Assign the child count of the root object
-    #if obj.name == 'TRACER Scene Root':
-        #node.childCount = tracer_data.rootChildCount
-    
     node.tracer_id = index
 
     node.editable = int(obj.get("TRACER-Editable", False))
-    if node.editable:
-        tracer_data.editable_objects.append(obj)
-
-    #if obj.name != 'TRACER Scene Root':
     tracer_data.nodeList.append(node)
-    
+
+## Collecting information about a mesh
+#! The fucntionality should be migrated to SceneObjectMesh
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 def process_mesh(obj, nodeMesh) -> sceneMesh: 
     nodeMesh.tracer_type = NodeTypes.GEO
     nodeMesh.color = (obj.color[0], obj.color[1], obj.color[2], obj.color[3])
@@ -281,6 +263,9 @@ def process_mesh(obj, nodeMesh) -> sceneMesh:
                     
     return nodeMesh
 
+## Collecting information about a skinned mesh
+#! The fucntionality should be migrated to SceneObjectSkinnedMesh
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 def process_skinned_mesh(obj, nodeSkinMesh):
     nodeSkinMesh.tracer_type = NodeTypes.SKINNEDMESH
     nodeSkinMesh.color = (0,0,0,1)
@@ -311,31 +296,11 @@ def process_skinned_mesh(obj, nodeSkinMesh):
         if armature_obj:
             armature_data = armature_obj.data  # Accessing the armature data for static bone information
             bind_poses = []
-            root_transform = armature_obj.matrix_world
-            
-            
-            blender_to_unity = Matrix([
-                [1,  0,  0,  0],
-                [0,  0,  1,  0],
-                [0,  1,  0,  0],
-                [0,  0,  0,  1]
-            ])
 
             for bone in armature_data.bones:
 
-
-                bone_local_transform = bone.matrix_local.copy() #* 100 if bone.name == "hip" else bone.matrix_local.copy()
+                bone_local_transform = bone.matrix_local.copy()
                 bone_local_transform = bone_local_transform.inverted()
-                #bone_local_transform = bone_local_transform @ root_transform
-                #bone_local_transform = blender_to_unity @ bone_local_transform
-                #(old_local_pose, old_local_rot, old_local_scl) = bone_local_transform.decompose()
-                #old_local_pose = old_local_pose.xzy
-                #old_local_rot = Quaternion((old_local_rot.x, old_local_rot.z, old_local_rot.y, old_local_rot.w))
-                #old_local_rot.rotate(Euler((math.radians(-90), 0 ,0), 'XZY'))
-                #old_local_scl = old_local_scl.xzy
-                #bone_local_transform = Matrix.LocRotScale(old_local_pose, old_local_rot, old_local_scl)
-
-                #add_bind_pose(bone_local_transform, bone.name) # JSON debug
 
                 # Flatten and append each row of the matrix
                 for row in bone_local_transform:
@@ -345,7 +310,8 @@ def process_skinned_mesh(obj, nodeSkinMesh):
             current_length = len(bind_poses)
             if current_length < desired_length:
                 # If bind_poses is shorter, extend with zeroes
-                bind_poses.extend([0] * (desired_length - current_length))  
+                bind_poses.extend([0] * (desired_length - current_length))
+            
             nodeSkinMesh.bindPoses = bind_poses
             nodeSkinMesh.bindPoseLength = int(len(bind_poses) / 16)
             nodeSkinMesh.skinnedMeshBoneIDs = [-1] * 99  # Initialize all to -1
@@ -355,16 +321,17 @@ def process_skinned_mesh(obj, nodeSkinMesh):
                     if obj.name == bone.name:
                         bone_index = idx
                         break
-            #for i, bone in enumerate(armature_data.bones):  
+                
                 nodeSkinMesh.skinnedMeshBoneIDs[i] = bone_index
                 print("POSE "+str(nodeSkinMesh.skinnedMeshBoneIDs[i]) +" " + bone.name)
                 
-
         nodeSkinMesh.skinnedMeshBoneIDsSize = len(nodeSkinMesh.skinnedMeshBoneIDs)        
 
         return(nodeSkinMesh)
 
-
+## Collecting information about a character
+#! The fucntionality should be migrated partly to SceneDataCharacter and to SceneObjectCharacter
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 #! The part that processes a "Humanoid Rig" character is probably no longer valid
 def process_character(armature_obj, object_list):
     chr_pack = characterPackage()
@@ -381,14 +348,6 @@ def process_character(armature_obj, object_list):
 
         if(tracer_props.humanoid_rig):
             raise RuntimeError("Update Humanoid Rig implementation")
-            for key, value in blender_to_unity_bone_mapping.items():
-                bone_index = -1
-                for idx, obj in enumerate(object_list):
-                    if key == obj.name:
-                        bone_index = idx
-                        break
-                chr_pack.boneMapping.append(bone_index)
-
         else:
             for i, bone in enumerate(bones):
                 bone_index = -1
@@ -592,29 +551,26 @@ def rotation_interpolation(quat_1: Quaternion, quat_2: Quaternion, timings: list
     
     return samples
 
-## Create SceneObject for each object that will be sent over network
+## Create SceneObject for each EDITABLE object that will be sent over network
+## The refactoring should process all objects in the same way
 #
-#@param obj the acual object from the scene
+# @param obj the acual object from the scene
 def process_editable_objects(obj, index):
     is_editable = obj.get("TRACER-Editable", False)
     if is_editable:
         if obj.type == 'CAMERA':
-            tracer_data.SceneObjects.append(SceneObjectCamera(obj))
+            tracer_data.editable_objects.append(SceneObjectCamera(obj))
         elif obj.type == 'LIGHT':
             if obj.data.type == 'SPOT':
-                tracer_data.SceneObjects.append(SceneObjectSpotLight(obj))
+                tracer_data.editable_objects.append(SceneObjectSpotLight(obj))
             else:
-                tracer_data.SceneObjects.append(SceneObjectLight(obj))
+                tracer_data.editable_objects.append(SceneObjectLight(obj))
         elif obj.type == 'ARMATURE':
-            tracer_data.SceneObjects.append(SceneObjectCharacter(obj))
-        # elif obj.type == 'MESH':
-        #     tracer_data.SceneObjects.append(SceneObjectMesh(obj))
-        # elif obj.type == 'EMPTY':
-        #     tracer_data.SceneObjects.append(SceneObject(obj))
+            tracer_data.editable_objects.append(SceneObjectCharacter(obj))
         else:
-            tracer_data.SceneObjects.append(SceneObject(obj))
+            tracer_data.editable_objects.append(SceneObject(obj))
 
-        obj.tracer_id = len(tracer_data.SceneObjects) -1
+        obj.tracer_id = len(tracer_data.editable_objects) -1
     
 
 ## Process a meshes material
@@ -625,6 +581,8 @@ def process_editable_objects(obj, index):
 #  todo:
 #  - should find a more stable way to traverse the shader node graph
 #  - should maybe skip the whole object if it has a volume shader
+#! The fucntionality should be migrated SceneDataMaterial
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 def processMaterial(mesh):
     matPack = materialPackage()
     
@@ -695,6 +653,8 @@ def processMaterial(mesh):
 ## Process Texture
 #
 # @param tex Texture to process
+#! The fucntionality should be migrated to SceneDataTexture
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 def processTexture(tex):
     # check if texture is already processed
     for i, t in enumerate(tracer_data.textureList):
@@ -766,6 +726,8 @@ def get_vertex_bone_weights_and_indices(vert, mesh_obj, armature):
         
         return bone_weights, bone_indices
 
+#! The fucntionality should be migrated to SceneDataMesh
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 def processGeoNew(mesh):
     geoPack = sceneMesh()
     mesh_identifier = generate_mesh_identifier(mesh)
@@ -789,18 +751,9 @@ def processGeoNew(mesh):
                 weights, indices = get_vertex_bone_weights_and_indices(vert, mesh, armature)
                 vertex_bone_weights[vert.index] = weights
                 vertex_bone_indices[vert.index] = indices
-
-    #mesh.data.calc_normals_split()
+    
     bm = bmesh.new()
-
     bm.from_mesh(mesh.data)
-
-    #bm.transform(Matrix(((1,0,0,0), (0,0,1,0), (0,1,0,0), (0,0,0,1))))
-    # flipping faces because the following axis swap inverts them????
-    #for f in bm.faces:
-    #    bmesh.utils.face_flip(f)
-    #bm.normal_update()
-
     bm.verts.ensure_lookup_table()
     uv_layer = bm.loops.layers.uv.active
     loop_triangles: list[tuple[bmesh.types.BMLoop]] = bm.calc_loop_triangles()
@@ -880,18 +833,9 @@ def processGeoNew(mesh):
         geoPack.uvs.append(vert[2][0])
         geoPack.uvs.append(vert[2][1])
     bm.free()
-
-
-    # Reverse triangle winding order to fix flipped faces
-    #fixed_indices = []
-    #for i in range(0, len(index_buffer), 3):  
-    #    fixed_indices.append(index_buffer[i])      # First vertex remains the same
-    #    fixed_indices.append(index_buffer[i + 2])  # Swap last and second
-    #    fixed_indices.append(index_buffer[i + 1])  
     
     geoPack.indices = index_buffer
     geoPack.mesh = mesh
-    
     
     tracer_data.geoList.append(geoPack)
     return (len(tracer_data.geoList)-1)
@@ -903,6 +847,10 @@ def generate_mesh_identifier(obj):
         return f"Armature_{obj.name}_{len(obj.data.bones)}"
     else:
         return f"{obj.type}_{obj.name}"
+
+### SERIALISING FUNCTIONS ###
+#! The fucntionality should be delegated to each class, in a serializer member function
+#  see https://github.com/FilmakademieRnd/TracerSceneDistribution/tree/blender-scene-refactor/Blender/SceneObjects
 
 ### Generate Byte Arrays out of collected node data
 def get_header_byte_array():
@@ -924,7 +872,7 @@ def get_nodes_byte_array():
         nodeBinary = bytearray([])
         
         nodeBinary.extend(struct.pack('i', node.tracer_type.value))
-        nodeBinary.extend(struct.pack('i', node.editable)) #editable ?
+        nodeBinary.extend(struct.pack('i', node.editable))
         nodeBinary.extend(struct.pack('i', node.childCount))
         nodeBinary.extend(struct.pack('3f', *node.position))
         nodeBinary.extend(struct.pack('3f', *node.scale))
@@ -1043,26 +991,5 @@ def get_character_byte_array():
             charBinary.extend(struct.pack('%sf' % chr.sMSize*4, *chr.boneRotation))
             charBinary.extend(struct.pack('%sf' % chr.sMSize*3, *chr.boneScale))
 
-            tracer_data.charactersByteData.extend(charBinary) 
-
-#! DEPRECATED           
-# def getCurvesByteArray():
-#     tracer_data = bpy.context.window_manager.tracer_data
-#     tracer_data.curvesByteData.clear()
-#     for curve in tracer_data.curveList:
-#         curveBinary = bytearray([])
-#         curveBinary.extend(struct.pack('i', curve.pointsLen))
-#         curveBinary.extend(struct.pack('%sf' % len(curve.points), *curve.points))
-#         curveBinary.extend(struct.pack('%sf' % len(curve.look_at), *curve.look_at))
-#    
-#         tracer_data.curvesByteData.extend(curveBinary)
-
-# def resendCurve():
-#     tracer_data = bpy.context.window_manager.tracer_data
-#     if bpy.context.active_object.type == 'ARMATURE' and bpy.context.active_object.get("Control Path") != None:
-#         control_path_obj: bpy.types.Object = bpy.context.active_object.get("Control Path")
-#         tracer_data.curvesByteData = bytearray([])
-#         tracer_data.curveList = []
-#         processControlPath(control_path_obj)
-#         getCurvesByteArray()
+            tracer_data.charactersByteData.extend(charBinary)
     

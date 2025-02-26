@@ -35,15 +35,12 @@ individual license agreement.
 
 import bpy
 import sys
-import re
 import mathutils
 import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
-from pathlib import Path
 
-#from .bl_op import InteractionListener  # Object-oriented filesystem paths since Python 3.4
-from .SceneObjects import SceneObjectCharacter
+# TODO: Split up this huge file in bits, placing the functions next to the operators that use them
 
 # Checking for ZMQ package installation
 def check_ZMQ():

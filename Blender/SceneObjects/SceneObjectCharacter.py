@@ -59,8 +59,11 @@ class ReportReceivedAnimation(bpy.types.Operator):
 class SceneObjectCharacter(SceneObject):
 
     ### Class constructor
-    #   Initializing TRACER class variable (from line 82)
-    #   Adding character-specific Properties to the Blender Object counterpart of the SceneObjectCharacter (from line 66)
+    #   Initializing TRACER class variable
+    #   Adding character-specific Properties to the Blender Object counterpart of the SceneObjectCharacter
+    #   Adding the list of Parameters that will be send and received through TRACER
+    #!  For any SceneObjectCharacter the sequence will be Loc-Rot-Scl-PathLocations-PathRotations-RequestModeRPC-nBoneLocations-nBoneRotations
+    #   While PathLocations and PathRotations are represented by one (animated) parameter, nBoneLocations and nBoneRotations are represented by n parameters; one for every bone of the armature
     def __init__(self, bl_obj: bpy.types.Object):
         super().__init__(bl_obj)
         self.tracer_type = NodeTypes.CHARACTER
@@ -75,19 +78,6 @@ class SceneObjectCharacter(SceneObject):
         self.local_bone_rest_transform: dict[str, Matrix] = {}                                                  # Stores the local resting bone space transformations in a dictionary (bone name - rest transfrorm matrix)
         self.local_rotation_map:        dict[str, Matrix] = {}                                                  # Stores the rotation transforms updated by TRACER in local bone space in a dictionary (bone name - rotation matrix) (may cause issues with values updated in a TRACER non-compliant way)
         self.local_translation_map:     dict[str, Matrix] = {}                                                  # Stores the positional transforms updated by TRACER in local bone space in a dictionary (bone name - translation matrix)
-
-        #! Initialise Control Path Positions Param
-        #! Initialise Control Path Rotations Param
-        # See SceneObject.py line 98
-
-        # Saving initial/resting armature bone transforms in local **bone** space
-        # Necessary for then applying animation displacements in the correct transform space
-        for abone in self.armature_obj_bones_rest_data:
-            if abone.parent:  # Check if the bone has a parent
-                # Get the relative position of the bone to its parent
-                self.local_bone_rest_transform[abone.name] = abone.parent.matrix_local.inverted() @ abone.matrix_local
-            else:
-                self.local_bone_rest_transform[abone.name] = abone.matrix_local
 
         path_locations = Parameter(Vector(), bl_obj.name+"-path_locations", self)
         path_locations.init_animation()
@@ -109,8 +99,17 @@ class SceneObjectCharacter(SceneObject):
 
         animation_request_rpc = Parameter(AnimHostRPC.BLOCK.value, bl_obj.name+"-animation_request_rpc", parent_object=self, is_RPC=True)
         self.parameter_list.append(animation_request_rpc)
+
+        # Saving initial/resting armature bone transforms in local **bone** space
+        # Necessary for then applying animation displacements in the correct transform space
+        for abone in self.armature_obj_bones_rest_data:
+            if abone.parent:  # Check if the bone has a parent
+                # Get the relative position of the bone to its parent
+                self.local_bone_rest_transform[abone.name] = abone.parent.matrix_local.inverted() @ abone.matrix_local
+            else:
+                self.local_bone_rest_transform[abone.name] = abone.matrix_local
         
-        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its rotation
+        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its ROTATION
         for bone in self.armature_obj_pose_bones:
             # finding root bone for hierarchy traversal
             if not bone.parent:
@@ -124,7 +123,7 @@ class SceneObjectCharacter(SceneObject):
             #? Sending a Parameter Update when the animation data of a parameter changes
             self.bone_map[local_bone_rotation_parameter.get_parameter_id] = bone_rotation_quaternion
 
-        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its position
+        # Adding to the SceneObjectCharacter a new Parameter for each bone, in order to control its LOCATION
         for bone in self.armature_obj_pose_bones:
             # finding root bone for hierarchy traversal
             if not bone.parent:
@@ -252,8 +251,8 @@ class SceneObjectCharacter(SceneObject):
                                                 left_tangent_time   = cp.get("Ease In"),
                                                 left_tangent_value  = cp_curve[i].handle_left ),
                                             i)
-            self.parameter_list[3] = locations #TODO: test if this line of code is redundant
-            self.tracer_data.modified_parameters.append(self.parameter_list[3])
+            #self.parameter_list[3] = locations #TODO: test if this line of code is redundant
+            #self.tracer_data.modified_parameters.append(self.parameter_list[3])
 
     ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
     def update_control_points_rotations(self, control_path_object: bpy.types.Object):
@@ -290,8 +289,8 @@ class SceneObjectCharacter(SceneObject):
                 
                 cp.rotation_mode = original_rot_mode
 
-            self.parameter_list[4] = rotations #TODO: test if this line of code is redundant
-            self.tracer_data.modified_parameters.append(self.parameter_list[4])
+            #self.parameter_list[4] = rotations #TODO: test if this line of code is redundant
+            #self.tracer_data.modified_parameters.append(self.parameter_list[4])
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
