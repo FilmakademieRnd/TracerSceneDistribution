@@ -41,6 +41,7 @@ from .settings import TracerData
 from .serverAdapter import send_parameter_update
 
 # Called at DoDistribute Operator in bl_op.py
+# The modal function is called every frame
 class RealTimeUpdaterOperator(bpy.types.Operator):
     bl_idname = "wm.real_time_updater"
     bl_label = "Real-Time Updater"
@@ -217,6 +218,7 @@ class RealTimeUpdaterOperator(bpy.types.Operator):
             
             if len(self.tracer_data.modified_parameters) > 0 and bpy.context.scene.tracer_properties.enable_send_updates:
                 send_parameter_update(self.tracer_data.modified_parameters)
+                self.tracer_data.modified_parameters.clear()
 
             # Update the starting transform and specific properties for lights and cameras
             if obj.type == 'LIGHT':

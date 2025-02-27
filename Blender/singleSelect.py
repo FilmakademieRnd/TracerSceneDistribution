@@ -53,8 +53,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
 
             # Check if multiple objects are selected
             if len(current_selected_objects) > 1:
-                # Check if there was a previously selected object before multiple selection attempt
-                previously_selected = self.last_selected_objects
 
                 # Deselect all objects
                 for obj in current_selected_objects:

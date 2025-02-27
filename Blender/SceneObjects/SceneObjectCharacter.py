@@ -251,8 +251,6 @@ class SceneObjectCharacter(SceneObject):
                                                 left_tangent_time   = cp.get("Ease In"),
                                                 left_tangent_value  = cp_curve[i].handle_left ),
                                             i)
-            #self.parameter_list[3] = locations #TODO: test if this line of code is redundant
-            #self.tracer_data.modified_parameters.append(self.parameter_list[3])
 
     ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
     def update_control_points_rotations(self, control_path_object: bpy.types.Object):
@@ -288,9 +286,6 @@ class SceneObjectCharacter(SceneObject):
                                             i)
                 
                 cp.rotation_mode = original_rot_mode
-
-            #self.parameter_list[4] = rotations #TODO: test if this line of code is redundant
-            #self.tracer_data.modified_parameters.append(self.parameter_list[4])
 
     ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
     def populate_timeline_with_animation(self):
