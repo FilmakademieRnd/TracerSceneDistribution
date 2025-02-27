@@ -33,6 +33,7 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
+import nt
 import bpy
 import sys
 import mathutils
@@ -446,14 +447,12 @@ def move_point(point, new_pos):
     # Evaluate the curve, given the new ordrering of the Control Points
     update_curve(point.parent)
 
-### Update the list of Control Points given the current scene status, and remove the Control Path, which is going to be updated
+### Update the list of Control Points given the current scene status
 def path_points_check(anim_path: bpy.types.Object):
     # Check the children of the Animation Preview (or corresponding character)
     control_points = []
     cp_names = []   # Helper list containing the names of the control points left in the scene
     for child in anim_path.children:
-        #if 'Control Path' == child.name:
-        #    bpy.data.objects.remove(child, do_unlink=True)
         if not child.name in bpy.context.view_layer.objects:
             bpy.data.objects.remove(child, do_unlink=True)
         elif 'Control Path' != child.name:
@@ -543,16 +542,28 @@ def update_curve(anim_path: bpy.types.Object):
             bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location    
         i += 1
 
-    last_cp = control_points[-1]
-    # Pad the left bezier points
-    while i < len(spline_points):
-        bezier_point = spline_points[i] 
-        bezier_point.co = last_cp.location                                                                       # Assign the poistion of the elements in the list of Control Points to the Bézier Points
-        bezier_point.handle_left_type  = "FREE"                                         # Use the handle data from the list of Control Points for the Bézier Points,
-        bezier_point.handle_right_type = "FREE"  
-        bezier_point.handle_left = bezier_point.co
-        bezier_point.handle_right = bezier_point.co
-        i += 1
+    # Deleting additional points on the bezier spline, whose corresponding Pointer Object has already been deleted
+    # TODO: The functionality works, but with some hiccups (sometimes Blender goes into a recursion -I don't know why- and gets confused...it doesn't seem to influence the rest of the execution)
+    # TODO: The curve updating seems to need some additional clickes (selcting a control point and then doing another click)...to be refined
+    if len(control_points) < len(spline_points):
+        prev_active_object = None
+        if bpy.context.view_layer.objects.active:
+            prev_active_object = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = None
+        curve_obj.select_set(True)
+        bpy.context.view_layer.objects.active = curve_obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        i = len(control_points)
+        while i < len(spline_points):
+            spline_points[i].select_control_point = True
+            i += 1
+        bpy.ops.curve.delete()
+        anim_path.select_set(True)
+        bpy.context.view_layer.objects.active = anim_path
+        bpy.ops.object.mode_set(mode='OBJECT')
+        #if prev_active_object:
+        #    prev_active_object.select_set(True)
+        #    bpy.context.view_layer.objects.active = prev_active_object
 
     bpy.context.scene.tracer_properties.path_is_modified = True
 

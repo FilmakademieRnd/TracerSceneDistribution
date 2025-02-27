@@ -462,8 +462,9 @@ class Parameter(AbstractParameter):
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
-            
-            bpy.context.window.modal_operators[-1].report({'INFO'}, "New Animation Received!")
+                
+            if len(bpy.context.window.modal_operators) > 0:
+                bpy.context.window.modal_operators[0].report({'INFO'}, "New Animation Received!")
         
         # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
         if self.has_changed and not self.parent_object.network_lock:

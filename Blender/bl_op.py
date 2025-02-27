@@ -334,12 +334,15 @@ class ControlPointProps(bpy.types.PropertyGroup):
         if bpy.context.tool_settings.use_proportional_edit_objects:
             return
         if self.position >= len(context.active_object.parent.get('Control Points')):
-            bpy.context.window.modal_operators[-1].report({'ERROR'}, "Position Value Out of Bounds")
+            if len(bpy.context.window.modal_operators) > 0:
+                bpy.context.window.modal_operators[0].report({'ERROR'}, "Position Value Out of Bounds")
             return
         context.active_object["Position"] = self.position
         move_point(context.active_object, self.position)
 
     def update_frame(self, context):
+        if context.active_object.parent.name != context.scene.tracer_properties.control_path_name:
+            return
         # Set the property of the active control point to the new UI value
         delta_frame = self.frame - context.active_object["Frame"]
         context.active_object["Frame"] = self.frame
@@ -373,24 +376,19 @@ class UpdateCurveViz(bpy.types.Operator):
     bl_label = "Update Curve"
     bl_description = 'Update the Control Path given the new configuration of the Control Points'
 
-    @persistent
-    def execute(self, context):
-        print('Evaluate Curve START')
-        if bpy.context.scene.tracer_properties.control_path_name != '' and  bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
-            anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
-            # Check for deleted control points and evtl. do some cleanup before updating the curve 
-            for child in anim_path.children:
-                if not bpy.context.scene in child.users_scene:
-                    bpy.context.window.modal_operators[-1].report({'ERROR'}, child.name + " IS NOT in the scene")
-                    bpy.data.objects.remove(child, do_unlink=True)
-            update_curve(anim_path)
-            for area in bpy.context.screen.areas:
-                if area.type == 'PROPERTIES':
-                    area.tag_redraw()
-        else:
-            self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
+    # @persistent
+    # def execute(self, context):
+    #     print('Evaluate Curve START')
+    #     if bpy.context.scene.tracer_properties.control_path_name != '' and  bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
+    #         anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
+    #         #update_curve(anim_path)
+    #         for area in bpy.context.screen.areas:
+    #             if area.type == 'PROPERTIES':
+    #                 area.tag_redraw()
+    #     else:
+    #         self.report({'ERROR'}, 'Assign a value to the Control Path field in the Panel to use this functionality.')
         
-        return {'FINISHED'}
+    #     return {'FINISHED'}
     
     @persistent
     def on_delete_update_handler(scene):
@@ -401,19 +399,7 @@ class UpdateCurveViz(bpy.types.Operator):
 
         if bpy.context.scene.tracer_properties.control_path_name in bpy.data.objects:
             anim_path = bpy.data.objects[bpy.context.scene.tracer_properties.control_path_name]
-            # Check for deleted control points and evtl. do some cleanup before updating the curve  
-            for i, child in enumerate(anim_path.children):
-                if not bpy.context.scene in child.users_scene:
-                    bpy.context.window.modal_operators[-1].report({'ERROR'}, child.name + " IS NOT in the scene")
-                    bpy.data.objects.remove(child, do_unlink=True)
-                    update_curve(anim_path)
-                    if i < len(anim_path["Control Points"]) - 1:
-                        # If the removed element was not the last point in the list
-                        # Select the element that is now in that position
-                        anim_path["Control Points"][i].select_set(True)
-                    else:
-                        # Select the new last element
-                        anim_path["Control Points"][-1].select_set(True)
+            update_curve(anim_path)
 
             for area in bpy.context.screen.areas:
                 if area.type == 'PROPERTIES':
