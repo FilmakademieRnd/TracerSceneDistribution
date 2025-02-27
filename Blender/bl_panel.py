@@ -181,6 +181,7 @@ class TRACER_PT_Anim_Path_Panel(TRACER_Panel, bpy.types.Panel):
             row.operator(AddPath.bl_idname, text=AddPath.bl_label)
             if bpy.context.scene.tracer_properties.control_path_name != '':
                 row = layout.row()
+                row.alert = not InteractionListener.is_running
                 row.operator(InteractionListener.bl_idname, text=InteractionListener.bl_label)   # Invoke Modal Operaton for automatically update the Animation Path in (almost) real-time
                 if bpy.context.mode == 'EDIT_CURVE':
                     #if the user is edidting the points of the bezier spline, disable Control Point features and display message
