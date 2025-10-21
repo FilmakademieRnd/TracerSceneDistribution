@@ -60,8 +60,10 @@ public:
 	enum class MessageType
 	{
 		PARAMETERUPDATE, LOCK, // node
-		SYNC, PING, RESENDUPDATE, // sync
-		UNDOREDOADD, RESETOBJECT // undo redo
+		SYNC, RESENDUPDATE, // sync
+		UNDOREDOADD, RESETOBJECT, // undo redo
+		DATAHUB, // DataHub
+		RPC // RPC
 	};
 
 	UpdateReceiverThread(zmq::socket_t* pSocket, std::vector<std::vector<uint8_t>>* pQueue, uint8_t m_ID, bool pLog, AVPETModule* pMod) : socket(pSocket), msgQ(pQueue), cID(m_ID), doLog(pLog), manager(pMod) { }
