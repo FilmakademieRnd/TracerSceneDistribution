@@ -69,6 +69,7 @@ class AnimHostRPC(Enum):
 class AbstractParameter:
     pass
 
+# TODO-suggestion: Split the file in two: Key-KeyList and BstractParameter-Parameter
 class Key:
     ## Class attributes ##
     # frame timestamp of the current key
@@ -96,11 +97,13 @@ class Key:
     def __sizeof__(self) -> int:
         return self.get_key_size()
 
-    def get_data_size(self):
+    def get_data_size(self) -> int:
         if isinstance(self.value, bool):
             return struct.calcsize('?') # = 1
-        elif isinstance(self.value, int) or isinstance(self.value, float):
+        elif isinstance(self.value, int):
             return struct.calcsize('i') # = 4
+        elif isinstance(self.value, float):
+            return struct.calcsize('f') # = 4
         elif isinstance(self.value, Vector) and len(self.value) == 2:
             return struct.calcsize('f') * 2 # = 8
         elif isinstance(self.value, Vector) and len(self.value) == 3:
@@ -109,10 +112,14 @@ class Key:
             return struct.calcsize('f') * 4 # = 16
         elif isinstance(self.value, str):
             return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
+        else:
+            return 0
 
     def get_key_size(self):
-        # byte (key_type) +           float (time) +           float (tangent_time) +   size_of_param (value) +    size_of_param (tangentvalue)
-        return          1 + self.time.__sizeof__() + self.right_tangent_time.__sizeof__() + self.value.__sizeof__() + self.right_tangent_value.__sizeof__() # TODO: Add left tangent
+        size_of_float = struct.calcsize('f') # = 4
+        size_value = self.get_data_size()
+        #       byte (key_type) +  float (time) + float (tangent_time_left) + float (tangent_time_right) + size_of_param (value) +    size_of_param (tangent_value_left) + size_of_param (tangent_value_right)
+        return                1 + size_of_float +             size_of_float +              size_of_float +            size_value +                            size_value +                          size_value
     
     def is_equal(self, other):
         return (self.key_type               == other.key_type               and\
@@ -202,9 +209,11 @@ class AbstractParameter:
         self.__id: int = -1
         if parent_object:
             self.__id = len(parent_object.parameter_list)
+            #print("Creating new parameter " + name + " with id " + str(self.__id))
         elif is_RPC and parent_object == None:
             self.__id = AbstractParameter.start_animhost_rpc_id
             AbstractParameter.start_animhost_rpc_id += 1
+            print("Creating new RPC Parameter with name " + name + " and id " + str(self.__id))
         else:
             self.__id = 0
         # Parameter name
@@ -264,16 +273,16 @@ class AbstractParameter:
                 return struct.calcsize('f') * 3 # = 12
             case TRACERParamType.VECTOR4.value | TRACERParamType.QUATERNION.value | TRACERParamType.COLOR.value:
                 return struct.calcsize('f') * 4 # = 16
-            case TRACERParamType.STRING:
-                return struct.calcsize('c') * len(self._value) # len_of_string * size_of_char
+            case TRACERParamType.STRING.value:
+                return struct.calcsize('c') * len(self.value) # len_of_string * size_of_char
         
     def python_type(self):
-        return type(self._value)
+        return type(self.value)
     
     def set_RPC(self, is_RPC: bool):
         self.__is_RPC = is_RPC
 
-    def is_RPC(self) -> None:
+    def is_RPC(self) -> bool:
         return self.__is_RPC
 
     
@@ -310,19 +319,19 @@ class Parameter(AbstractParameter):
         data_size = self.get_data_size()
         if self.is_animated:
             # When animated, the size of the parameter increases. After the first payload, there will be the number of keys that the animated parameter will have and then the list of those keys. 
-            #         size_of_param +  size_of_short (nr_keys) +             nr_keys *                      size_of_key (= 2* size_of_param (value + tangent_value) + 2 * size_of_float (time + tangent_time) + byte (key_type))
-            return        data_size +                        2 + len(self.key_list) * self.get_key(0).get_key_size()
+            #       size_of_param + number_of_keys (short) +     number_of_keys * size_of_key
+            return      data_size +   struct.calcsize('h') + len(self.key_list) * self.get_key(0).get_key_size()
         else:
             return data_size
 
     def set_value(self, new_value):
-        if not self.parent_object.network_lock:
-            self.parent_object.network_lock = True
-            if new_value != self.value:
-                self.has_changed = True
+        if new_value != self.value:
+            self.has_changed = True
+            if hasattr(new_value, 'copy'):
                 self.value = new_value.copy()
-                self.emit_has_changed()
-            self.parent_object.network_lock = False
+            else:
+                self.value = new_value
+            self.emit_has_changed()
     
     def emit_has_changed(self):
         for handler in self.parameter_handler:
@@ -347,7 +356,7 @@ class Parameter(AbstractParameter):
 
             if self.has_changed:
                 self.emit_has_changed()
-            self.parent_object.network_lock = False
+            #self.parent_object.network_lock = False
 
     #######################
     ###  Serialization  ###
@@ -357,6 +366,7 @@ class Parameter(AbstractParameter):
         payload = bytearray([])
         payload.extend(self.serialize_data(self.value))
         if self.is_animated:
+            #self.key_list.has_changed = False
             payload.extend(struct.pack('<H', len(self.key_list)))
             for key in self.key_list.get_list():
                 key_payload = bytearray([])
@@ -375,18 +385,7 @@ class Parameter(AbstractParameter):
         #? Vectors are swizzled (Y-Z swap) in order to comply with the different handidness between blender and unity
         #? Quanternion rotation is taken from the object's rotation and swizzled (from XYZW to WXYZ)
         if value == None:
-            match self.get_tracer_type():
-                case TRACERParamType.VECTOR3.value:
-                    value = self.value
-                case TRACERParamType.VECTOR4.value:
-                    value = self.value
-                case TRACERParamType.QUATERNION.value:
-                    self.parent_object.blender_object.rotation_mode = 'QUATERNION'
-                    quat: Quaternion = self.value
-                    value = Quaternion((quat.w, quat.x, quat.y, quat.z))
-                    self.parent_object.blender_object.rotation_mode = 'XYZ'
-                case _:
-                    value = self.value
+            value = self.value
 
         match self.get_tracer_type():
             case TRACERParamType.BOOL.value:
@@ -398,7 +397,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR2.value:
                 return struct.pack('<2f', value.x, value.y)
             case TRACERParamType.VECTOR3.value:
-                unity_vec3 = value.xzy
+                unity_vec3 = value.xyz
                 return struct.pack('<3f', value.x, value.y, value.z)
             case TRACERParamType.VECTOR4.value:
                 unity_vec4 = value.xzyw
@@ -438,14 +437,15 @@ class Parameter(AbstractParameter):
             while key_count < n_keys:
                 # Read Key Type
                 key_type = struct.unpack('B', msg_payload[byte_count:byte_count+1])[0]
+                key_type = key_type if key_type >= 1 and key_type <= 3 else 1
                 byte_count += 1
                 # Read Key Timestamp
-                time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
                 # Read Key Tangent Times
-                right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                right_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
-                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0]
+                left_tangent_time = struct.unpack('<f', msg_payload[byte_count:byte_count+4])[0] * 60
                 byte_count += 4
                 # Read Key Value
                 value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
@@ -456,20 +456,21 @@ class Parameter(AbstractParameter):
                 left_tangent_value = self.deserialize_data(msg_payload[byte_count:byte_count+data_size])
                 byte_count += data_size
                 
-                deserialized_key = Key(time = time, value = value, type = key_type,
+                deserialized_key = Key(time = time, value = value, type = KeyType(key_type),
                                        right_tangent_time = right_tangent_time, right_tangent_value = right_tangent_value,
                                        left_tangent_time  = left_tangent_time,  left_tangent_value  = left_tangent_value )
                 self.key_list.set_key(deserialized_key, key_count)
                 
                 key_count += 1
-            
-            bpy.context.window.modal_operators[-1].report({'INFO'}, "New Animation Received!")
+                
+            if len(bpy.context.window.modal_operators) > 0:
+                bpy.context.window.modal_operators[0].report({'INFO'}, "New Animation Received!")
         
         # If the received Parameter Update changed something in the value(s) of the Parameter and the object 
         if self.has_changed and not self.parent_object.network_lock:
             self.parent_object.network_lock = True
             self.emit_has_changed()
-            self.parent_object.network_lock = False
+            #self.parent_object.network_lock = False
 
     def deserialize_data(self, msg_payload: bytearray):
         match self.get_tracer_type():
@@ -498,7 +499,7 @@ class Parameter(AbstractParameter):
             case TRACERParamType.VECTOR4.value:
                 vec3_val = Vector((struct.unpack('<4f', msg_payload)))
                 # Swap Y and Z axis to adapt to blender's handidness
-                return vec3_val.wxyz
+                return vec3_val.wxzy
 
             case TRACERParamType.QUATERNION.value:
                 # The quaternion is passed in the order XYZW
@@ -506,8 +507,8 @@ class Parameter(AbstractParameter):
                 return Quaternion((quat_val[3], quat_val[0], quat_val[1], quat_val[2]))
 
             case TRACERParamType.COLOR.value:
-                color_val = Color((struct.unpack('<4f', msg_payload)))
-                return color_val
+                color_vec = Vector((struct.unpack('<4f', msg_payload)))
+                return Color(color_vec.xyz)
 
             case TRACERParamType.STRING.value:
                 # https://docs.python.org/3/library/stdtypes.html#bytearray.decode

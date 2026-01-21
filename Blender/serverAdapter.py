@@ -37,14 +37,13 @@ import time
 import threading
 import bpy
 import struct
-import mathutils
-import math
 from enum import Enum
 from collections import deque
 import numpy as np
 from .timer import TimerModalOperator
 
-from .AbstractParameter import AbstractParameter, Parameter
+from .AbstractParameter import Parameter
+from .SceneObjects.SceneObject import NodeTypes
 
 class MessageType(Enum):
     PARAMETERUPDATE = 0
@@ -255,18 +254,20 @@ def process_sync_msg(msg: bytearray, start=0):
         tracer_data.time = int(round(sv_time)) % TimerModalOperator.my_instance.m_timesteps
     
 
-def send_parameter_update(parameter: Parameter):
+def send_parameter_update(modified_parameter_list: list[Parameter]):    # parameter -> list of parameters
+    # loop over parameters in the list of accumulated parameters
     tracer_data.ParameterUpdateMSG = bytearray([])
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       # client ID
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.time))                      # sync time
     tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', MessageType.PARAMETERUPDATE.value))     # message type
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
-    tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
-    length = 10 + parameter.get_size()
-    tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
-    tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
+    for parameter in modified_parameter_list:      
+        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', tracer_data.cID))                       #? scene ID?
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.parent_object.object_id))     # scene object ID
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<H', parameter.get_parameter_id()))          # parameter ID
+        tracer_data.ParameterUpdateMSG.extend(struct.pack(' B', parameter.get_tracer_type()))           # parameter type
+        length = 10 + parameter.get_size()
+        tracer_data.ParameterUpdateMSG.extend(struct.pack('<I', length))                                # message length
+        tracer_data.ParameterUpdateMSG.extend(parameter.serialize())
 
     tracer_data.socket_u.send(tracer_data.ParameterUpdateMSG)
 
@@ -284,8 +285,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
         msg_payload = msg[start+10 : start+length] # Extracting only the data for the current parameter from the message
 
-        if 0 < obj_id <= len(tracer_data.SceneObjects) and 0 <= param_id < len(tracer_data.SceneObjects[obj_id - 1].parameter_list):
-            param = tracer_data.SceneObjects[obj_id - 1].parameter_list[param_id]
+        if 0 < obj_id <= len(tracer_data.editable_objects) and 0 <= param_id < len(tracer_data.editable_objects[obj_id - 1].parameter_list):
+            param = tracer_data.editable_objects[obj_id - 1].parameter_list[param_id]
             # If receiveng an animated parameter udpate on a parameter that is not already animated
             # Note: 10 is the size of the header
             if not param.is_animated and param.get_size() < length-10:
@@ -297,8 +298,8 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
                     
         start += length
     
-    # At the end of the reading, if the message received was an Animation Parameter Update, trigger baking the animation over the (Character) Object
-    if param != None and updated_animation:
+    # At the end of the reading, if the message received was an Animation Parameter Update not updating a Control Path, trigger baking the animation over the (Character) Object
+    if param != None and param.parent_object.tracer_type == NodeTypes.CHARACTER and updated_animation:
         param.parent_object.populate_timeline_with_animation()
 
     return start
@@ -306,7 +307,7 @@ def process_parameter_update(msg: bytearray, start=0) -> int:
 
 def send_RPC_msg(rpc_parameter: Parameter):
     #TODO: use new scene and object to hold AnimHost RPC Parameters (which will trigger RPC calls)
-    scene_id    = 255   if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
+    scene_id    = 255   if rpc_parameter.parent_object == None else tracer_data.cID
     object_id   = 1     if rpc_parameter.parent_object == None else rpc_parameter.get_object_id()
 
     tracer_data.ParameterUpdateMSG = bytearray([])
@@ -358,9 +359,9 @@ def send_unlock_msg(sceneObject):
 def process_lock_msg(msg: bytearray, start = 0):
     scene_id    = struct.unpack( 'B', msg[start   : start+1])[0]
     obj_id      = struct.unpack('<H', msg[start+1 : start+3])[0]
-    if 0 < obj_id <= len(tracer_data.SceneObjects):
+    if 0 < obj_id <= len(tracer_data.editable_objects):
         lockstate = struct.unpack( 'B', msg[start+3 : start+4])[0]
-        tracer_data.SceneObjects[obj_id-1].lock_unlock(lockstate)
+        tracer_data.editable_objects[obj_id-1].lock_unlock(lockstate)
 
     return len(msg)
     

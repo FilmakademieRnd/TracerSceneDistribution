@@ -35,7 +35,6 @@ individual license agreement.
 
 import bpy
 from .settings import TracerData
-from .bl_op import DoDistribute
 from .serverAdapter import send_lock_msg, send_unlock_msg;
 
 
@@ -47,7 +46,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
     _timer = None
     tracer_data: TracerData = None
     last_selected_objects = set()  # Variable to store the last selected object
-    running = False
 
     def modal(self, context, event):
         if event.type == 'TIMER':
@@ -55,8 +53,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
 
             # Check if multiple objects are selected
             if len(current_selected_objects) > 1:
-                # Check if there was a previously selected object before multiple selection attempt
-                previously_selected = self.last_selected_objects
 
                 # Deselect all objects
                 for obj in current_selected_objects:
@@ -69,21 +65,21 @@ class OBJECT_OT_single_select(bpy.types.Operator):
                 # Check for deselection
                 deselected_objects = self.last_selected_objects - current_selected_objects
                 for obj in deselected_objects:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object:
                             send_unlock_msg(scene_obj)
 
                 # Check for new selection
                 newly_selected_objects = current_selected_objects - self.last_selected_objects
                 for obj in newly_selected_objects:
-                    for scene_obj in self.tracer_data.SceneObjects:
+                    for scene_obj in self.tracer_data.editable_objects:
                         if obj == scene_obj.blender_object:
                             send_lock_msg(scene_obj)
 
                 # Update the last selected objects set
                 self.last_selected_objects = current_selected_objects
 
-            if not DoDistribute.is_distributed:
+            if bpy.context.scene.tracer_properties.close_connection:
                 return {'CANCELLED'}
 
         return {'PASS_THROUGH'}
@@ -92,7 +88,6 @@ class OBJECT_OT_single_select(bpy.types.Operator):
         self.tracer_data = bpy.context.window_manager.tracer_data
         self._timer = context.window_manager.event_timer_add(0.1, window=context.window)
         context.window_manager.modal_handler_add(self)
-        
         return {'RUNNING_MODAL'}
 
     def cancel(self, context):

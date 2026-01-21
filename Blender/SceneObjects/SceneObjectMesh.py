@@ -58,24 +58,27 @@ class SceneObjectMesh(SceneObject):
          roughness.parameter_handler.append(functools.partial(self.update_roughness, roughness))
          material_id.parameter_handler.append(functools.partial(self.update_material_id, material_id))
    
-   def update_color(self, parameter, new_value):
+   def update_color(self, color: Parameter, new_value):
       if self.network_lock == True:
          self.blender_object.color = new_value
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(color)
+         self.tracer_data.modified_parameters.append(color)
    
-   def update_roughness(self, parameter, new_value):
+   def update_roughness(self, roughness: Parameter, new_value):
       if self.network_lock == True:
          self.blender_object.active_material.roughness = new_value
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(roughness)
+         self.tracer_data.modified_parameters.append(roughness)
    
-   def update_material_id(self, parameter, new_value):
+   def update_material_id(self, material_id: Parameter, new_value):
       if self.network_lock == True:
          # TODO: Investigate also active_material_index
          self.blender_object.active_material = bpy.context.window_manager.tracer_data.materialList[new_value]
       else:
-         send_parameter_update(parameter)
+         #send_parameter_update(material_id)
+         self.tracer_data.modified_parameters.append(material_id)
 
    def serialise(self):
       camera_byte_array = super().serialise()

@@ -39,10 +39,10 @@ import math
 import struct
 from enum import Enum
 import copy
-from mathutils import Vector, Quaternion
+from mathutils import Vector, Quaternion,Matrix
 
 from ..AbstractParameter import Parameter, Key, KeyList, KeyType
-from ..serverAdapter import send_parameter_update
+from ..settings import TracerData
 
 class NodeTypes(Enum):
     GROUP       = 0
@@ -63,8 +63,7 @@ class SceneObject:
     
     def __init__(self, bl_obj: Object):
         # PUBLIC NON-STATIC variables declaration
-        # self.parameter_object_id = SceneObject.start_id
-        # self.scene_object_id = tracer_data.objectsToTransfer.index(self.blender_object)
+        self.tracer_data: TracerData = bpy.context.window_manager.tracer_data
         self.object_id = SceneObject.start_id
         SceneObject.start_id += 1
         self.tracer_type: NodeTypes = NodeTypes.GROUP
@@ -72,37 +71,24 @@ class SceneObject:
         self.parameter_list: list[Parameter] = []
         self.network_lock: bool = False
         self.blender_object: Object = bl_obj
+        
+        local_mat = bl_obj.matrix_local.copy()
 
         # If the object is TRACER-Editable, initialise the Parameters 
         if self.blender_object.get("TRACER-Editable", False):
             # Populating with TRS (Translation-Rotation-Scale) the list of TRACER parameters of the Scene Object. They will be parameters 0, 1 and 2 in the list
-            tracer_pos = Parameter(bl_obj.location.copy(), bl_obj.name+"-location", self)
+
+            tracer_pos = Parameter(local_mat.to_translation(), bl_obj.name+"-location", self)
             self.parameter_list.append(tracer_pos)
-            tracer_rot = Parameter(bl_obj.rotation_quaternion.copy(), bl_obj.name+"-rotation_euler", self)
+            tracer_rot = Parameter(local_mat.to_quaternion(), bl_obj.name+"-rotation_quaternion", self)
             self.parameter_list.append(tracer_rot)
-            tracer_scl = Parameter(bl_obj.scale.copy(), bl_obj.name+"-scale", self)
+            tracer_scl = Parameter(local_mat.to_scale(), bl_obj.name+"-scale", self)
             self.parameter_list.append(tracer_scl)
 
             # Bind functions to update parameters to the corresponding instance of the parameter using functools.partial
             tracer_pos.parameter_handler.append(functools.partial(self.update_position, tracer_pos))
             tracer_rot.parameter_handler.append(functools.partial(self.update_rotation, tracer_rot))
             tracer_scl.parameter_handler.append(functools.partial(self.update_scale,    tracer_scl))
-
-        # If the Blender Object has the property Control Points, add the respective Animated Parameters for path locations and path rotations
-        # These parameters are associated with the root object of the Control Path in the scene
-        control_path = bl_obj.get("Control Points", None) 
-        if control_path != None and len(control_path) > 0:
-            first_point: Object = control_path[0]
-            path_locations = Parameter(first_point.location, bl_obj.name+"-path_locations", self)
-            path_locations.init_animation()
-            self.parameter_list.append(path_locations)
-            path_rotations = Parameter(first_point.rotation_quaternion, bl_obj.name+"-path_rotations", self)
-            path_rotations.init_animation()
-            self.parameter_list.append(path_rotations)
-
-    #! This function is not being triggered when the value of the property changes (I've not been able to make it work)
-    def is_control_path(self, context: bpy.types.Context) -> bool:
-        return self.blender_object.get("Control Points", False)
 
 
     ### Function that updates the value of the position of Scene Objects and updates the connected TRACER clients if the change is made locally
@@ -112,10 +98,14 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.blender_object.location = new_value
+            (_, old_local_rot, old_local_scl) = self.blender_object.matrix_local.decompose()
+            self.blender_object.matrix_local = Matrix.LocRotScale(new_value, old_local_rot, old_local_scl)
         else:
-            send_parameter_update(tracer_pos)
+            # Instead of sending the parameter update, place the updated parameter into a list with other updated parameters 
+            # send_parameter_update(tracer_pos)
+            self.tracer_data.modified_parameters.append(tracer_pos)
         # Update the initial_value to the latest value
+        bpy.context.view_layer.update()
         tracer_pos.initial_value = new_value
 
     ### Function that updates the value of the roatation of Scene Objects and updates the connected TRACER clients if the change is made locally
@@ -125,15 +115,17 @@ class SceneObject:
         # If the object is edited from another TRACER client (network_lock is True), update the value,
         # Otherwise send a Parameter Update to all other connected clients to notify them of the local edits
         if self.network_lock:
-            self.blender_object.rotation_mode = 'QUATERNION'
-            self.blender_object.rotation_quaternion = new_value
-            self.blender_object.rotation_mode = 'XYZ'
+            new_value = new_value.normalized()
+            (old_local_pos, _, old_local_scl) = self.blender_object.matrix_local.decompose()
+            self.blender_object.matrix_local = Matrix.LocRotScale(old_local_pos, new_value, old_local_scl)
 
-            if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA' or self.blender_object.type == 'ARMATURE':
-                self.blender_object.rotation_euler.rotate_axis("X", math.radians(90))
+            if self.blender_object.type == 'LIGHT' or self.blender_object.type == 'CAMERA': # or self.blender_object.type == 'ARMATURE':
+                self.blender_object.rotation_euler.rotate_axis("Z", math.radians(180))
         else:
-            send_parameter_update(tracer_rot)
+            #send_parameter_update(tracer_rot)
+            self.tracer_data.modified_parameters.append(tracer_rot)
         # Update the initial_value to the latest value
+        bpy.context.view_layer.update()
         tracer_rot.initial_value = new_value
 
     ### Function that updates the value of the scale of Scene Objects and updates the connected TRACER clients if the change is made locally
@@ -145,46 +137,40 @@ class SceneObject:
         if self.network_lock:
             self.blender_object.scale = new_value
         else:
-            send_parameter_update(tracer_scl)
+            #send_parameter_update(tracer_scl)
+            self.tracer_data.modified_parameters.append(tracer_scl)
         # Update the initial_value to the latest value
         tracer_scl.initial_value = new_value
+
+    ### Writing the animation data received from TRACER -usually AnimHost- and replacing the previous animation data
+    def populate_timeline_with_animation(self):
+        # Clear the timeline from the old animation if there is one or initialise the data structure if there isn't one yet
+        if self.blender_object.animation_data == None:
+            self.blender_object.animation_data_create().action = bpy.data.actions.new("AnimHost Output")
+        elif self.blender_object.animation_data.action:
+            bpy.data.actions.remove(self.blender_object.animation_data.action)
+            self.blender_object.animation_data.action = bpy.data.actions.new("AnimHost Output")
+
+        # For every animated parameter that refers directly to the current object and doesn't describe a path
+        for parameter in self.parameter_list:
+            obj_name, param_type = parameter.name.split("-")
+            if parameter.is_animated and obj_name == self.blender_object.name and "path" not in param_type:
+                for key in parameter.get_key_list():
+                    match param_type:
+                        case 'location':
+                            self.blender_object.location = key.value
+                        case 'rotation_quaternion':
+                            self.blender_object.rotation_mode = 'QUATERNION'
+                            self.blender_object.rotation_quaternion = key.value
+                        case 'scale':
+                            self.blender_object.scale = key.value
+                    self.blender_object.keyframe_insert(param_type, frame=key.time)
 
     ### Function that toggles the network_lock of Scene Objects
     #   @param  lock_val    value of the network_lock to be set
     def lock_unlock(self, lock_val: int):
         self.network_lock = bool(lock_val)
         self.blender_object.hide_select = bool(lock_val)
-
-    ### It updates the TRACER parameters describing the Control Path using the data from the the Control Path and Control Points geometrical data
-    def update_control_points(self):
-        if self.blender_object.get("Control Points", None) != None:
-            rotations = self.parameter_list[-1]
-            locations = self.parameter_list[-2]
-
-            cp_list: list[bpy.types.Object] = self.blender_object.get("Control Points")
-            cp_curve: bpy.types.SplineBezierPoints = self.blender_object.children[0].data.splines[0].bezier_points
-            for i, cp in enumerate(cp_list):
-                locations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp_curve[i].co,
-                                                type                = KeyType.BEZIER,
-                                                right_tangent_time  = cp.get("Ease Out"),
-                                                right_tangent_value = cp_curve[i].handle_right,
-                                                left_tangent_time   = cp.get("Ease In"),
-                                                left_tangent_value  = cp_curve[i].handle_left ),
-                                            i)
-                original_rot_mode = cp.rotation_mode
-                if original_rot_mode != 'QUATERNION':
-                    cp.rotation_mode = 'QUATERNION'
-
-                rotations.key_list.set_key(Key( time                = cp.get("Frame"),
-                                                value               = cp.rotation_quaternion,
-                                                type                = KeyType.LINEAR ),
-                                            i)
-                
-                cp.rotation_mode = original_rot_mode
-
-            self.parameter_list[-2] = locations
-            self.parameter_list[-1] = rotations
 
     def serialise(self) -> bytearray:
         object_byte_array = bytearray([])
@@ -206,8 +192,5 @@ class SceneObject:
         for i, n in enumerate(self.blender_object.name.encode()):
             fixed_length_name[i] = n
         object_byte_array.extend(struct.pack(fixed_length_name))
-
-        # if self.blender_object.type == 'MESH':
-        #    process_mesh(self.editabe_object, object_byte_array)
 
         return object_byte_array

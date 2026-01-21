@@ -33,15 +33,15 @@ individual license agreement.
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 """
 
+import nt
 import bpy
 import sys
-import re
 import mathutils
 import blf
 import bpy_extras.view3d_utils
 import subprocess  # use Python executable (for pip usage)
-from pathlib import Path  # Object-oriented filesystem paths since Python 3.4
-from .SceneObjects import SceneObjectCharacter
+
+# TODO: Split up this huge file in bits, placing the functions next to the operators that use them
 
 # Checking for ZMQ package installation
 def check_ZMQ():
@@ -78,25 +78,20 @@ def setup_tracer_collection():
         bpy.context.scene.collection.children.link(tracer_collection)
 
     # Check if the "TRACER Scene Root" object already exists. If not, create it and link it to the collection.
-    root = bpy.context.scene.objects.get('TRACER Scene Root')
+    root: bpy.types.Object = bpy.context.scene.objects.get('TRACER Scene Root')
     if root is None:
         bpy.ops.object.empty_add(type='PLAIN_AXES', rotation=(0,0,0), location=(0, 0, 0), scale=(1, 1, 1))
         bpy.context.active_object.name = 'TRACER Scene Root'
         root = bpy.context.active_object
-        if root.name not in bpy.context.scene.collection.objects:
-            bpy.context.scene.collection.objects.link(root)
+        
+    if root.name not in tracer_collection.objects:
         # Unlinking object from ALL collections
         for coll in bpy.data.collections:
-            if root.name in coll.objects:
+            if coll.objects.get(root.name) != None:
                 coll.objects.unlink(root)
-        
-        tracer_collection.objects.link(root)
-        if root.name in bpy.context.scene.collection.objects:
+        if bpy.context.scene.collection.objects.get(root.name) != None:
             bpy.context.scene.collection.objects.unlink(root)
-    else:
-        # Check if the "TRACER Scene Root" object is already linked to the collection. If not link it.
-        if not root.name in tracer_collection.objects:
-            tracer_collection.objects.link(root)
+        tracer_collection.objects.link(root)
     
     if current_mode != '' and current_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode = 'OBJECT', toggle=True)    # Revert mode to previous one
@@ -192,8 +187,8 @@ def get_current_collections(obj: bpy.types.Object) -> list[str]:
 # Makes the TRACER Scene Root object the parent of every currently selected object
 def parent_to_root(objs: list[bpy.types.Object]) -> tuple[set[str], str]:
     parent_object_name = "TRACER Scene Root"
-    parent_object: bpy.types.Object = bpy.data.objects.get(parent_object_name)
-    collection: bpy.types.Collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
+    parent_object = bpy.data.objects.get(parent_object_name)
+    collection = bpy.data.collections.get(bpy.context.scene.tracer_properties.tracer_collection)
 
     if parent_object is None or collection is None:
         report_type = {'ERROR'}
@@ -452,24 +447,22 @@ def move_point(point, new_pos):
     # Evaluate the curve, given the new ordrering of the Control Points
     update_curve(point.parent)
 
-### Update the list of Control Points given the current scene status, and remove the Control Path, which is going to be updated
-def path_points_check(anim_path):
+### Update the list of Control Points given the current scene status
+def path_points_check(anim_path: bpy.types.Object):
     # Check the children of the Animation Preview (or corresponding character)
     control_points = []
     cp_names = []   # Helper list containing the names of the control points left in the scene
     for child in anim_path.children:
-        if re.search(r'Control Path', child.name):
+        if not child.name in bpy.context.view_layer.objects:
             bpy.data.objects.remove(child, do_unlink=True)
-        elif not child.name in bpy.context.view_layer.objects:
-            bpy.data.objects.remove(child, do_unlink=True)
-        else:
+        elif 'Control Path' != child.name:
             control_points.append(child)
             cp_names.append(child.name)
     
     anim_path["Control Points"] = control_points
 
-### Update Curve takes care of updating the AnimPath representation according to the modifications made by the user using the blender UI
-def update_curve(anim_path: bpy.types.Object):
+### Creates a new Curve takeing care of updating the AnimPath representation according to the modifications made by the user using the blender UI
+def create_new_curve(anim_path: bpy.types.Object):
     # Deselect all selected objects
     for obj in bpy.context.selected_objects:
         obj.select_set(False)
@@ -481,6 +474,7 @@ def update_curve(anim_path: bpy.types.Object):
     bezier_curve_obj.dimensions = '2D'                                                                      # The Curve Object is a 2D curve
 
     bezier_spline = bezier_curve_obj.splines.new('BEZIER')                                                  # Create new Bezier Spline "Mesh"
+    
     bezier_spline.bezier_points.add(len(anim_path.get("Control Points"))-1)                                 # Add points to the Spline to match the length of the control_points list
     for i, cp in enumerate(anim_path.get("Control Points")):
         bezier_point = bezier_spline.bezier_points[i] 
@@ -507,6 +501,71 @@ def update_curve(anim_path: bpy.types.Object):
     for area in bpy.context.screen.areas:
         if area.type == 'PROPERTIES':
             area.tag_redraw()
+
+### Updating the Curve visualisation taking care of updating the AnimPath state according to the modifications made by the user using the blender UI
+def update_curve(anim_path: bpy.types.Object):
+    # Deselect all selected objects
+    for obj in bpy.context.selected_objects:
+        obj.select_set(False)
+
+    path_points_check(anim_path)
+
+    # Getting the Object that holds the spline curve information
+    curve_obj: bpy.types.Object = None
+    for child in anim_path.children:
+        if child.name == "Control Path":
+            curve_obj = child
+            break
+
+    if curve_obj == None:
+        create_new_curve(anim_path)
+        return
+    
+    curve_data: bpy.types.Curve = curve_obj.data
+    spline_points: bpy.types.SplineBezierPoints = curve_data.splines[0].bezier_points
+    control_points: list[bpy.types.Object] = anim_path.get("Control Points")
+    if control_points == None:
+        return
+    if len(spline_points) < len(control_points):
+        spline_points.add(len(control_points) - len(spline_points))
+
+    # Overwrite bezier points info
+    i = 0
+    for cp in control_points:
+        bezier_point = spline_points[i] 
+        bezier_point.co = cp.location                                                                       # Assign the poistion of the elements in the list of Control Points to the Bézier Points
+        bezier_point.handle_left_type  = cp.get("Left Handle Type")                                         # Use the handle data from the list of Control Points for the Bézier Points,
+        if cp.get("Left Handle Type") != "AUTO":
+            bezier_point.handle_left = mathutils.Vector(cp.get("Left Handle").to_list()) + cp.location      # if the handle type is not 'AUTO', any user-made change is saved and applied
+        bezier_point.handle_right_type = cp.get("Right Handle Type")
+        if cp.get("Right Handle Type") != "AUTO":                                                           # do the same for both handles:)
+            bezier_point.handle_right = mathutils.Vector(cp.get("Right Handle").to_list()) + cp.location    
+        i += 1
+
+    # Deleting additional points on the bezier spline, whose corresponding Pointer Object has already been deleted
+    # TODO: The functionality works, but with some hiccups (sometimes Blender goes into a recursion -I don't know why- and gets confused...it doesn't seem to influence the rest of the execution)
+    # TODO: The curve updating seems to need some additional clickes (selcting a control point and then doing another click)...to be refined
+    if len(control_points) < len(spline_points):
+        prev_active_object = None
+        if bpy.context.view_layer.objects.active:
+            prev_active_object = bpy.context.view_layer.objects.active
+        bpy.context.view_layer.objects.active = None
+        curve_obj.select_set(True)
+        bpy.context.view_layer.objects.active = curve_obj
+        bpy.ops.object.mode_set(mode='EDIT')
+        i = len(control_points)
+        while i < len(spline_points):
+            spline_points[i].select_control_point = True
+            i += 1
+        bpy.ops.curve.delete()
+        anim_path.select_set(True)
+        bpy.context.view_layer.objects.active = anim_path
+        bpy.ops.object.mode_set(mode='OBJECT')
+        #if prev_active_object:
+        #    prev_active_object.select_set(True)
+        #    bpy.context.view_layer.objects.active = prev_active_object
+
+    bpy.context.scene.tracer_properties.path_is_modified = True
 
 ### Function for drawing number labels next to the control points
 def draw_pointer_numbers_callback(font_id, font_handler):
