@@ -38,7 +38,7 @@ bl_info = {
     "author" : "Tonio Freitag, Alexandru Schwartz, Francesco Andreussi",
     "description" : "",
     "blender" : (4, 2, 1),
-    "version" : (1, 5, 0),
+    "version" : (2, 0, 0),
     "location" : "VIEW3D",
     "warning" : "",
     "category" : "Animationsinstitut"
